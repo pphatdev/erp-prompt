@@ -1,6 +1,15 @@
+---
+name: e-approvals
+description: Implement centralized approval workflows for any ERP module (Leave, Expense, etc.).
+---
 # eApprovals
 
 Use this skill when developing approval workflows for any ERP module (Leave, Expense, Procurement). It provides a centralized engine for authorization.
+
+## Workflows
+1. **Workflow Definition**: Construct multi-stage approval paths with dynamic rules and conditional logic.
+2. **Request Authorization**: Process user approvals and rejections while triggering module-specific side-effects.
+3. **Escalation Handling**: Automatically redirect or remind approvers for requests exceeding SLA limits.
 
 ## Guidelines
 

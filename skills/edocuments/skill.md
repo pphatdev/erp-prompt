@@ -1,6 +1,15 @@
+---
+name: e-documents-explorer
+description: Build centralized document repositories, policy managers, and file explorers.
+---
 # eDocuments (Explorer)
 
 Use this skill when building the centralized document repository, policy manager, or multi-system file explorer.
+
+## Workflows
+1. **File Upload & Indexing**: Securely store files in tenant-isolated paths and index metadata for fast search.
+2. **Policy Acknowledgment**: Distribute critical documents to employees and track "Mark as Read" confirmations.
+3. **Secure Link Sharing**: Generate expiring, signed URLs for external document sharing with optional passwords.
 
 ## Guidelines
 

@@ -1,6 +1,15 @@
+---
+name: document-management
+description: Build advanced document workflows, versioning, and secure storage solutions.
+---
 # Document Management
 
 Use this skill when building advanced document workflows, versioning, and secure storage solutions.
+
+## Workflows
+1. **Document Versioning**: Manage file check-ins and check-outs while maintaining a clear audit trail of changes.
+2. **OCR Processing**: Automatically extract text and metadata from uploaded images and PDF scans.
+3. **Retention Policy Enforcement**: Automate the lifecycle of documents from active use to archival and deletion.
 
 ## Guidelines
 

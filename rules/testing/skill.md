@@ -1,7 +1,15 @@
-# Skill: Full-Stack ERP Testing & QA
+---
+name: full-stack-erp-testing
+description: Implement automated tests for new features, verify bug fixes, and ensure multi-tenant security across the ERP ecosystem.
+---
+# Full-Stack ERP Testing & QA
 
-## Context
 Use this skill when implementing automated tests for new features, verifying bug fixes, or ensuring system stability across the ERP ecosystem. This standard covers both Backend (Laravel/Pest) and Frontend (Nuxt/Vitest) testing to guarantee multi-tenant security and business logic integrity.
+
+## Workflows
+1. **Unit Test Creation**: Develop isolated tests for services and composables using Vitest (Frontend) or Pest (Backend).
+2. **Tenancy Isolation Verification**: Execute cross-tenant access attempts to assert that data remains strictly isolated (P0).
+3. **End-to-End User Journey**: Simulate critical business processes (e.g., Sales Order to Invoice) using Playwright.
 
 ## Backend Testing Guidelines (Laravel & Pest)
 

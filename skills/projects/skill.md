@@ -1,6 +1,15 @@
+---
+name: project-management
+description: Develop project planning, task tracking, and resource allocation features.
+---
 # Project Management
 
 Use this skill when developing project planning, task tracking, and resource allocation features.
+
+## Workflows
+1. **Project Planning**: Define WBS structures, link task dependencies, and allocate resources.
+2. **Time Tracking**: Enable employees to log billable and non-billable hours against specific tasks.
+3. **Milestone Approval**: Track project progress through gated approvals of critical deliverables.
 
 ## Guidelines
 

@@ -1,6 +1,15 @@
+---
+name: agent-behavior-standards
+description: Define how AI agents and human contributors interact with the codebase, document changes, and follow coding conventions.
+---
 # Agent Behavior Standards
 
 Use this skill to define how AI agents and human contributors should interact with the codebase, document changes, and follow coding conventions. It ensures consistency, security, and traceability across all development cycles within the Enterprise ERP.
+
+## Workflows
+1. **Feature Implementation**: Follow the sequence of Rule Review -> Service Logic -> API Resource -> P0 Testing.
+2. **Security Patching**: Identify vulnerabilities, apply patches via overrides/resolutions, and verify via regression tests.
+3. **Module Extension**: Bootstrap new ERP features using the `skills-cli` to ensure all mandatory standard files are present.
 
 ## Guidelines
 

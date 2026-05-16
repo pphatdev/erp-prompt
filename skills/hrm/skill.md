@@ -1,6 +1,15 @@
+---
+name: human-resource-management
+description: Build employee management systems, payroll engines, leave tracking, and performance appraisals.
+---
 # Human Resource Management (HRM)
 
 Use this skill when building employee management systems, payroll engines, leave tracking, or performance appraisal modules. This module handles sensitive PII (Personally Identifiable Information).
+
+## Workflows
+1. **Employee Onboarding**: Manage the transition from candidate to employee, including contract generation and system access.
+2. **Payroll Run**: Orchestrate monthly salary calculations, including taxes, deductions, and Payslip distribution.
+3. **Leave Application**: Handle the end-to-end process of leave requests, from submission to balance adjustment.
 
 ## Guidelines
 

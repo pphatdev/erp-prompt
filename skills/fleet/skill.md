@@ -1,6 +1,15 @@
+---
+name: fleet-management
+description: Manage vehicle tracking, maintenance scheduling, and fuel management.
+---
 # Fleet Management
 
-Use this skill when implementing vehicle tracking, maintenance scheduling, and fuel management features.
+Use this skill when managing vehicles, tracking maintenance, fuel expenses, and optimizing routes. This module is critical for logistics and service-based tenants.
+
+## Workflows
+1. **Vehicle Maintenance**: Automate the scheduling of routine checks based on mileage or time intervals.
+2. **Fuel Expense Logging**: Track fuel consumption per vehicle to calculate efficiency and operational costs.
+3. **Trip Management**: Monitor active trips and log driver performance and route compliance.
 
 ## Guidelines
 

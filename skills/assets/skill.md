@@ -1,6 +1,15 @@
+---
+name: fixed-asset-management
+description: Manage physical assets, calculate depreciation, and handle asset lifecycles.
+---
 # Fixed Asset Management
 
 Use this skill when managing physical assets, calculating depreciation, and handling asset lifecycles.
+
+## Workflows
+1. **Asset Acquisition**: Register new assets, assign tracking tags, and set initial depreciation parameters.
+2. **Depreciation Run**: Automatically calculate and post monthly depreciation entries to the FMS.
+3. **Asset Disposal**: Handle the retirement, sale, or scrapping of assets, calculating net gain or loss.
 
 ## Guidelines
 

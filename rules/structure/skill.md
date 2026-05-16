@@ -1,7 +1,15 @@
-# Skill: ERP Structural Implementation (Full-Stack)
+---
+name: erp-structural-implementation
+description: Extend ERP functionality, create business modules, and modify multi-tenant architecture on both Backend (Laravel) and Frontend (NuxtJS).
+---
+# ERP Structural Implementation (Full-Stack)
 
-## Context
 Use this skill when tasked with extending the ERP's functionality, creating new business modules, or modifying the multi-tenant architecture on both Backend (Laravel) and Frontend (NuxtJS). This ensures consistency, security, and modularity across the entire stack.
+
+## Workflows
+1. **Module Initialization**: Scaffold directory structures in both projects and register tenant-scoped routes.
+2. **Service Layer Extension**: Encapsulate complex business logic in atomic Service classes with database transactions.
+3. **Frontend Integration**: Build reactive UI components using PrimeVue and connect them to backend services via Pinia.
 
 ## Backend Guidelines (Laravel)
 

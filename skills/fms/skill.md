@@ -1,6 +1,15 @@
+---
+name: financial-management
+description: Implement accounting logic, general ledger entries, tax compliance, and financial reporting.
+---
 # Financial Management (FMS)
 
 Use this skill when implementing accounting logic, general ledger entries, tax compliance, or financial reporting. Accuracy and data integrity are paramount in this module.
+
+## Workflows
+1. **Journal Entry Lifecycle**: Create, validate, and post double-entry transactions to the General Ledger.
+2. **Monthly Closing**: Perform period-end adjustments, depreciation runs, and lock the fiscal period.
+3. **Accounts Reconciliation**: Match internal records with external bank statements and sub-ledger totals.
 
 ## Guidelines
 

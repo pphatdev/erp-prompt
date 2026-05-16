@@ -1,6 +1,15 @@
+---
+name: reporting-and-analytics
+description: Build dashboards, custom report builders, and data visualization tools.
+---
 # Reporting & Analytics
 
 Use this skill when building dashboards, custom report builders, or data visualization tools.
+
+## Workflows
+1. **Dashboard Configuration**: Assemble modular widgets to create real-time data visualizations for users.
+2. **Custom Report Generation**: Use dynamic filters and dimensions to generate ad-hoc business reports.
+3. **Data Export**: Schedule and deliver automated reports in PDF or Excel formats via email.
 
 ## Guidelines
 

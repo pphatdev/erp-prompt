@@ -1,6 +1,15 @@
+---
+name: sales-and-crm
+description: Develop features for lead management, customer relationships, order processing, and invoicing.
+---
 # Sales & CRM
 
 Use this skill when developing features for lead management, customer relationships, order processing, and invoicing. This ensures a seamless Order-to-Cash (O2C) workflow within the ERP.
+
+## Workflows
+1. **Lead to Customer**: Convert prospects into verified customer profiles with billing and shipping context.
+2. **Order to Cash (O2C)**: Manage the lifecycle of sales orders from confirmation through shipment and payment.
+3. **Sales Invoicing**: Automatically generate tax-compliant invoices based on confirmed delivery notes or orders.
 
 ## Guidelines
 

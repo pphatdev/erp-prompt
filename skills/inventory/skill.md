@@ -1,6 +1,15 @@
+---
+name: inventory-management
+description: Build warehouse management, procurement, and supply chain features.
+---
 # Inventory Management
 
 Use this skill when building warehouse management, procurement, and supply chain features.
+
+## Workflows
+1. **Goods Receipt**: Record incoming stock from suppliers and update warehouse levels and P2P statuses.
+2. **Inventory Adjustment**: Reconcile physical stock counts with system records, requiring audit reasons.
+3. **Inter-Warehouse Transfer**: Manage the secure movement of goods between different geographical locations.
 
 ## Guidelines
 

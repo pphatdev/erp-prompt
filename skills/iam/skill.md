@@ -1,6 +1,15 @@
+---
+name: identity-and-access-management
+description: Manage tenant lifecycle, user authentication, role-based access control (RBAC), and security auditing.
+---
 # Identity & Access Management (IAM)
 
 Use this skill when managing tenant lifecycle, user authentication, role-based access control (RBAC), or auditing security events. This ensures the ERP remains secure, compliant, and properly isolated between tenants.
+
+## Workflows
+1. **User Onboarding**: Register new users, assign tenant handles, and seed initial RBAC roles.
+2. **Authentication Flow**: Manage secure sign-in via Laravel Passport, including MFA and token rotation.
+3. **Permission Validation**: Verify user access levels using the `module.feature.action` pattern before executing business logic.
 
 ## Guidelines
 
