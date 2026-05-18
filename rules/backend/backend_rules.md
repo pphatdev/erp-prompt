@@ -60,3 +60,9 @@
 
 ## 10. Documentation
 - **Service Logic**: Use JSDoc-style comments for complex business logic explanations within service methods.
+
+## 11. Environment & Initialization Pitfalls
+- **Missing `artisan` File**: Always ensure the `artisan` binary exists at the root of the backend folder. If missing, `composer install` and `composer dump-autoload` will fail during `postAutoloadDump`.
+- **Composer OpenSSL Errors**: On local setups (especially Windows), ensure `extension=openssl` is uncommented in `php.ini`. Avoid disabling TLS natively in Composer.
+- **Tenant Routing Initialization**: Laravel 11 requires manual registration of the `tenant.php` routing file within `bootstrap/app.php` using the `then:` closure under `withRouting()`.
+- **Docker to Host Synchronization**: The `vendor/` folder must exist on the host machine for IDE code intelligence to function properly. Ensure volume binds or local `composer install` are handled correctly after Docker builds.

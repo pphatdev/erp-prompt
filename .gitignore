@@ -1,2 +1,5 @@
 .task/*
-/**/node_modules/*
+
+
+/backend/vendor
+/frontend/node_modules

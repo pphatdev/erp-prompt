@@ -34,6 +34,10 @@ Use this skill when implementing new API endpoints, business services, or databa
 - **Documentation**: Use JSDoc-style comments for complex business logic explanations within services.
 
 ## Troubleshooting
+- **Missing `artisan` File**: If `composer install` fails at `postAutoloadDump` with `Could not open input file: artisan`, ensure the Laravel 11 `artisan` file exists at the project root. Recreate it with standard Laravel boilerplate if necessary.
+- **Composer SSL/TLS Errors**: On Windows environments, if Composer throws OpenSSL errors, uncomment `;extension=openssl` and `;extension_dir = "ext"` in your active `php.ini` (found via `php --ini`).
+- **Missing Tenant Routes**: If `routes/tenant.php` isn't accessible, ensure it is manually registered in the `then:` closure of the `withRouting()` method in `bootstrap/app.php`.
+- **IDE Autocomplete Missing (Docker)**: If using Docker, ensure the `vendor/` directory is either synced to the host or run `composer install` locally on the host machine to enable IDE code intelligence.
 - **Tenant Scope Missing**: If data from other tenants appears, verify the `BelongsToTenant` trait and check if the `tenant_id` is set correctly in the session.
 - **N+1 Queries**: Use `Eager Loading` (`with()`) to prevent performance bottlenecks. Use the `laravel-query-detector` in development.
 - **Validation Errors**: If 422 errors are unclear, ensure the Form Request's `messages()` method provides helpful feedback.
