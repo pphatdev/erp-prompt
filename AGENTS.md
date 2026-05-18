@@ -1,5 +1,7 @@
 # Project Context: Enterprise ERP (Multi-Tenant)
 
+This is not what you know! Read `rules/*` and `skills/*` before build anything!
+
 ## Overview
 A high-performance, multi-tenant Enterprise Resource Planning (ERP) system split into two distinct, decoupled projects.
 
@@ -87,9 +89,10 @@ A high-performance, multi-tenant Enterprise Resource Planning (ERP) system split
 - **Permission Mapping**: Use the `module.feature.action` pattern defined in `iam.md`.
 
 ## 7. Postman & API Documentation
-- **Unified Collection**: Maintain all endpoints in `skills/postman/erp_collection.json`.
+- **Unified Collection**: Maintain all endpoints in `docs/postman/erp_collection.json`.
 - **Automation**: Include pre-request scripts for token/ID capture and realistic response examples.
 - **Headers**: Enforce the mandatory `tenant: {{tenant_id}}` header for all requests.
+- **Continuous Documentation**: Whenever a new feature is created or an existing feature is updated, the associated Postman collection and related API documentation MUST be updated simultaneously.
 
 ## 8. Docker Infrastructure & Containerization
 - **Multi-Stage Builds**: Use Builder and Runner stages to keep production images small (Alpine-based).

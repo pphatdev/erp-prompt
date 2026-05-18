@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  # -------------------------------------------------------------
+  # NGINX - Web Server
+  # -------------------------------------------------------------
+  web:
+    image: nginx:alpine
+    container_name: erp_nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www
+      - ./backend/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - erp_network
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  # PHP-FPM - Core Application Server
+  # -------------------------------------------------------------
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: erp_app
+    volumes:
+      - ./backend:/var/www
+      - /var/www/vendor
+      - /var/www/bootstrap/cache
+      - /var/www/storage
+    environment:
+      - APP_ENV=local
+      - APP_KEY=base64:7K5vP2bC+M2nS4pE9vJ1dF3xR9oQ8uA7vN2cM6rL1sE=
+      - APP_DEBUG=true
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=erp_system
+      - DB_USERNAME=erp_user
+      - DB_PASSWORD=erp_secret
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - erp_network
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  # LARAVEL QUEUE - Background Job Processor
+  # -------------------------------------------------------------
+  queue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: erp_queue
+    command: php artisan queue:work --sleep=3 --tries=3
+    volumes:
+      - ./backend:/var/www
+      - /var/www/vendor
+      - /var/www/bootstrap/cache
+      - /var/www/storage
+    environment:
+      - APP_ENV=local
+      - APP_KEY=base64:7K5vP2bC+M2nS4pE9vJ1dF3xR9oQ8uA7vN2cM6rL1sE=
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=erp_system
+      - DB_USERNAME=erp_user
+      - DB_PASSWORD=erp_secret
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - erp_network
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  # POSTGRESQL - Primary Multi-Tenant Database
+  # -------------------------------------------------------------
+  db:
+    image: postgres:16
+    container_name: erp_postgres
+    environment:
+      POSTGRES_DB: erp_system
+      POSTGRES_USER: erp_user
+      POSTGRES_PASSWORD: erp_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - erp_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp_user -d erp_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp_network
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  # REDIS - Caching, Queues, and Reverb WebSockets
+  # -------------------------------------------------------------
+  redis:
+    image: redis:7
+    container_name: erp_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - erp_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp_network
+    restart: unless-stopped
+
+# -------------------------------------------------------------
+# DOCKER NETWORKS & VOLUMES
+# -------------------------------------------------------------
+networks:
+  erp_network:
+    driver: bridge
+
+volumes:
+  erp_db_data:
+    driver: local
+  erp_redis_data:
+    driver: local
