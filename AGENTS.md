@@ -79,6 +79,7 @@ A high-performance, multi-tenant Enterprise Resource Planning (ERP) system split
 
 ## 5. Full-Stack ERP Testing & QA
 - **Backend (Pest)**: Prioritize **P0 Tenancy Isolation** tests. Assert that Tenant A cannot access Tenant B's data. (See [Testing Skill](./skills/testing/skill.md))
+- **Database Connection Isolation (P0)**: NEVER use active development (`develop`) or production (`production`) database connections when running tests. Tests must run exclusively on a dedicated, isolated testing database (e.g., `DB_DATABASE=erp_system_test`) to prevent data loss or corruption.
 - **Frontend (Vitest/Playwright)**: Test component logic and critical user journeys (e.g., Payroll runs).
 - **Audit Logs**: Assert that critical business actions create appropriate entries in `audit_logs`.
 - **Priority Matrix**: Follow P0 (Security), P1 (Business Logic), P2 (UX/Audit) standards in all test suites.
