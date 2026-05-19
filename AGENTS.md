@@ -124,3 +124,9 @@ A high-performance, multi-tenant Enterprise Resource Planning (ERP) system split
 - **Task Context Storage**: Upon the first analysis of any task or feature, the agent **MUST** inspect the local `.task/` directory and create/maintain a task-specific folder with exact context and status trackers: `.task/{feature}/{task.md, context.md}`.
 - **Master Checklist Sync**: Synchronize and link all new feature scopes or significant refactors into the master progress registry at `.task/task.md` using appropriate checkbox markers (`[ ]` or `[x]`). This maintains perfect project traceability.
 
+## 14. Data Safety & Security
+- **Agent Safety**: Never load or share production customer data, secrets, or active environments in local setups or prompt contexts. Use Faker-generated mock data only.
+- **Database Preservation**: The agent must avoid automatic deletion of database schemas, tables, records, or files. Destructive tasks (e.g. running `migrate:fresh` or `db:wipe`) must seek user verification and confirmation 2 to 3 times before execution.
+- **User Safety**: Enforce field-level encryption for sensitive PII (salaries, SSNs), automatically sanitize passwords/keys in logging channels, and strictly switch isolated tenant connections on every request.
+
+

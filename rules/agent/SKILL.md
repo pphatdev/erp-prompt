@@ -38,6 +38,11 @@ Use this skill to define how AI agents and human contributors should interact wi
 - **Task Context Storage**: Upon first analysis of a task, create a task folder for storing context and task definitions, e.g., `.task/{feature}/{task.md, context.md}`.
 - **Initial Setup**: When creating the first feature, you must build the `Dockerfile` and `docker-compose.yml` if they do not already exist.
 
+### 6. Data Safety & Privacy
+- **Strict Data Safety**: Protect credentials, database secrets, and customer PII by adhering to the safety standards.
+- **No Auto-Delete**: The agent must never execute automatic database deletions, drops, or truncates without asking the user 2-3 times to verify and confirm.
+- **Reference**: See [Data Safety & Privacy Rules](../security/data_safety.md) for detailed guidelines.
+
 ## Best Practices
 - **Atomic Commits**: Group related changes (e.g., Model + Migration + Service + Test) into a single logical update.
 - **Least Privilege**: When modifying IAM rules, ensure permissions are as restrictive as possible.
