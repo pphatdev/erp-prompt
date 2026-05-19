@@ -37,6 +37,7 @@ Use this skill to define how AI agents and human contributors should interact wi
 ### 5. Task & Infrastructure Initialization
 - **Task Context Storage**: Upon first analysis of a task, create a task folder for storing context and task definitions, e.g., `.task/{feature}/{task.md, context.md}`.
 - **Initial Setup**: When creating the first feature, you must build the `Dockerfile` and `docker-compose.yml` if they do not already exist.
+- **Codebase Feature Comparison**: Regularly check the current state of features in the codebase against `.task/` checklists. If code implements a feature marked unchecked in the task file, check it off immediately.
 
 ### 6. Data Safety & Privacy
 - **Strict Data Safety**: Protect credentials, database secrets, and customer PII by adhering to the safety standards.

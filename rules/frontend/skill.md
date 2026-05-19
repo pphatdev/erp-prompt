@@ -33,6 +33,9 @@ Use this skill when building new pages, complex forms, or dashboard features in 
 - **Dark Mode**: Use Tailwind's `dark:` modifier and PrimeVue's theme switching for a first-class dark mode experience.
 
 ## Troubleshooting
+- **Missing tsconfig or Auto-imports**: If TypeScript cannot find Nuxt composables (e.g., `Cannot find name 'useRuntimeConfig'`), verify that `frontend/tsconfig.json` exists and extends `./.nuxt/tsconfig.json`. Also, ensure `nuxt prepare` or `npm run dev` has run to build the `.nuxt` directory.
+- **Missing Node.js Types (`process` not found)**: If the compiler throws `Cannot find name 'process'` in configurations, ensure `@types/node` is installed in `devDependencies` within `package.json`.
+- **Obsolete `hid` tag errors**: Nuxt 3 uses `unhead` for meta tags. Do not use the Nuxt 2 `hid` attribute in `meta` arrays within `nuxt.config.ts`. Use standard `name` or `key` attributes instead to avoid typescript compilation errors.
 - **Hydration Errors**: Ensure that the DOM structure generated on the server matches the client. Avoid using `Date.now()` or random IDs in the root template.
 - **Z-Index Conflicts**: Use PrimeVue's `ZIndexUtils` or standard Tailwind `z-` classes consistently to avoid overlay issues.
 - **State Desync**: If Pinia state is out of sync, check if the store is being reset or if actions are not awaiting promises correctly.

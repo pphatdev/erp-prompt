@@ -41,5 +41,8 @@ Use this skill when developing components, pages, or state management in the Nux
 - **Accessibility**: Ensure all interactive elements have proper ARIA labels and keyboard support.
 
 ## Troubleshooting
+- **TypeScript Auto-imports**: If TypeScript cannot resolve standard Nuxt composables like `useRuntimeConfig`, ensure a `tsconfig.json` extending `./.nuxt/tsconfig.json` exists in the frontend folder, and make sure `npm run dev` or `nuxt prepare` has run to generate the auto-imported types.
+- **Node.js Type Definitions**: If TypeScript throws `Cannot find name 'process'`, ensure `@types/node` is installed in `devDependencies` in `package.json` to resolve process environment variables.
+- **Nuxt 3 Meta Tags**: Do not use the legacy Nuxt 2 `hid` property in `nuxt.config.ts` meta tags. Nuxt 3 automatically uses `name` or `key` to deduplicate meta tags, and using `hid` will throw a TypeScript compilation error.
 - **Tailwind Classes Not Applying**: Check `tailwind.config.ts` and ensure the CSS entry point is imported in `nuxt.config.ts`.
 - **Hydration Mismatch**: Avoid browser-only APIs (like `localStorage` or `window`) directly in the `setup` block; use `onMounted`.

@@ -123,6 +123,8 @@ A high-performance, multi-tenant Enterprise Resource Planning (ERP) system split
 ## 13. Task & Infrastructure Tracking
 - **Task Context Storage**: Upon the first analysis of any task or feature, the agent **MUST** inspect the local `.task/` directory and create/maintain a task-specific folder with exact context and status trackers: `.task/{feature}/{task.md, context.md}`.
 - **Master Checklist Sync**: Synchronize and link all new feature scopes or significant refactors into the master progress registry at `.task/task.md` using appropriate checkbox markers (`[ ]` or `[x]`). This maintains perfect project traceability.
+- **Feature Status Synchronization**: Always inspect the codebase to compare implemented features against the checklists in the `.task/` directory. If any features have been completed or changed in the code, immediately update the corresponding checkboxes and status descriptions in the `.task/` tracker files.
+
 
 ## 14. Data Safety & Security
 - **Agent Safety**: Never load or share production customer data, secrets, or active environments in local setups or prompt contexts. Use Faker-generated mock data only.
