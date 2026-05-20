@@ -269,8 +269,144 @@ Integrate these custom animation keyframes and properties in `frontend/assets/cs
     <div class="relative overflow-hidden p-5 rounded-xl border border-(--border-color) bg-(--bg-secondary)/80 backdrop-blur-md">
       <!-- Floating Meteor Effect -->
       <span class="absolute top-0 right-0 h-[2px] w-[100px] bg-linear-to-r from-violet-500 to-transparent animate-meteor" style="--angle: -45deg; --duration: 3s;"></span>
-      
+
       <h3 class="text-xs font-bold text-(--text-primary)">Critical Release Sprint</h3>
       <p class="text-[10px] text-(--text-secondary) mt-1">Due today at 18:00</p>
     </div>
     ```
+
+---
+
+## 10. Feature View: Recruitment Candidate Pipeline (Kanban Concept)
+
+The HRM recruitment workspace renders applicants as a horizontal pipeline — one column per `ApplicationStatus`, with drag-and-drop status transitions. Reference implementation: `frontend/pages/candidates.vue`. This canvas is the canonical pattern for any future stage-based workspace (e.g. Sales O2C pipeline, Procurement RFQ board, Tasks Sprint board) — reuse the column shell, card anatomy, and signal-derivation rules below rather than reinventing them.
+
+### 10.1 Visual Token Mapping
+The original concept was authored against Material 3 surface tokens (`bg-surface-container-low`, `text-on-surface`, `text-headline-lg`, Material Symbols). Inside this codebase those translate to existing tokens — **do not introduce M3 tokens or the Material Symbols font**. The mapping below is authoritative for any pipeline-style screen:
+
+| Mockup token (Material 3) | Use this instead | Notes |
+| :--- | :--- | :--- |
+| `bg-surface-container-low` / `bg-surface-container-highest` | `bg-(--bg-muted)` / `glass-card` | Column tray vs. card surface |
+| `text-on-surface` / `text-on-surface-variant` | `text-(--text-heading)` / `text-(--text-muted)` | Title text vs. metadata |
+| `text-headline-lg` | `text-xl font-semibold` (Outfit) | Page H1 — keep §3 hierarchy |
+| `text-label-md` / `text-body-md` | `text-xxs uppercase tracking-wider` / `text-xs` | Chips/badges vs. card body |
+| `bg-primary/20 text-primary` (active toggle) | `bg-(--color-primary-subtle) text-(--color-primary)` | Selected segmented-control item |
+| `bg-error/20 text-error`, `bg-secondary/10 text-secondary` | `<Badge variant="danger">`, `<Badge variant="secondary">` | Always go through `components/Badge.vue` |
+| `material-symbols-outlined` glyphs (`view_kanban`, `chevron_right`, `add`, `schedule`, `warning`, `link`, `person_pin`, `handshake`, `check_circle`) | Tabler equivalents (`ti-layout-kanban`, `ti-chevron-right`, `ti-plus`, `ti-clock`, `ti-alert-triangle`, `ti-link`, `ti-user-check`, `ti-handshake`, `ti-circle-check`) | Tabler font is already loaded in `nuxt.config.ts` |
+| Remote candidate photo URLs | Initials avatar circle on `--color-primary-subtle` | PII / external CDN — derive from `applicantName` |
+
+### 10.2 Column Shell
+Each column is a fixed-width (`300px`) tray on `--bg-muted` with a 1px `--border-color` outline. Header is a soft-variant pill (`badge-soft-*`) keyed to the column's status so users can read the stage at a glance even without the label:
+
+| Status | Header variant | Meaning |
+| :--- | :--- | :--- |
+| `applied`    | `badge-soft-secondary` | Inbound — no action taken yet |
+| `screening`  | `badge-soft-info`      | HR review in progress |
+| `interview`  | `badge-soft-warning`   | Active interview loop — time-sensitive |
+| `offer`      | `badge-soft-primary`   | Offer extended — highest-attention column |
+| `hired`      | `badge-soft-success`   | Terminal positive state |
+
+```html
+<div
+  class="kanban-column flex flex-col gap-3"
+  :class="{ 'kanban-column--dragover': dragOverColumn === col.status }"
+  @dragover.prevent="onColumnDragOver(col.status, $event)"
+  @drop="onColumnDrop(col.status)"
+>
+  <header class="flex items-center justify-between px-1">
+    <span class="text-xxs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border"
+          :class="columnHeaderClass(col.status)">
+      {{ col.label }} <span class="opacity-70">({{ grouped[col.status]?.length || 0 }})</span>
+    </span>
+  </header>
+  <!-- ...cards... -->
+</div>
+```
+
+```css
+.kanban-column {
+  width: 300px; min-width: 300px; max-width: 300px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0.75rem;
+}
+.kanban-column--dragover {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary-subtle) 70%, var(--bg-muted));
+}
+```
+
+### 10.3 Card Anatomy
+Cards are `glass-card rounded-xl p-3` with a 4-zone vertical layout. The card itself is `cursor-grab` (becomes `grabbing` on `:active`); during an active drag the source card drops to `opacity: 0.45` so the user can still see where it came from.
+
+1. **Header row** — initials avatar (8px circle on `--color-primary-subtle`), candidate name (xs semibold), vacancy title (xxs muted), plus a contextual `<Badge>` (see §10.4).
+2. **Rating row** — 5 Tabler stars (`ti-star-filled` filled in `--color-warning`, `ti-star` outline in `--border-strong`). Rating is **derived**, not stored — see §10.5.
+3. **Conditional slot** — offer column shows a salary chip (`bg-(--bg-muted)` rounded box, mono font, gated on `hrm.recruitment.read`). Other columns may use this slot for stage-specific signals (e.g. interview round count, technical-tag chips).
+4. **Footer row** — left: source icon + label; right: relative time (`Xh ago`, `Xd ago`). Footer flips to `text-(--color-danger)` with an `ti-alert-triangle` when the card is overdue.
+
+### 10.4 Card Badge Resolution (Priority Order)
+The header badge is computed per-card per-column. **The first match wins** — never stack badges:
+
+1. **Urgent** (`danger`) — card is overdue per §10.6 thresholds.
+2. **New** (`primary`) — in the `applied` column AND `appliedAt < 24h` ago.
+3. **Referral** (`secondary`) — `referrerEmployeeId` is set.
+4. **Hired** (`success`) — terminal stage marker.
+5. Otherwise: no badge.
+
+Always go through `components/Badge.vue`. To keep templates TS-narrowing-safe, return a sentinel `{ show: false, variant, label }` object rather than `null` and gate the render on `v-if="badge.show"`.
+
+### 10.5 Star Rating Heuristic (Stateless)
+Rating is **not** persisted — it's a coarse signal derived from completeness so cards in `applied`/`screening` self-rank without recruiter input:
+
+```ts
+let r = 3
+if (a.coverLetter)        r += 1   // wrote a cover letter → engaged
+if (a.resumePath)         r += 1   // attached a resume
+if (a.referrerEmployeeId) r  = Math.min(5, r + 1)  // referrals jump to top
+return Math.max(1, Math.min(5, r))
+```
+
+When the backend grows a real `recruiter_rating` column, swap the body of `rating()` for a direct read and keep the rest of the card unchanged.
+
+### 10.6 Overdue Thresholds
+Drives both the `Urgent` badge and the danger-tinted footer/ring:
+
+| Status | Threshold (days since `appliedAt`) |
+| :--- | :--- |
+| `applied`, `screening` | ≥ 5 |
+| `interview`, `offer`   | ≥ 7 |
+| `hired`, `rejected`, `withdrawn` | never overdue (terminal) |
+
+### 10.7 Drag-and-Drop Transitions
+Native HTML5 DnD — **no `vuedraggable` or similar dependency**. The rules:
+
+- The card sets `draggable="true"` only when (a) the user has `hrm.recruitment.write` and (b) `STATUS_FLOW[card.status]` has at least one allowed next status. Otherwise `dragstart` calls `ev.preventDefault()`.
+- On `dragover`, the column checks `canDropOn(target)` against `STATUS_FLOW[draggingFrom]`. Disallowed drops set `dataTransfer.dropEffect = 'none'` so the OS cursor reflects the rejection — no error toast needed.
+- On `drop`, do an **optimistic** local mutation, then `PATCH /applications/:id/status`. On error, roll back to the original status and show an inline alert. While the request is in flight, the destination column shows a tiny spinner ("Moving...") next to the count.
+- Suppress the card's `click` → details-modal handler while a drag is in progress (`if (draggingId.value) return`) so dropping a card doesn't open the modal.
+
+```ts
+const STATUS_FLOW: Record<ApplicationStatus, ApplicationStatus[]> = {
+  applied:   ['screening', 'rejected', 'withdrawn'],
+  screening: ['interview', 'rejected', 'withdrawn'],
+  interview: ['offer',     'rejected', 'withdrawn'],
+  offer:     ['hired',     'rejected', 'withdrawn'],
+  hired: [], rejected: [], withdrawn: []
+}
+```
+
+Note: `rejected` and `withdrawn` are reachable transitions but **not rendered as columns** — they live behind an explicit row-level menu (existing pattern in `pages/applications.vue`). Keep terminal-negative outcomes off the canvas so the board reads as forward momentum.
+
+### 10.8 Toolbar & Empty States
+- **Page toolbar** uses a breadcrumb (`Recruitment › Pipeline`) above the H1, plus a Board/List segmented control on the right. The List option `NuxtLink`s to `/applications`; the inverse is wired in `applications.vue`. Keep both views; they are complementary, not alternatives.
+- **Empty column** renders a dashed-border placeholder ("Drop here to move to <stage>") rather than collapsing — this preserves the drop target and tells the user the column is alive.
+- **Loading** uses the standard spinner pattern from §5 (centered, `border-(--color-primary)/20 border-t-(--color-primary) animate-spin`).
+
+### 10.9 Reuse Checklist for New Pipeline Boards
+Before forking this concept for another module, verify:
+- [ ] The domain has a finite `status` enum with a clear forward flow (`STATUS_FLOW` map exists).
+- [ ] Terminal-negative statuses can be hidden from the canvas without losing information.
+- [ ] Drag transitions are atomic on the server (single PATCH, idempotent, audit-logged via `Auditable`).
+- [ ] Read/write permissions are split: read-only users can see the board but cannot initiate drags.
+- [ ] Card signals are derived from existing fields — do not add columns to the DB just to render a badge.
