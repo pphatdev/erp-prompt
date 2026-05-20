@@ -65,6 +65,11 @@ A high-performance, multi-tenant Enterprise Resource Planning (ERP) system split
 - **Multi-Tenant Scoping**: Verify that the token's `tenant_id` matches the request context.
 - **SSO & Basic Auth**: Support SAML/OIDC for enterprise clients and restricted Basic Auth for internal systems.
 - **Token Storage**: Ensure secure storage in the frontend (HttpOnly cookies or secure memory).
+- **Deterministic Passport Clients**: For local development, testing, and initial environment boot, always use and configure the following deterministic passport password grant credentials in the `.env` file of any new or re-initialized backend project:
+  ```env
+  PASSPORT_PASSWORD_CLIENT_ID=33
+  PASSPORT_PASSWORD_CLIENT_SECRET=b3x5ItVFBU46N3oJljIKrbibQLR0CT0LKlzKddG7
+  ```
 
 ## 4. Frontend UI & Features
 - **Composition API**: Always use `<script setup lang="ts">`.
