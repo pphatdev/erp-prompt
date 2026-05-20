@@ -37,7 +37,7 @@ services:
       - APP_DEBUG=true
       - DB_CONNECTION=pgsql
       - DB_HOST=db
-      - DB_PORT=5433
+      - DB_PORT=5432
       - DB_DATABASE=erp_system
       - DB_USERNAME=erp_user
       - DB_PASSWORD=erp_secret
@@ -75,7 +75,7 @@ services:
       - APP_KEY=base64:7K5vP2bC+M2nS4pE9vJ1dF3xR9oQ8uA7vN2cM6rL1sE=
       - DB_CONNECTION=pgsql
       - DB_HOST=db
-      - DB_PORT=5433
+      - DB_PORT=5432
       - DB_DATABASE=erp_system
       - DB_USERNAME=erp_user
       - DB_PASSWORD=erp_secret

@@ -1,7 +1,12 @@
-.task/*
+# Agent Files
+.claude/*
+# .task/*
+# .agent/*
 
 
 /backend/vendor
 /backend/.env
+/backend/storage/app/*
+
 
 /frontend/node_modules

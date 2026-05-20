@@ -1,0 +1,3241 @@
+{
+  "info": {
+    "_postman_id": "c22fdc9e-565b-46e8-8ffb-7a854e5d20db",
+    "name": "Enterprise ERP API Collection",
+    "description": "Unified Postman collection for the Enterprise ERP. Features include tenant-scoping headers, automated OAuth token resolution, and complete endpoint maps for all 12 modules.\n\n## Pagination contract\n\nEvery `List X` request supports `?page=N&limit=N` (1-based page, limit clamped to [1, 100]; default 15). Tree-shaped endpoints — Folders (eDocuments), CMS Folders, FMS Account chart — are intentionally NOT paginated.\n\nResponse envelope:\n```json\n{\n  \"data\": [ ... ],\n  \"pagination\": { \"page\": 1, \"limit\": 15, \"total\": 312, \"totalPages\": 21 }\n}\n```\n\n## Configurable status flows\n\nEvery HRM transition endpoint (application pipeline, leave decision, appraisal cycle, vacancy state, employee status, payroll period) reads its allowed states + transitions from the per-tenant `workflow_statuses` table at runtime, NOT from hardcoded enums. Admins manage flows under **IAM › Workflow Statuses**. Module keys: `hrm.application`, `hrm.leave`, `hrm.appraisal`, `hrm.vacancy`, `hrm.employee`, `hrm.payroll_period`. Invalid transitions return **422** with a message like `Cannot transition 'hrm.application' from 'hired' to 'screening'`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "16827919",
+    "_collection_link": "https://go.postman.co/collection/16827919-c22fdc9e-565b-46e8-8ffb-7a854e5d20db?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.access_token) {",
+                  "        pm.collectionVariables.set(\"token\", jsonData.access_token);",
+                  "    }",
+                  "    if (jsonData.refresh_token) {",
+                  "        pm.collectionVariables.set(\"refresh_token\", jsonData.refresh_token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates a tenant user via Passport's Password Grant.\n\n**Response (200):**\n```json\n{\n  \"user\": { ... },\n  \"token_type\": \"Bearer\",\n  \"access_token\": \"eyJ0eXAi...\",\n  \"refresh_token\": \"def502...\",\n  \"expires_in\": 31536000\n}\n```\n\nBoth `access_token` and `refresh_token` are auto-saved to collection variables."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Access Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.access_token) {",
+                  "        pm.collectionVariables.set(\"token\", jsonData.access_token);",
+                  "    }",
+                  "    if (jsonData.refresh_token) {",
+                  "        pm.collectionVariables.set(\"refresh_token\", jsonData.refresh_token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/refresh",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "auth", "refresh" ]
+            },
+            "description": "Exchanges a long-lived `refresh_token` for a fresh `access_token` (and a rotated `refresh_token`). Public endpoint — does NOT require a valid `Authorization` header, since the whole point is to refresh after the access token has expired.\n\nBackend wraps Passport's `/oauth/token` with `grant_type=refresh_token`.\n\n**Response (200):**\n```json\n{\n  \"token_type\": \"Bearer\",\n  \"access_token\": \"eyJ0eXAi...\",\n  \"refresh_token\": \"def502...\",\n  \"expires_in\": 31536000\n}\n```\n\nReturns `401` if the refresh token is expired or revoked."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Authenticated Profile (Me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Fetches current logged-in user profile with roles and permissions."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revokes the active user access token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "IAM",
+      "description": "Identity, role-based access, and per-tenant workflow configuration.",
+      "item": [
+        {
+          "name": "Users",
+          "description": "Tenant user directory.",
+          "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"password\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Roles",
+          "description": "Role catalogue + permission bindings.",
+          "item": [
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/roles?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Role",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Department Manager\",\n  \"slug\": \"manager\",\n  \"description\": \"Standard department manager role.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "roles"
+              ]
+            }
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Workflow Statuses",
+          "description": "Per-tenant configurable lifecycle status flows. Every HRM status transition (application pipeline, leave decision, appraisal cycle, vacancy state, employee status, payroll period) reads from this table at runtime — domain services call `WorkflowStatusService::validateTransition(module, from, to)` before any state change. Default rows for the 6 HRM modules are populated by the tenant seeder; admins can rename labels, change colors/icons, reorder, or add new statuses without code changes.",
+          "item": [
+        {
+          "name": "List Workflow Statuses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow-statuses?page=1&limit=50&module=hrm.application",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "workflow-statuses" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" },
+                { "key": "module", "value": "hrm.application", "description": "Filter by module key. Omit to list across every module." }
+              ]
+            },
+            "description": "Lists per-tenant configurable status flows. Filter via `?module=` (e.g. `hrm.application`, `hrm.leave`, `hrm.appraisal`, `hrm.vacancy`, `hrm.employee`, `hrm.payroll_period`).\n\nDomain services (RecruitmentService::transitionApplication, PerformanceService::submit, etc.) validate transitions against this table at runtime."
+          },
+          "response": []
+        },
+        {
+          "name": "List Configured Modules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow-statuses/modules",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "workflow-statuses", "modules" ]
+            },
+            "description": "Returns the distinct list of module keys currently present in `workflow_statuses`. Use this to populate the module dropdown in admin UIs."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Workflow Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('workflow_status_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"module\": \"hrm.application\",\n  \"key\": \"phone_screen\",\n  \"label\": \"Phone Screen\",\n  \"color\": \"info\",\n  \"icon\": \"ti-phone\",\n  \"sequence\": 2,\n  \"is_initial\": false,\n  \"is_terminal\": false,\n  \"allowed_next\": [\"interview\", \"rejected\", \"withdrawn\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow-statuses",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "workflow-statuses" ]
+            },
+            "description": "Adds a new status into a module's flow.\n\n**Body**\n- `module` (required) — dotted module key.\n- `key` (required) — lowercase snake_case, unique within the module.\n- `label` (required) — human-readable display.\n- `color` — one of `primary | success | warning | danger | info | secondary`.\n- `icon` — Tabler icon name (e.g. `ti-phone`).\n- `sequence` — display order.\n- `is_initial` — set true on the bootstrap status (used by Service `initialFor`).\n- `is_terminal` — true if no outgoing transitions.\n- `allowed_next` — array of `key`s reachable from this state."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workflow Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow-statuses/{{workflow_status_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "workflow-statuses", "{{workflow_status_id}}" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Workflow Status",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Phone Screening\",\n  \"color\": \"primary\",\n  \"allowed_next\": [\"interview\", \"rejected\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow-statuses/{{workflow_status_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "workflow-statuses", "{{workflow_status_id}}" ]
+            },
+            "description": "Cache is flushed automatically after every mutation."
+          },
+          "response": []
+        },
+        {
+          "name": "Archive Workflow Status",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow-statuses/{{workflow_status_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "workflow-statuses", "{{workflow_status_id}}" ]
+            },
+            "description": "Soft-deletes the status row. Existing records still referencing it remain unaffected; new transitions to/from it will fail validation."
+          },
+          "response": []
+        }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sales & CRM",
+      "item": [
+        {
+          "name": "List Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/customers?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corporation\",\n  \"email\": \"info@acme.com\",\n  \"phone\": \"+1234567890\",\n  \"address\": \"123 Business Parkway\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Leads",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leads?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leads"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Lead as Won",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leads/{{lead_id}}/win",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leads",
+                "{{lead_id}}",
+                "win"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/confirm",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "{{order_id}}",
+                "confirm"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/products?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"PROD-10293\",\n  \"name\": \"Enterprise Router Switch\",\n  \"description\": \"L3 Managed Switch 48-Port\",\n  \"price\": 1299.99,\n  \"quantity\": 50\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Stock Movements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/stock-movements?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "stock-movements"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "product_id", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "FMS (Finance)",
+      "item": [
+        {
+          "name": "List Accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Account",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"1100\",\n  \"name\": \"Accounts Receivable\",\n  \"type\": \"asset\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Ledger Entries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/ledger?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ledger"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "eApprovals",
+      "description": "Generic approval engine consumed by domain modules (HRM Leave, Sales Expense, etc.).\n\n**End-to-end Leave flow:**\n1. `Create Leave Approval Workflow` once per tenant with `module=hrm, type=leave` and at least one level.\n2. `HRM › Leaves › Submit Leave Request` automatically opens an `ApprovalRequest` — its id is captured into `approval_request_id`.\n3. `Process Approval Request` with `action=approved|rejected|sent_back` advances the workflow. On terminal approve/reject, the HRM listener (`SyncLeaveFromApproval`) flips the linked `Leave.status`.",
+      "item": [
+        {
+          "name": "List Workflows",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/approval-workflows?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "approval-workflows" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Leave Approval Workflow",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('workflow_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Standard Leave Approval\",\n  \"module\": \"hrm\",\n  \"type\": \"leave\",\n  \"levels\": [\n    {\n      \"sequence\": 1,\n      \"approver_role\": \"manager\"\n    },\n    {\n      \"sequence\": 2,\n      \"approver_role\": \"hr\"\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/approval-workflows",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "approval-workflows" ]
+            },
+            "description": "Creates a workflow keyed on `module=hrm, type=leave`. Once any such workflow exists, `Submit Leave Request` opens an `ApprovalRequest` against its first level. Levels accept `approver_role` (matched against `Role::slug`) and/or `approver_id` (a specific user). Capture id into `workflow_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Process Approval Request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"approved\",\n  \"comment\": \"Coverage arranged, approved.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/approval-requests/{{approval_request_id}}/process",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "approval-requests", "{{approval_request_id}}", "process" ]
+            },
+            "description": "Records a decision against the current level. `action` ∈ {`approved`, `rejected`, `sent_back`}. On final-level `approved` or any `rejected`, the engine dispatches `ApprovalRequestFinalized`; the HRM listener flips the linked `Leave.status`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "eDocuments",
+      "item": [
+        {
+          "name": "List Folders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/folders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "folders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Folder",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Financial Audits\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/folders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "folders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Folder by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/folders/{{folder_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "folders",
+                "{{folder_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Folder",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Financial Audits\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/folders/{{folder_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "folders",
+                "{{folder_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Folder",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/folders/{{folder_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "folders",
+                "{{folder_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/documents?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Q1_Report.pdf\",\n  \"folder_id\": \"{{folder_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Document by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/documents/{{document_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents",
+                "{{document_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Document",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Q1_Report_v2.pdf\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/documents/{{document_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents",
+                "{{document_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/documents/{{document_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents",
+                "{{document_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Download Document",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/documents/{{document_id}}/download",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "documents",
+                "{{document_id}}",
+                "download"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Documents (CMS)",
+      "item": [
+        {
+          "name": "List CMS Folders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-folders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-folders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create CMS Folder",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CMS Core Policies\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-folders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-folders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get CMS Folder by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-folders/{{cms_folder_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-folders",
+                "{{cms_folder_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update CMS Folder",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CMS Core Policies Updated\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-folders/{{cms_folder_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-folders",
+                "{{cms_folder_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete CMS Folder",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-folders/{{cms_folder_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-folders",
+                "{{cms_folder_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List CMS Documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-documents?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-documents"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "cms_folder_id", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create CMS Document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Security_Policy.docx\",\n  \"cms_folder_id\": \"{{cms_folder_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-documents",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-documents"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get CMS Document by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-documents/{{cms_document_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-documents",
+                "{{cms_document_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update CMS Document",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Security_Policy_Revised.docx\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-documents/{{cms_document_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-documents",
+                "{{cms_document_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete CMS Document",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-documents/{{cms_document_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-documents",
+                "{{cms_document_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Checkout CMS Document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-documents/{{cms_document_id}}/checkout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-documents",
+                "{{cms_document_id}}",
+                "checkout"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Checkin CMS Document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment\": \"Checked in security policy edits.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/cms-documents/{{cms_document_id}}/checkin",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cms-documents",
+                "{{cms_document_id}}",
+                "checkin"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fleet",
+      "item": [
+        {
+          "name": "List Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicles?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Maintenance Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/maintenance-logs?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "maintenance-logs"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "vehicle_id", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Fuel Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/fuel-logs?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "fuel-logs" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "vehicle_id", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Fuel Log",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_id\": \"{{vehicle_id}}\",\n  \"fill_date\": \"2026-05-20\",\n  \"liters\": 42.5,\n  \"cost\": 68.40,\n  \"mileage_at_fill\": 123456,\n  \"driver_id\": \"{{employee_id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/fuel-logs",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "fuel-logs" ]
+            },
+            "description": "Records a fuel fill-up against a vehicle. `driver_id` is the linked Employee."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Assets",
+      "item": [
+        {
+          "name": "List Assets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assets?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assets"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "status", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Calculate Depreciation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assets/{{asset_id}}/depreciate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assets",
+                "{{asset_id}}",
+                "depreciate"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/projects?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project Budget Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/projects/{{project_id}}/budget-status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{project_id}}",
+                "budget-status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "project_id", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Task Status",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/tasks/{{task_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks",
+                "{{task_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Timesheets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/timesheets?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "timesheets" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "task_id", "value": "{{task_id}}", "disabled": true },
+                { "key": "employee_id", "value": "{{employee_id}}", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Timesheet",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"task_id\": \"{{task_id}}\",\n  \"employee_id\": \"{{employee_id}}\",\n  \"log_date\": \"2026-05-20\",\n  \"hours_worked\": 6.5,\n  \"notes\": \"Implemented payroll FMS journal posting\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/timesheets",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "timesheets" ]
+            },
+            "description": "Logs hours worked against a Project Task. `hours_worked` accepts decimals."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reporting",
+      "item": [
+        {
+          "name": "List Dashboards",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboards?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboards"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Widgets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/widgets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "widgets"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "HRM",
+      "description": "Human Resource Management — workforce, leave, and payroll. All routes are tenant-scoped via the `tenant` / `X-Tenant-Handle` headers injected globally and require a Passport bearer token.\n\nSub-folders are organised by API feature:\n- **Employees** — workforce records (CRUD)\n- **Departments** — org units\n- **Positions** — job titles\n- **Leave Types** — annual allowance catalogue\n- **Leaves** — request lifecycle + balance\n- **Payroll Periods** — period processing\n- **Payslips** — pay statement queries",
+      "item": [
+        {
+          "name": "Employees",
+          "description": "Workforce CRUD. `base_salary` and bank details (`bank_name`, `bank_account_name`, `bank_account_number`) are stored as Laravel-encrypted ciphertext at rest and masked in responses unless the caller holds `hrm.payroll.read`. Account numbers are returned with all but the last 4 digits replaced with `•`.",
+          "item": [
+        {
+          "name": "List Employees",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/employees?page=1&limit=15",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "status", "value": "active", "disabled": true },
+                { "key": "departmentId", "value": "{{department_id}}", "disabled": true },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Paginated list of employees with department & position eagerly loaded. Optional filters: `status`, `departmentId`, `search`."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('employee_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": \"EMP-0001\",\n  \"first_name\": \"Sopheaktra\",\n  \"last_name\": \"Chan\",\n  \"email\": \"sopheaktra@example.com\",\n  \"phone\": \"+85512345678\",\n  \"hired_at\": \"2026-01-15\",\n  \"base_salary\": 1200.00,\n  \"bank_name\": \"ABA Bank\",\n  \"bank_account_name\": \"CHAN SOPHEAKTRA\",\n  \"bank_account_number\": \"000123456789\",\n  \"status\": \"active\",\n  \"department_id\": \"{{department_id}}\",\n  \"position_id\": \"{{position_id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/employees",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "employees" ]
+            },
+            "description": "Creates an employee. `base_salary` and `bank_*` fields are encrypted at rest and hidden in responses unless the caller holds `hrm.payroll.read`. `bank_account_number` is partially masked even for authorized callers."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Employee",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/employees/{{employee_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "employees", "{{employee_id}}" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Employee",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+85598765432\",\n  \"status\": \"active\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/employees/{{employee_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "employees", "{{employee_id}}" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Terminate Employee",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/employees/{{employee_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "employees", "{{employee_id}}" ]
+            },
+            "description": "Soft-deletes the employee and sets `status=terminated`. Transition validated against `workflow_statuses` (module `hrm.employee`)."
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Departments",
+          "description": "Org units used to group employees.",
+          "item": [
+        {
+          "name": "List Departments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/departments?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "departments" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Department",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('department_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Engineering\",\n  \"code\": \"ENG\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/departments",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "departments" ]
+            }
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Positions",
+          "description": "Job titles / pay grades.",
+          "item": [
+        {
+          "name": "List Positions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/positions?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "positions" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Position",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('position_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Backend Engineer\",\n  \"level\": \"L5\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/positions",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "positions" ]
+            }
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Leave Types",
+          "description": "Catalogue of leave categories with annual allowance.",
+          "item": [
+        {
+          "name": "List Leave Types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leave-types?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "leave-types" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Leave Type",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('leave_type_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Annual Leave\",\n  \"annual_allowance\": 18\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/leave-types",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "leave-types" ]
+            }
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Leaves",
+          "description": "Leave request lifecycle: submit → approve/reject → withdraw, plus per-employee balance.\n\n**eApprovals wiring** — when a tenant has an `ApprovalWorkflow` with `module=hrm, type=leave`, `Submit Leave Request` automatically opens an `ApprovalRequest` linked to the new leave. The legacy `Approve Leave` / `Reject Leave` endpoints then return **422** with a hint pointing at `POST /api/v1/approval-requests/{id}/process`. When no workflow is configured, the legacy endpoints continue to work as a dev/admin stop-gap.\n\n**Policies** — `LeavePolicy` (registered with `Gate`) enforces `hrm.leave.read/write/delete`. Owners (the linked Employee's user) can view and withdraw their own pending requests without `hrm.leave.delete`.",
+          "item": [
+        {
+          "name": "List Leaves",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leaves?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "leaves" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "employeeId", "value": "{{employee_id}}", "disabled": true },
+                { "key": "status", "value": "pending", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Leave Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('leave_id', data.id);",
+                  "    if (data && data.approvalRequestId) pm.collectionVariables.set('approval_request_id', data.approvalRequestId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"leave_type_id\": \"{{leave_type_id}}\",\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-06-05\",\n  \"reason\": \"Family visit\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/leaves",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "leaves" ]
+            },
+            "description": "Submits a leave request with status=pending. `days` defaults to inclusive span between start/end if omitted. If an `ApprovalWorkflow` exists for `module=hrm, type=leave`, an `ApprovalRequest` is opened atomically and routed to the workflow's first level."
+          },
+          "response": []
+        },
+        {
+          "name": "Approve Leave",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leaves/{{leave_id}}/approve",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "leaves", "{{leave_id}}", "approve" ]
+            },
+            "description": "Legacy admin path — approves a pending leave request directly. Transition validated against `workflow_statuses` (module `hrm.leave`). Returns 422 when the employee's remaining balance < days, **or** when an eApprovals request is already active on this leave (clients must use `POST /api/v1/approval-requests/{id}/process` instead). Requires `hrm.leave.write`."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Leave",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leaves/{{leave_id}}/reject",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "leaves", "{{leave_id}}", "reject" ]
+            },
+            "description": "Legacy admin path — rejects a pending leave request directly. Returns 422 when an eApprovals request is already active on this leave (use `POST /api/v1/approval-requests/{id}/process` instead). Requires `hrm.leave.write`."
+          },
+          "response": []
+        },
+        {
+          "name": "Employee Leave Balance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/employees/{{employee_id}}/leave-balance",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "employees", "{{employee_id}}", "leave-balance" ]
+            },
+            "description": "Returns per leave-type balance sheet: `annualAllowance`, `used`, `remaining` for the current year."
+          },
+          "response": []
+        },
+        {
+          "name": "Withdraw Leave",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/leaves/{{leave_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "leaves", "{{leave_id}}" ]
+            }
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Payroll Periods",
+          "description": "Create, process (snapshot payslips), and close payroll periods.",
+          "item": [
+        {
+          "name": "List Payroll Periods",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payroll-periods?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "payroll-periods" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Payroll Period",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('payroll_period_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"May 2026\",\n  \"start_date\": \"2026-05-01\",\n  \"end_date\": \"2026-05-31\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/payroll-periods",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "payroll-periods" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payroll Period",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payroll-periods/{{payroll_period_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "payroll-periods", "{{payroll_period_id}}" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Process Payroll Period",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payroll-periods/{{payroll_period_id}}/process",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "payroll-periods", "{{payroll_period_id}}", "process" ]
+            },
+            "description": "Generates one payslip per active employee using `PayrollService::computeFor` (flat tax 10%, NSSF 4%). Transition draft → processed validated against `workflow_statuses` (module `hrm.payroll_period`)."
+          },
+          "response": []
+        },
+        {
+          "name": "Close Payroll Period",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payroll-periods/{{payroll_period_id}}/close",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "payroll-periods", "{{payroll_period_id}}", "close" ]
+            },
+            "description": "Locks the period after processing **and** posts the payroll accrual journal entry to FMS. Within one DB transaction:\n\n1. Aggregate gross / tax / nssf across all payslips in the period.\n2. Look up four chart-of-accounts codes (`config('payroll.accounts')` — defaults: `EXP-WAGES`, `LIA-TAX`, `LIA-NSSF`, `LIA-WAGES`). Missing codes ⇒ **422** listing what to create in `/api/v1/accounts`.\n3. Post a balanced journal: `Dr Wage Expense` / `Cr Tax Payable` / `Cr NSSF Payable` / `Cr Wages Payable`. Reference is `PAYROLL-{period_id}` (unique).\n4. Persist `journal_entry_id` + `closed_at` on the period and flip status to `closed`.\n\nResponse exposes the new `journalEntryId` + `closedAt` fields. A period without payslips closes without posting (no-op journal). Transition `processed → closed` is also validated against `workflow_statuses` (module `hrm.payroll_period`)."
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Payslips",
+          "description": "Pay statement queries. Amounts masked unless owner or `hrm.payroll.read`.",
+          "item": [
+        {
+          "name": "List Payslips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payslips?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "payslips" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "employeeId", "value": "{{employee_id}}", "disabled": true },
+                { "key": "payrollPeriodId", "value": "{{payroll_period_id}}", "disabled": true }
+              ]
+            },
+            "description": "Amounts are masked unless the caller is the owning employee or holds `hrm.payroll.read`."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payslip",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payslips/{{payslip_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "payslips", "{{payslip_id}}" ]
+            }
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Recruitment",
+          "description": "Job vacancies + applicant pipeline. Pipeline: applied → screening → assessment → assessment_completed → interview → offer → hired (or rejected/withdrawn).\n\n**Two surfaces:**\n\n- **Candidate-facing (no auth)** — `GET /api/v1/public/job-vacancies`, `GET /api/v1/public/job-vacancies/{id}`, `POST /api/v1/public/applications`. Tenant resolves via `X-Tenant-Handle` like the SPA does, but no Passport bearer is required. Listings are filtered to `status=open`; closed/draft IDs return 404. Submitting against a non-open vacancy → 422.\n- **Admin (auth:api + `hrm.recruitment.*`)** — the vacancy lifecycle, full applicant pipeline, and transitions live here.\n\nThe public requests appear first below so the candidate-side flow reads top-to-bottom: discover vacancies → submit application.",
+          "item": [
+            {
+              "name": "List Public Vacancies",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200) {",
+                      "    var rows = pm.response.json().data;",
+                      "    if (Array.isArray(rows) && rows.length > 0 && rows[0].id) {",
+                      "        pm.collectionVariables.set('public_job_vacancy_id', rows[0].id);",
+                      "    }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/public/job-vacancies?page=1&limit=15",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "public", "job-vacancies" ],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" },
+                    { "key": "departmentId", "value": "{{department_id}}", "disabled": true },
+                    { "key": "employmentType", "value": "full_time", "disabled": true },
+                    { "key": "search", "value": "engineer", "disabled": true }
+                  ]
+                },
+                "description": "Candidate-facing listing. Returns only `status=open` vacancies. No Passport token required — the tenant still resolves through `X-Tenant-Handle`. The first id is captured into `public_job_vacancy_id` for the next call."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Public Vacancy",
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/public/job-vacancies/{{public_job_vacancy_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "public", "job-vacancies", "{{public_job_vacancy_id}}" ]
+                },
+                "description": "Candidate-facing detail. 404 on anything not in `status=open` so candidates can't peek at drafts or closed roles via direct ID."
+              },
+              "response": []
+            },
+            {
+              "name": "Public: Submit Application",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var data = pm.response.json().data;",
+                      "    if (data && data.id) pm.collectionVariables.set('application_id', data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": { "type": "noauth" },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"job_vacancy_id\": \"{{public_job_vacancy_id}}\",\n  \"applicant_name\": \"Dara Kim\",\n  \"applicant_email\": \"dara.kim@example.com\",\n  \"applicant_phone\": \"+85598765432\",\n  \"location\": \"Phnom Penh, Cambodia\",\n  \"linkedin_url\": \"https://www.linkedin.com/in/darakim\",\n  \"cover_letter\": \"I have 7 years of Laravel + PostgreSQL experience...\",\n  \"expected_salary\": 3500.00,\n  \"skills\": [\"PHP\", \"Laravel\", \"Vue.js\", \"PostgreSQL\"],\n  \"education\": [\n    {\n      \"school\": \"Royal University of Phnom Penh\",\n      \"degree\": \"Bachelor of Computer Science\"\n    }\n  ],\n  \"work_experience\": [\n    {\n      \"company\": \"Tech Solutions\",\n      \"title\": \"Software Engineer\",\n      \"period\": \"2022 - Present\",\n      \"description\": \"Developed tenant-isolated systems.\"\n    }\n  ]\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/public/applications",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "public", "applications" ]
+                },
+                "description": "Candidate-facing submission — no Passport token. Reuses `StoreApplicationRequest` validation. Targets must be `status=open` vacancies; closed/draft IDs surface as 422. `expected_salary` is encrypted at rest and only readable in admin responses with `hrm.recruitment.read`."
+              },
+              "response": []
+            },
+            {
+              "name": "List Vacancies",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/job-vacancies?page=1&limit=15",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "job-vacancies" ],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" },
+                    { "key": "status", "value": "open", "disabled": true },
+                    { "key": "departmentId", "value": "{{department_id}}", "disabled": true },
+                    { "key": "employmentType", "value": "full_time", "disabled": true },
+                    { "key": "search", "value": "", "disabled": true }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Vacancy",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var data = pm.response.json().data;",
+                      "    if (data && data.id) pm.collectionVariables.set('job_vacancy_id', data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Senior Backend Engineer\",\n  \"description\": \"Build and operate tenant-isolated services in Laravel + PostgreSQL.\",\n  \"location\": \"Phnom Penh / Remote\",\n  \"employment_type\": \"full_time\",\n  \"experience_min_years\": 5,\n  \"experience_max_years\": 10,\n  \"salary_min\": 2500.00,\n  \"salary_max\": 4500.00,\n  \"vacancies_count\": 2,\n  \"status\": \"draft\",\n  \"department_id\": \"{{department_id}}\",\n  \"position_id\": \"{{position_id}}\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/job-vacancies",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "job-vacancies" ]
+                },
+                "description": "Creates a draft vacancy. Call `publish` to open it for applications."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Vacancy",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/job-vacancies/{{job_vacancy_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "job-vacancies", "{{job_vacancy_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Vacancy",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Senior Backend Engineer\",\n  \"location\": \"Hybrid / Remote\",\n  \"vacancies_count\": 3\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/job-vacancies/{{job_vacancy_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "job-vacancies", "{{job_vacancy_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Publish Vacancy",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/job-vacancies/{{job_vacancy_id}}/publish",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "job-vacancies", "{{job_vacancy_id}}", "publish" ]
+                },
+                "description": "Flips a draft vacancy to status=open and stamps posted_at. Transition validated against `workflow_statuses` (module `hrm.vacancy`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Close Vacancy",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"filled\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/job-vacancies/{{job_vacancy_id}}/close",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "job-vacancies", "{{job_vacancy_id}}", "close" ]
+                },
+                "description": "Closes a vacancy. `reason` must be \"closed\" or \"filled\" (both validated as transitions against `workflow_statuses` module `hrm.vacancy`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Archive Vacancy",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/job-vacancies/{{job_vacancy_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "job-vacancies", "{{job_vacancy_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "List Applications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications?page=1&limit=15",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications" ],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" },
+                    { "key": "jobVacancyId", "value": "{{job_vacancy_id}}", "disabled": true },
+                    { "key": "status", "value": "applied", "disabled": true },
+                    { "key": "search", "value": "", "disabled": true }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Submit Application (Admin)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var data = pm.response.json().data;",
+                      "    if (data && data.id) pm.collectionVariables.set('application_id', data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"job_vacancy_id\": \"{{job_vacancy_id}}\",\n  \"applicant_name\": \"Dara Kim\",\n  \"applicant_email\": \"dara.kim@example.com\",\n  \"applicant_phone\": \"+85598765432\",\n  \"location\": \"Phnom Penh, Cambodia\",\n  \"linkedin_url\": \"https://www.linkedin.com/in/darakim\",\n  \"cover_letter\": \"I have 7 years of Laravel + PostgreSQL experience...\",\n  \"expected_salary\": 3500.00,\n  \"referrer_employee_id\": \"{{employee_id}}\",\n  \"skills\": [\"PHP\", \"Laravel\", \"Vue.js\", \"PostgreSQL\"],\n  \"education\": [\n    {\n      \"school\": \"Royal University of Phnom Penh\",\n      \"degree\": \"Bachelor of Computer Science\"\n    }\n  ],\n  \"work_experience\": [\n    {\n      \"company\": \"Tech Solutions\",\n      \"title\": \"Software Engineer\",\n      \"period\": \"2022 - Present\",\n      \"description\": \"Developed tenant-isolated systems.\"\n    }\n  ]\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Admin path — typed up an application on behalf of a candidate (referrals, walk-ins). For candidate-driven flows use **Public: Submit Application** at the top of this folder instead. Accepts any vacancy status (drafts/closed). `expected_salary` masked in responses unless caller has `hrm.recruitment.read`.",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Application",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/{{application_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "{{application_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Application",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"applicant_name\": \"Dara Kim\",\n  \"applicant_email\": \"dara.kim@example.com\",\n  \"applicant_phone\": \"+85598765432\",\n  \"location\": \"Phnom Penh, Cambodia\",\n  \"linkedin_url\": \"https://www.linkedin.com/in/darakim\",\n  \"cover_letter\": \"Updated cover letter after phone screen.\",\n  \"expected_salary\": 3800.00,\n  \"referrer_employee_id\": null,\n  \"skills\": [\"PHP\", \"Laravel\", \"Vue.js\", \"PostgreSQL\"],\n  \"notes\": \"Strong fit for backend role — recommend technical round.\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Edit an existing application. All fields optional (`sometimes`/`nullable`). **`job_vacancy_id` and `status` are NOT editable here** — vacancy is locked to preserve funnel attribution; status is moved via the transition endpoint. Requires `hrm.recruitment.write` (policy `ApplicationPolicy::update`).",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/{{application_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "{{application_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Transition Application",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"screening\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/{{application_id}}/status",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "{{application_id}}", "status" ]
+                },
+                "description": "Advance the pipeline. Allowed transitions are read at runtime from the per-tenant `workflow_statuses` table (module `hrm.application`). Default flow: applied → screening → interview → offer → hired (any stage may → rejected/withdrawn). Invalid transitions return 422.\n\n**Transitioning to `hired` only changes status — it does NOT create an Employee record.** Use the dedicated **Convert to Employee** endpoint for that. Manage the status flow via **IAM › Workflow Statuses**."
+              },
+              "response": []
+            },
+            {
+              "name": "Upload Resume",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    var body = pm.response.json();",
+                      "    if (body && body.path) pm.collectionVariables.set('resume_path', body.path);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "file", "type": "file", "src": [], "description": "PDF / DOC / DOCX, ≤ 10 MB" }
+                  ]
+                },
+                "description": "Upload a candidate resume ahead of submitting the full application. Returns 201 with `{ path, original_name, size, mime_type }`. The returned `path` should be sent back as `resume_path` in the subsequent **Submit Application** call.\n\nValidation: `file` required, `extensions:pdf,doc,docx` (trusts client extension to avoid octet-stream false rejections), max 10 MB. The service re-checks MIME for defense in depth.\n\nStored at `storage/tenants/{handle}/hrm/recruitment/application/resume/{uuid}.{ext}` — the `local` disk is auto-rerouted per tenant by FilesystemTenancyBootstrapper.\n\nRequires `hrm.recruitment.write` (policy `ApplicationPolicy::create`).",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/resumes",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "resumes" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Convert to Employee",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var data = pm.response.json().data;",
+                      "    if (data && data.id) pm.collectionVariables.set('employee_id', data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/{{application_id}}/convert-to-employee",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "{{application_id}}", "convert-to-employee" ]
+                },
+                "description": "Promote a `hired` application into an `Employee` record.\n\n- **Idempotent**: repeat calls return the existing linked employee without creating a duplicate.\n- **Email dedupe**: if an `Employee` with the same email already exists, that record is reused instead of cloned.\n- **Auto employee_id**: new employees get a tenant-wide sequential id in the `TT-NNNN` pattern. **Zero-indexed** — the first auto-issued id on a fresh tenant is `TT-0000`, then `TT-0001`, `TT-0002`, … Generated by `RecruitmentService::generateNextEmployeeId()` from `MAX(numeric_suffix) + 1` scanned across active **and** soft-deleted rows — terminated employees never free their IDs. The pad width is a floor: past `TT-9999` the format widens to `TT-10000`. Prefix and pad are class constants (`EMPLOYEE_ID_PREFIX`, `EMPLOYEE_ID_PAD`).\n- **Field mapping**: `department_id`, `position_id` from the vacancy; `expected_salary` → `base_salary`. Employee created with `status='active'`.\n- **Side-effect**: stamps `applications.converted_at = now()` so the 7-day revert window can be enforced.\n- **Refuses (422)** when the application isn't `hired`.\n\nRequires `hrm.recruitment.write` AND `hrm.employee.write` (policy `ApplicationPolicy::convert`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Revert Employee Conversion",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/{{application_id}}/revert-employee-conversion",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "{{application_id}}", "revert-employee-conversion" ]
+                },
+                "description": "Undo a recent hire→employee conversion.\n\n- Renames the linked `Employee`'s `employee_id` to `<original>-REV-<uniqid>` (audited `update()`), then soft-deletes the row.\n- Nulls `applications.employee_id` and `applications.converted_at`.\n- **Frees the original employee_id for reuse**: the rename takes the original number out of the auto-generator's `^<prefix>-(\\d+)$` match set, so the next convert will re-issue it (e.g. revert `TT-0003` → next convert returns `TT-0003`). Contrast with termination, which keeps the ID forever.\n- **Refuses (422)** when: not `hired`, no employee linked, `converted_at` missing, OR conversion is older than `RecruitmentService::REVERT_CONVERSION_WINDOW_DAYS` (7 days).\n\nOutside the window, use the standard off-boarding flow via `EmployeeService::terminateEmployee` instead.\n\nRequires `hrm.recruitment.write` AND `hrm.employee.delete` — stricter than `convert` because reverting soft-deletes a workforce record (policy `ApplicationPolicy::revertConversion`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Application",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/{{application_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "{{application_id}}" ]
+                },
+                "description": "Soft-delete an application (sets `deleted_at`; preserves the row for audit). Requires `hrm.recruitment.delete` (policy `ApplicationPolicy::delete`).\n\nNote: the in-app UI surfaces this only on rows in `applied` or `screening` status — anything further along has audit/business state that should not be implicitly removed."
+              },
+              "response": []
+            },
+            {
+              "name": "Bulk Delete Applications",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ids\": [\n    \"{{application_id}}\"\n  ]\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Bulk soft-delete applications. Accepts 1–200 UUIDs. Each id is gated through the same `delete` policy as the single-row variant.\n\nOnly rows in `applied` or `screening` are eligible; rows further along the pipeline are reported under `skipped`. Returns:\n```json\n{\n  \"deleted\": int,\n  \"skipped\": string[],\n  \"missing\": string[]\n}\n```\nThe UI surfaces this via the multi-select toolbar on `/applications`.",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/bulk-delete",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "bulk-delete" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Bulk Convert to Employees",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ids\": [\n    \"{{application_id}}\"\n  ]\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "description": "Bulk-convert hired applications to employees. Accepts 1–200 UUIDs. Each id is gated through the `convert` policy.\n\nEach row runs through the same single-row `convertToEmployee` logic — dedupe-by-email guarantee preserved. Returns a structured outcome so the UI can show partial completion:\n```json\n{\n  \"converted\": int,\n  \"alreadyLinked\": string[],\n  \"ineligible\": string[],\n  \"missing\": string[],\n  \"errors\": [{ \"id\": uuid, \"message\": string }]\n}\n```\n- `alreadyLinked`: ids that already had an `employee_id` (no-op).\n- `ineligible`: ids that weren't in `hired` status.\n- `missing`: ids the tenant doesn't have rows for.\n- `errors`: per-row failures (e.g. unique constraint).\n\nRequires `hrm.recruitment.write` AND `hrm.employee.write`.",
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/bulk-convert-to-employee",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "bulk-convert-to-employee" ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Performance",
+          "description": "Appraisal cycle. Lifecycle: draft → submitted → reviewed → closed.",
+          "item": [
+            {
+              "name": "List Appraisals",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/appraisals?page=1&limit=15",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "appraisals" ],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" },
+                    { "key": "employeeId", "value": "{{employee_id}}", "disabled": true },
+                    { "key": "reviewerId", "value": "", "disabled": true },
+                    { "key": "cycle", "value": "2026-Q2", "disabled": true },
+                    { "key": "status", "value": "draft", "disabled": true }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Appraisal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var data = pm.response.json().data;",
+                      "    if (data && data.id) pm.collectionVariables.set('appraisal_id', data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"reviewer_id\": null,\n  \"cycle\": \"2026-Q2\",\n  \"period_start\": \"2026-04-01\",\n  \"period_end\": \"2026-06-30\",\n  \"strengths\": \"Ships consistently, mentors juniors.\",\n  \"improvements\": \"Could pair more on cross-team specs.\",\n  \"goals\": [\n    { \"title\": \"Lead HRM Phase 5 QA\", \"status\": \"in_progress\", \"due\": \"2026-07-15\" }\n  ]\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/appraisals",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "appraisals" ]
+                },
+                "description": "Creates an appraisal at status=draft. Sensitive fields (rating, notes, goals) are masked in list responses unless caller is the employee, reviewer, or holds `hrm.performance.read`."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Appraisal",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/appraisals/{{appraisal_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "appraisals", "{{appraisal_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Appraisal",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"strengths\": \"Updated strengths after self-review.\",\n  \"goals\": [\n    { \"title\": \"Lead HRM Phase 5 QA\", \"status\": \"achieved\", \"due\": \"2026-07-15\" }\n  ]\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/appraisals/{{appraisal_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "appraisals", "{{appraisal_id}}" ]
+                },
+                "description": "Cannot update once status=closed."
+              },
+              "response": []
+            },
+            {
+              "name": "Submit Appraisal",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/appraisals/{{appraisal_id}}/submit",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "appraisals", "{{appraisal_id}}", "submit" ]
+                },
+                "description": "draft → submitted, stamps submitted_at. Transition validated against `workflow_statuses` (module `hrm.appraisal`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Review Appraisal",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"overall_rating\": 4.25,\n  \"strengths\": \"Reviewer-confirmed strengths.\",\n  \"improvements\": \"Reviewer feedback on areas to grow.\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/appraisals/{{appraisal_id}}/review",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "appraisals", "{{appraisal_id}}", "review" ]
+                },
+                "description": "submitted → reviewed. Reviewer fills overall_rating + final notes; stamps reviewed_at. Transition validated against `workflow_statuses` (module `hrm.appraisal`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Close Appraisal",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/appraisals/{{appraisal_id}}/close",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "appraisals", "{{appraisal_id}}", "close" ]
+                },
+                "description": "reviewed → closed. Locks the record from further edits. Transition validated against `workflow_statuses` (module `hrm.appraisal`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Archive Appraisal",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/appraisals/{{appraisal_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "appraisals", "{{appraisal_id}}" ]
+                },
+                "description": "Soft-deletes a draft/submitted/reviewed appraisal. Closed records cannot be deleted (422)."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Quiz Assessment",
+          "description": "Phase 6 — candidate quiz authoring + sandboxed assessment flow.\n\n**Admin paths** (requires Passport bearer + `hrm.quiz.read|write|delete`):\n- `GET/POST /quizzes` — list / create. POST may embed `questions[]` for one-shot authoring.\n- `GET/PUT/DELETE /quizzes/{id}` — read / update / archive.\n- `POST /quizzes/{id}/questions` — add a single question.\n- `POST /applications/{id}/quiz-attempts` — assign a published quiz to a recruitment Application. Returns the raw magic-link token **once** (afterwards only the SHA-256 hash is stored) + a candidate URL.\n\n**Candidate paths** (no Passport — token-authenticated via `?token=...`):\n- `GET /candidate/auth?token=...` — landing endpoint, returns attempt + sanitised quiz (no correct answers).\n- `POST /candidate/quizzes/{attempt}/start?token=...` — flips invited → in_progress.\n- `POST /candidate/quizzes/{attempt}/submit?token=...` — submit answers; QuizService auto-grades and flips the linked Application to `assessment_completed`.\n\nCorrect answers live on `quiz_questions.correct_answer` as Laravel-encrypted ciphertext and are exposed in `QuizResource` only to callers with `hrm.quiz.write`. The candidate-facing payload never includes them.",
+          "item": [
+            {
+              "name": "List Quizzes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/quizzes?page=1&limit=15",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "quizzes" ],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Quiz",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var data = pm.response.json().data;",
+                      "    if (data && data.id) pm.collectionVariables.set('quiz_id', data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Backend Engineer Screening\",\n  \"description\": \"45 minutes. Mix of multiple-choice and short-text questions.\",\n  \"time_limit_minutes\": 45,\n  \"pass_score\": 70,\n  \"status\": \"published\",\n  \"questions\": [\n    {\n      \"sequence\": 1,\n      \"prompt\": \"Which HTTP status indicates a successful POST that created a resource?\",\n      \"question_type\": \"single_choice\",\n      \"options\": [\n        { \"key\": \"a\", \"text\": \"200 OK\" },\n        { \"key\": \"b\", \"text\": \"201 Created\" },\n        { \"key\": \"c\", \"text\": \"204 No Content\" }\n      ],\n      \"correct_answer\": [\"b\"],\n      \"points\": 2\n    },\n    {\n      \"sequence\": 2,\n      \"prompt\": \"Name the principle that ensures classes have a single reason to change.\",\n      \"question_type\": \"short_text\",\n      \"correct_answer\": \"Single Responsibility Principle\",\n      \"points\": 3\n    }\n  ]\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/quizzes",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "quizzes" ]
+                },
+                "description": "Creates a quiz with embedded questions. `correct_answer` accepts an array of option keys (single_choice/multiple_choice) or a string (short_text). It is stored as Laravel-encrypted ciphertext and hidden from response unless the caller holds `hrm.quiz.write`. `status` defaults to `draft` — only `published` quizzes can be assigned to candidates."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Quiz",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/quizzes/{{quiz_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "quizzes", "{{quiz_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Quiz",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Backend Engineer Screening (v2)\",\n  \"status\": \"published\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/quizzes/{{quiz_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "quizzes", "{{quiz_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Add Question to Quiz",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sequence\": 3,\n  \"prompt\": \"Select all ACID properties.\",\n  \"question_type\": \"multiple_choice\",\n  \"options\": [\n    { \"key\": \"a\", \"text\": \"Atomicity\" },\n    { \"key\": \"b\", \"text\": \"Consistency\" },\n    { \"key\": \"c\", \"text\": \"Idempotency\" },\n    { \"key\": \"d\", \"text\": \"Durability\" }\n  ],\n  \"correct_answer\": [\"a\", \"b\", \"d\"],\n  \"points\": 5\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/quizzes/{{quiz_id}}/questions",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "quizzes", "{{quiz_id}}", "questions" ]
+                },
+                "description": "Appends a single question to an existing quiz."
+              },
+              "response": []
+            },
+            {
+              "name": "Archive Quiz",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/quizzes/{{quiz_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "quizzes", "{{quiz_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Assign Quiz to Application",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var data = pm.response.json().data;",
+                      "    if (data) {",
+                      "        if (data.token) pm.collectionVariables.set('candidate_quiz_token', data.token);",
+                      "        if (data.attempt && data.attempt.id) pm.collectionVariables.set('quiz_attempt_id', data.attempt.id);",
+                      "    }",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quiz_id\": \"{{quiz_id}}\",\n  \"expires_in_hours\": 72\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/applications/{{application_id}}/quiz-attempts",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "applications", "{{application_id}}", "quiz-attempts" ]
+                },
+                "description": "Issues a magic-link token for a candidate. **Response is the only time the raw token is shown** — afterwards only the SHA-256 hash is stored. Side-effect: advances the linked Application to `assessment`. Quiz must be `published`."
+              },
+              "response": []
+            },
+            {
+              "name": "Candidate: Verify Token",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/candidate/auth?token={{candidate_quiz_token}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "candidate", "auth" ],
+                  "query": [
+                    { "key": "token", "value": "{{candidate_quiz_token}}" }
+                  ]
+                },
+                "description": "Public endpoint (no Passport). Validates token → returns the attempt + sanitised quiz (questions without correct answers). 404 on bad/expired token."
+              },
+              "response": []
+            },
+            {
+              "name": "Candidate: Start Attempt",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/candidate/quizzes/{{quiz_attempt_id}}/start?token={{candidate_quiz_token}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "candidate", "quizzes", "{{quiz_attempt_id}}", "start" ],
+                  "query": [
+                    { "key": "token", "value": "{{candidate_quiz_token}}" }
+                  ]
+                },
+                "description": "Idempotent — flips invited → in_progress and stamps `started_at`. Returns 422 if the attempt has already been completed/expired/abandoned."
+              },
+              "response": []
+            },
+            {
+              "name": "Candidate: Submit Attempt",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"answers\": {\n    \"<question_id_1>\": [\"b\"],\n    \"<question_id_2>\": \"Single Responsibility Principle\",\n    \"<question_id_3>\": [\"a\", \"b\", \"d\"]\n  }\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/candidate/quizzes/{{quiz_attempt_id}}/submit?token={{candidate_quiz_token}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "candidate", "quizzes", "{{quiz_attempt_id}}", "submit" ],
+                  "query": [
+                    { "key": "token", "value": "{{candidate_quiz_token}}" }
+                  ]
+                },
+                "description": "Answers map question_id → array of option keys (choice questions) or a string (short_text). QuizService auto-grades, persists `score` + `passed` on the attempt, and advances the linked Application to `assessment_completed` (no-op if that status isn't configured)."
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Interviewing",
+          "description": "Phase 7 — interview scheduling + panel feedback.\n\n**Lifecycle** (workflow_statuses module `hrm.interview`): `scheduled → completed | cancelled | no_show`.\n\n**Pivot semantics**: an Interview has an M:N `interviewers` pivot (`interview_interviewer`) of assigned Employees + a separate `interview_feedback` table (one row per interviewer per interview, enforced by a unique pivot). `InterviewPolicy::submitFeedback` short-circuits for any user whose linked Employee is in the assigned pivot — interviewers don't need `hrm.recruitment.write`.\n\n**Side-effects**: scheduling an interview best-effort promotes the linked Application to `interview` via `WorkflowStatusService`; the transition is swallowed if the tenant's `hrm.application` flow doesn't allow it from the current stage. Submit/scheduled feedback never advances the application — HR finalises the hire/reject decision through `/applications/{id}/status`.\n\n**Calendar invites** — `GET /interviews/{id}/invite.ics` streams an RFC 5545 file with all assigned interviewers + the candidate as ATTENDEEs. Direct Google/Outlook OAuth is deferred; download + attach for now.",
+          "item": [
+            {
+              "name": "List Interviews",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/interviews?page=1&limit=15",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "interviews" ],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" },
+                    { "key": "applicationId", "value": "{{application_id}}", "disabled": true },
+                    { "key": "status", "value": "scheduled", "disabled": true },
+                    { "key": "from", "value": "2026-05-20T00:00:00Z", "disabled": true },
+                    { "key": "to",   "value": "2026-06-20T00:00:00Z", "disabled": true }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Schedule Interview",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var data = pm.response.json().data;",
+                      "    if (data && data.id) pm.collectionVariables.set('interview_id', data.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"application_id\": \"{{application_id}}\",\n  \"quiz_attempt_id\": \"{{quiz_attempt_id}}\",\n  \"title\": \"Technical Panel — Backend Engineer\",\n  \"round\": \"technical\",\n  \"scheduled_at\": \"2026-06-02T09:30:00Z\",\n  \"duration_minutes\": 75,\n  \"mode\": \"video\",\n  \"location\": \"https://meet.example.com/abc-defg-hij\",\n  \"notes\": \"Focus on system design + PostgreSQL.\",\n  \"interviewer_ids\": [\n    \"{{employee_id}}\"\n  ]\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/interviews",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "interviews" ]
+                },
+                "description": "Creates an interview and assigns interviewers in one shot. Best-effort moves the Application into the `interview` stage. Requires `hrm.recruitment.write`."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Interview",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/interviews/{{interview_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "interviews", "{{interview_id}}" ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Reschedule Interview",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"scheduled_at\": \"2026-06-04T14:00:00Z\",\n  \"location\": \"Conference Room B\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/interviews/{{interview_id}}",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "interviews", "{{interview_id}}" ]
+                },
+                "description": "Only `scheduled` interviews can be rescheduled (422 otherwise)."
+              },
+              "response": []
+            },
+            {
+              "name": "Cancel Interview",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reason\": \"Candidate withdrew before round.\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/interviews/{{interview_id}}/cancel",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "interviews", "{{interview_id}}", "cancel" ]
+                },
+                "description": "Appends the reason to `notes` and validates the transition against `workflow_statuses` (module `hrm.interview`)."
+              },
+              "response": []
+            },
+            {
+              "name": "Complete Interview",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/interviews/{{interview_id}}/complete",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "interviews", "{{interview_id}}", "complete" ]
+                },
+                "description": "Closes the panel; feedback can still be submitted after this. Final hire/reject decision happens via `/applications/{id}/status`."
+              },
+              "response": []
+            },
+            {
+              "name": "Submit Feedback",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"interviewer_id\": \"{{employee_id}}\",\n  \"rating\": 4.5,\n  \"strengths\": \"Strong system-design intuition; clean PostgreSQL schema choices.\",\n  \"concerns\": \"Limited Kafka exposure — would need ramp-up.\",\n  \"recommendation\": \"hire\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/interviews/{{interview_id}}/feedback",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "interviews", "{{interview_id}}", "feedback" ]
+                },
+                "description": "Upsert by `(interview_id, interviewer_id)`. Assigned interviewers can submit without `hrm.recruitment.write` (InterviewPolicy short-circuit)."
+              },
+              "response": []
+            },
+            {
+              "name": "Get Scorecard",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/interviews/{{interview_id}}/scorecard",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "interviews", "{{interview_id}}", "scorecard" ]
+                },
+                "description": "Aggregate: `averageRating`, `recommendations` tally by key (strong_hire | hire | no_hire | strong_no_hire), `submittedCount`, `pendingCount` (interviewers who haven't submitted yet)."
+              },
+              "response": []
+            },
+            {
+              "name": "Download ICS Invite",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/interviews/{{interview_id}}/invite.ics",
+                  "host": [ "{{base_url}}" ],
+                  "path": [ "api", "v1", "interviews", "{{interview_id}}", "invite.ics" ]
+                },
+                "description": "Streams an RFC 5545 calendar invite — `text/calendar`, attachable to email or savable to disk. Includes all assigned interviewers + the candidate as ATTENDEEs."
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          "// Automatically inject/override Multi-Tenant scope and standard Headers on every request without duplicates",
+          "pm.request.headers.upsert({key: 'X-Tenant-Handle', value: '{{tenant_handle}}'});",
+          "pm.request.headers.upsert({key: 'tenant', value: '{{tenant_handle}}'});",
+          "pm.request.headers.upsert({key: 'Content-Type', value: 'application/json'});",
+          "pm.request.headers.upsert({key: 'Accept', value: 'application/json'});"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "tenant_handle",
+      "value": "demo"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "employee_id",
+      "value": ""
+    },
+    {
+      "key": "department_id",
+      "value": ""
+    },
+    {
+      "key": "position_id",
+      "value": ""
+    },
+    {
+      "key": "leave_type_id",
+      "value": ""
+    },
+    {
+      "key": "leave_id",
+      "value": ""
+    },
+    {
+      "key": "payroll_period_id",
+      "value": ""
+    },
+    {
+      "key": "payslip_id",
+      "value": ""
+    },
+    {
+      "key": "job_vacancy_id",
+      "value": ""
+    },
+    {
+      "key": "application_id",
+      "value": ""
+    },
+    {
+      "key": "appraisal_id",
+      "value": ""
+    },
+    {
+      "key": "workflow_status_id",
+      "value": ""
+    },
+    {
+      "key": "workflow_id",
+      "value": ""
+    },
+    {
+      "key": "approval_request_id",
+      "value": ""
+    },
+    {
+      "key": "quiz_id",
+      "value": ""
+    },
+    {
+      "key": "quiz_attempt_id",
+      "value": ""
+    },
+    {
+      "key": "candidate_quiz_token",
+      "value": ""
+    },
+    {
+      "key": "vehicle_id",
+      "value": ""
+    },
+    {
+      "key": "interview_id",
+      "value": ""
+    },
+    {
+      "key": "public_job_vacancy_id",
+      "value": ""
+    }
+  ]
+}

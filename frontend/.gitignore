@@ -1,0 +1,25 @@
+# Nuxt 3 and Build Outputs
+.nuxt/
+.output/
+dist/
+.temp/
+.cache/
+
+# Dependency Directories
+node_modules/
+
+# Local Environment Overrides
+.env
+.env.*
+!.env.example
+
+# IDEs, Editors, and OS configurations
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db

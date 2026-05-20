@@ -1,0 +1,79 @@
+<?php
+
+namespace App\Models\Tenant;
+
+use App\Models\Casts\EncryptedWithFallback;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Traits\BelongsToTenant;
+use App\Models\Traits\Auditable;
+use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Employee extends Model
+{
+    use BelongsToTenant, Auditable, SoftDeletes;
+
+    protected $keyType = 'string';
+    public $incrementing = false;
+
+    protected $fillable = [
+        'user_id',
+        'department_id',
+        'position_id',
+        'employee_id',
+        'first_name',
+        'last_name',
+        'email',
+        'phone',
+        'hired_at',
+        'base_salary',
+        'bank_name',
+        'bank_account_name',
+        'bank_account_number',
+        'status',
+        'tenant_id',
+    ];
+
+    protected $casts = [
+        'hired_at'            => 'date',
+        // EncryptedWithFallback degrades gracefully if the column already
+        // holds plaintext (legacy/seeded rows) — see the cast for details.
+        'base_salary'         => EncryptedWithFallback::class,
+        'bank_name'           => EncryptedWithFallback::class,
+        'bank_account_name'   => EncryptedWithFallback::class,
+        'bank_account_number' => EncryptedWithFallback::class,
+    ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function position(): BelongsTo
+    {
+        return $this->belongsTo(Position::class);
+    }
+
+    public function applications(): HasMany
+    {
+        return $this->hasMany(Application::class);
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->{$model->getKeyName()})) {
+                $model->{$model->getKeyName()} = (string) Str::uuid();
+            }
+        });
+    }
+}
