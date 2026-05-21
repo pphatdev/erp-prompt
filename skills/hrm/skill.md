@@ -26,8 +26,10 @@ Use this skill when building employee management systems, payroll engines, leave
 - **Payslips**: Generate secure, non-editable PDF payslips accessible via the Employee Self-Service portal.
 
 ### 3. Leave & Attendance
-- **Accrual Logic**: Automatically calculate leave balances based on tenure and tenant policy.
-- **Approvals**: Integrate with `eApprovals` for multi-level leave authorization.
+- **Accrual Logic**: Automatically calculate leave balances based on tenure and tenant policy. Enforce balance checks against YTD approved and pending leaves.
+- **Approvals**: Integrate with `eApprovals` for multi-level leave authorization, locking requested days during the workflow.
+- **Attendance & Shifts**: Reconcile daily check-in/out timestamps against shifts, grace periods, public holidays, and leaves to determine daily presence status.
+- **Detailed Specification**: Refer to the dedicated [Time Off & Attendance Rules](time_off_attendance/rules.md) for full implementation specifications, database structures, and testing criteria.
 
 ### 4. Candidate Quizzing & ATS Security
 - **Magic-Link Authentication**: Issue a secure, short-lived hash token scoped to `application_id`. Upon verification, grant a temporary, restricted `candidate` role session that permits only reading authorized quiz details and submitting the answers.
