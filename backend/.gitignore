@@ -11,6 +11,11 @@
 /storage/view/*
 /storage/debugbar/*
 
+# Passport OAuth encryption keys — NEVER commit these
+# Generate with: php artisan passport:keys
+/storage/oauth-private.key
+/storage/oauth-public.key
+
 # Node modules
 node_modules
 package-lock.json
