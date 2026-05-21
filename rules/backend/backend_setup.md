@@ -373,6 +373,43 @@ php artisan passport:install --force
 
 ---
 
+## Security — OAuth Key Files
+
+`php artisan passport:keys` (or `passport:install`) generates two RSA-2048 key files:
+
+| File | Purpose | Sensitivity |
+|---|---|---|
+| `storage/oauth-private.key` | Signs new JWT access tokens | 🔴 **SECRET — never commit** |
+| `storage/oauth-public.key` | Verifies JWT access tokens | 🟡 Less sensitive, still exclude from git |
+
+### `.gitignore` must include:
+```
+/storage/oauth-private.key
+/storage/oauth-public.key
+```
+
+> **Laravel's default `.gitignore` does NOT exclude these files.** You must add them manually on every new project.
+
+### If Keys Were Accidentally Committed to Git
+1. Remove from tracking (keep local files):
+   ```bash
+   git rm --cached storage/oauth-private.key storage/oauth-public.key
+   git commit -m "security: remove oauth keys from tracking"
+   git push
+   ```
+2. Regenerate new keys immediately (old tokens become invalid):
+   ```bash
+   php artisan passport:keys --force
+   ```
+3. All users will need to log in again — their existing tokens are signed with the compromised key.
+
+### Each Environment Gets Its Own Keys
+- Development, staging, and production each have **different** key pairs
+- Never copy keys between environments
+- In CI/CD and production, inject keys via environment variables or a secrets manager (e.g., AWS Secrets Manager, Vault)
+
+---
+
 ## Providers
 
 | Provider | Purpose |
