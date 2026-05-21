@@ -72,6 +72,7 @@ This document outlines the **end-to-end flow for applicants** in the **Recruitme
 #### **Output**
 
 - Candidate profile created in the ATS with a unique **Applicant ID**.
+- Server auto-stamps a human-readable **Candidate Code** following the pattern `CAN-<YYYYMM>-<NNN>` (e.g. `CAN-202605-001`). The numeric component resets per-month and is derived from `applied_at`; withdrawn rows keep their numbers (audit invariant — see [`hrm/rules.md`](../rules.md) "Auto-generated `applications.candidate_code`"). Surfaced in the application list table, the kanban card subtitle, and details modals so recruiters can reference a candidate by code instead of UUID.
 
 ---
 

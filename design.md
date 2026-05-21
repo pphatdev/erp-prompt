@@ -148,7 +148,7 @@ A modern, structural borderless list designed with absolute alignment:
 *   **Operational Columns:** Includes SKU, Category tags, clean numeric figures for Stock and Pricing, and interactive star graphics representing total customer ratings.
 *   **Badges:** Uses curved, desaturated soft elements (`badge-soft-*` in light mode, high contrast solid in dark mode).
 *   **Row Interactions:** Hover states apply transparent backdrops (`bg-slate-500/5`), softening active columns.
-*   **Action Drawer:** Minimalist icons providing instant redirects: View (Eye), Edit (Pencil), and Delete (Trash).
+*   **Row Actions:** A single kebab trigger (`ti-dots-vertical`) opens a fixed-positioned dropdown — see §14 for the canonical pattern. The earlier "inline icon strip" affordance is deprecated and must not be reintroduced.
 
 ---
 
@@ -679,6 +679,18 @@ Before adding a new top-level navigation item or route, verify:
 ## 14. Data Table: Row Actions & Multi-Select Bulk Operations
 
 Reference implementation: `frontend/pages/applications.vue`. This pattern replaces the inline-icon row buttons described in §5.3 — they don't scale past 3 actions and confuse the user about which buttons are dangerous. **Use this pattern for any list view that has ≥ 2 row-level actions or supports bulk operations.**
+
+Adopted across the codebase (kebab dropdown is the only row-actions affordance — no inline button strips):
+- `pages/applications.vue` — View · Edit · Convert to Employee · Delete (also: bulk delete + bulk convert toolbar — §14.3/§14.4).
+- `pages/vacancies.vue` — Edit · View applications · Publish (draft) · Close (open/paused) · Archive.
+- `pages/employees.vue` — Edit · Email · Terminate (≠ terminated). Shared trigger between the table and the grid card.
+- `pages/departments.vue` — Edit · Archive.
+- `pages/positions.vue` — Edit · Remove.
+- `pages/leave-types.vue` — Edit · Remove.
+- `pages/leaves.vue` — Approve · Reject (when `canApprove`) · Withdraw. Trigger only renders when `status === 'pending'`.
+- `pages/payroll.vue` — View payslips · Process (draft) · Close (processed).
+- `pages/appraisals.vue` — Edit/view · Submit (draft) · Review (submitted) · Close (reviewed) · Archive (≠ closed).
+- `pages/products.vue` — View · Edit · Delete.
 
 ### 14.1 Kebab Dropdown (Per-Row Actions)
 Each row's actions cell renders exactly one trigger — a 30×30 `action-trigger` button containing `ti-dots-vertical`. Clicking it opens a fixed-positioned floating menu anchored to the trigger, auto-flipping above when there isn't room below.

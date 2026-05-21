@@ -49,6 +49,14 @@ Use this skill when developing components, pages, or state management in the Nux
 - **Tone**: pick `color: 'danger'` for irreversible actions, `'warning'` for compliance/lock actions, `'primary'` for forward/publish actions. Pair with a matching `ti-*` icon.
 - **Example**: see `pages/payroll.vue` (`processPeriod`, `closePeriod`) and `pages/vacancies.vue` (`publish`) for canonical usage.
 
+### 7. Row Actions on List Tables (P2)
+- **Single kebab trigger**: Any list table with ≥ 2 row-level actions MUST collapse them into a single 30×30 `action-trigger` button containing `ti-dots-vertical`. Inline icon strips (`<button><i ti-pencil/></button><button><i ti-trash/></button>...`) are forbidden — they don't scale past 3 actions and obscure which buttons are destructive.
+- **Fixed-positioned dropdown**: The menu is `position: fixed` (so it escapes the table's `overflow-x-auto` clipping), anchored to the trigger via `getBoundingClientRect()`, and auto-flips above when the viewport is short.
+- **Per-row visibility, not gray-out**: Each item gates on per-row predicates (`v-if="canWrite && row.status === 'draft'"`). Don't render disabled items — hide them.
+- **Item colors**: neutral items use `.action-item`; primary/forward = `.action-item-primary`; warning/lock = `.action-item-warning`; destructive = `.action-item-danger`. Separate groups with `<hr class="my-1 border-(--border-color)">`.
+- **Outside-click dismiss**: register a single `document.addEventListener('click', closeActionMenu)` inside `onMounted` (gated by `import.meta.client`); the trigger uses `@click.stop` so opening doesn't immediately re-close it, and the dropdown root uses `@click.stop` so clicking inside doesn't dismiss.
+- **Reference + adoption list**: see `design.md` §14.1 for the canonical TypeScript snippet and §14 for the full inventory of pages that use this pattern. New list pages MUST follow this contract — do not invent a new row-actions affordance.
+
 ## Best Practices
 - **Mobile First**: Always design for mobile responsiveness first using Tailwind's `sm:`, `md:`, `lg:` prefixes.
 - **Performance**: Optimize images and use lazy-loading for heavy components.

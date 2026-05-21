@@ -12,6 +12,10 @@ The IAM module is the core security layer of the ERP, handling multi-tenancy, au
 - **Role Management**: Define roles like Admin, Manager, and Finance at the tenant level.
 - **Permission Mapping**: Module-feature-action granularity (e.g., `sales.invoice.delete`).
 - **Inheritance**: Roles can inherit permissions from other roles.
+- **Employee Self-Service Role**: Specialized role-mail login, restricted permissions, and ownership policy scoping.
+  - See: [Employee Role Guide](./employee_role.md)
+  - See: [Authentication & Access Flow](./employee_role_flow.md)
+  - See: [Testing Strategy](./employee_role_testing.md)
 
 ## 3. Identity & Security
 - **MFA/OTP**: Mandatory secondary verification for sensitive actions.

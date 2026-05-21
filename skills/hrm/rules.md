@@ -7,7 +7,7 @@ Permissions follow the standard `module.feature.action` pattern defined in [iam.
 - **Module**: `hrm`
 - **Actions**: `read`, `write`, `delete`, `export`
 
-### Feature Matrix:
+### Feature Matrix — Admin Scope:
 | Feature | Read | Write | Delete | Export |
 |---------|------|-------|--------|--------|
 | `employee` | `hrm.employee.read` | `hrm.employee.write` | `hrm.employee.delete` | `hrm.employee.export` |
@@ -16,6 +16,19 @@ Permissions follow the standard `module.feature.action` pattern defined in [iam.
 | `performance`| `hrm.performance.read` | `hrm.performance.write` | - | `hrm.performance.export` |
 | `recruitment`| `hrm.recruitment.read` | `hrm.recruitment.write` | `hrm.recruitment.delete` | `hrm.recruitment.export` |
 | `quiz`      | `hrm.quiz.read`        | `hrm.quiz.write`        | `hrm.quiz.delete`        | `hrm.quiz.export`        |
+
+### Feature Matrix — `.self` Scope (Self-Service):
+These permissions are granted to the seeded `employee` role and pair with policy ownership checks. They **never** unlock admin endpoints — the policy only honors them when the target row belongs to the caller (`$user->employee?->id === $row->employee_id`). See [`iam/rules.md`](../iam/rules.md) for the convention.
+
+| Permission | Endpoint(s) | Notes |
+|---|---|---|
+| `hrm.employee.read.self`     | `GET /employees/me`, `GET /employees/{self}` | Read own profile only |
+| `hrm.employee.write.self`    | `PATCH /employees/me` | Whitelisted fields: `first_name`, `last_name`, `phone`. Never salary/bank/email/dept/position/status |
+| `hrm.leave.read.self`        | `GET /leaves`, `GET /leaves/{own}`, `GET /employees/{self}/leave-balance` | List force-filters to caller's employee_id |
+| `hrm.leave.write.self`       | `POST /leaves`, `DELETE /leaves/{own-pending}` | Service layer asserts employee_id matches caller |
+| `hrm.payslip.read.self`      | `GET /payslips`, `GET /payslips/{own}` | List force-filters to caller's employee_id |
+| `hrm.performance.read.self`  | `GET /appraisals/{own-or-reviewer}` | Allowed when caller is `employee_id` OR `reviewer_id` on the row |
+| `hrm.performance.submit.self`| `POST /appraisals/{own}/submit` | Submit own self-assessment |
 
 ## 2. Implementation Standards
 
@@ -35,6 +48,7 @@ Permissions follow the standard `module.feature.action` pattern defined in [iam.
 - **Candidate-to-Employee Linkage**: When a candidate is hired, the successful `Application` must be linked to an `Employee` via `applications.employee_id` so the employee profile can traverse the complete pre-hire record (quizzes, structured interview scores, feedback panels, signed offers). **The linkage is a deliberate two-step flow, not a side-effect of the status transition** — see "Hire → Employee Conversion Contract" below.
   - *Employee List Enrollment*: The conversion service must call `EmployeeService::createEmployee` with the initial `active` workflow status. This ensures that the newly created record is immediately searchable and visible in `GET /api/v1/employees` (the workforce directory screen).
 
+- **Auto-generated `applications.candidate_code`** (P1): Every `Application` row carries a human-readable candidate code following the pattern `CAN-<YYYYMM>-<NNN>` (e.g. `CAN-202605-001`). The numeric component is **per-month** so recruiters can scan a code and immediately tell when the candidate was received. Implementation lives on the model — `App\Models\Tenant\Application::generateCandidateCode($reference = null)` is called from the `creating` event when `candidate_code` is empty; the reference month is taken from `applied_at` (falls back to `now()`). The generator scans `withTrashed()` so withdrawn applications **do not free their numbers for reuse** (mirrors the `employee_id` audit invariant). Sequence is computed from `MAX(numeric_suffix)` of the same-month prefix; the unique constraint on `applications.candidate_code` (migration `2024_01_01_000028_add_candidate_code_to_applications_table.php`) is the final guard against concurrent-submission races — callers running inside a DB transaction should be prepared to retry on a 23505 violation. The migration backfills pre-existing rows in `applied_at` order so the historical sequence matches the order applications were received in each month. `ApplicationResource` exposes the field as `candidateCode`.
 - **Hire → Employee Conversion Contract**: Transitioning an application to `hired` only changes status — it does **not** auto-create an employee. `RecruitmentService::transitionApplication` must stay free of `Employee::create()`-side-effects. Conversion happens via dedicated endpoints so it's auditable, idempotent, and reversible within a bounded window.
   - **Single convert** — `POST /applications/{application}/convert-to-employee` → `RecruitmentService::convertToEmployee(Application)`. Requires both `hrm.recruitment.write` AND `hrm.employee.write` (policy `ApplicationPolicy::convert`). Idempotent: if `employee_id` is already set, returns the linked employee without creating a duplicate. Email is the dedupe key — an **active** `Employee` with the same email is reused instead of cloned (response signals this with `linkedExisting: true`). Soft-deleted matches (terminated or post-revert) are **ignored** — a fresh row is created in that case so rehires get a new Employee record and a new `employee_id`. Stamps `applications.converted_at = now()` on link.
   - **DB constraint contract**: `employees.email` carries a **partial unique index** that only enforces when `deleted_at IS NULL` (migration `2024_01_01_000026_make_employees_email_unique_partial.php`). Without it, a soft-deleted row keeps the email "reserved" and blocks rehires with a 23505 violation. `employees.employee_id` is **intentionally NOT partial** — terminated employees keep their IDs forever (audit invariant); revert is the only path that frees an ID, via the rename trick documented below.
