@@ -10,17 +10,18 @@ Use this skill when developing components, pages, or state management in the Nux
 - **TypeScript**: Mandatory strict mode. All props, emits, and composables must be typed.
 - **Styling**: Tailwind CSS 4+ (Latest). Use utility-first approach with customized design tokens.
 - **UI System**: PrimeVue for complex components (DataTables, Calendars, Dialogs).
+- **Code Indentation**: Use 4 spaces for indentation (tab size 4) across all Vue, TypeScript, HTML, CSS, and JSON files to ensure codebase uniformity and align with backend standards.
 
 ### 2. Component Design (Atomic)
 - **Base Components**: Wrap PrimeVue components to match the project's premium design language.
 - **Props & Emits**:
   ```typescript
   interface Props {
-    title: string;
-    loading?: boolean;
+      title: string;
+      loading?: boolean;
   }
   const props = withDefaults(defineProps<Props>(), {
-    loading: false
+      loading: false
   });
   ```
 - **Templates**: Keep templates clean. Move complex logic to the `<script setup>` or composables.

@@ -108,59 +108,59 @@ const { activeTenant } = useTenant();
 const api = useApi();
 
 const onUploadFile = async (event: any) => {
-  const file = event.files[0];
-  if (!file) return;
+    const file = event.files[0];
+    if (!file) return;
 
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('is_public', 'false');
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('is_public', 'false');
 
-  isUploading.value = true;
-  uploadProgress.value = 0;
+    isUploading.value = true;
+    uploadProgress.value = 0;
 
-  try {
-    const response = await api.post('/v1/attachments/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        'X-Tenant-Handle': activeTenant.value.handle
-      },
-      onUploadProgress: (progressEvent) => {
-        if (progressEvent.total) {
-          uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-        }
-      }
-    });
+    try {
+        const response = await api.post('/v1/attachments/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                'X-Tenant-Handle': activeTenant.value.handle
+            },
+            onUploadProgress: (progressEvent) => {
+                if (progressEvent.total) {
+                    uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                }
+            }
+        });
 
-    toast.add({ severity: 'success', summary: 'Success', detail: 'File uploaded successfully', life: 3000 });
-  } catch (error: any) {
-    toast.add({ severity: 'error', summary: 'Upload Failed', detail: error.message || 'An error occurred', life: 5000 });
-  } finally {
-    isUploading.value = false;
-  }
+        toast.add({ severity: 'success', summary: 'Success', detail: 'File uploaded successfully', life: 3000 });
+    } catch (error: any) {
+        toast.add({ severity: 'error', summary: 'Upload Failed', detail: error.message || 'An error occurred', life: 5000 });
+    } finally {
+        isUploading.value = false;
+    }
 };
 </script>
 
 <template>
-  <div class="card p-6 rounded-2xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 shadow-sm">
-    <h3 class="text-xl font-bold mb-4">Upload Documents</h3>
-    
-    <FileUpload 
-      mode="basic" 
-      name="file" 
-      accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" 
-      :maxFileSize="10485760" 
-      customUpload 
-      @uploader="onUploadFile"
-      :disabled="isUploading"
-      chooseLabel="Select File"
-      class="p-button-outlined"
-    />
+    <div class="card p-6 rounded-2xl border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-900 shadow-sm">
+        <h3 class="text-xl font-bold mb-4">Upload Documents</h3>
+        
+        <FileUpload 
+            mode="basic" 
+            name="file" 
+            accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" 
+            :maxFileSize="10485760" 
+            customUpload 
+            @uploader="onUploadFile"
+            :disabled="isUploading"
+            chooseLabel="Select File"
+            class="p-button-outlined"
+        />
 
-    <div v-if="isUploading" class="mt-4">
-      <ProgressBar :value="uploadProgress" class="h-2" />
-      <span class="text-sm text-surface-500 mt-1 block">Uploading... {{ uploadProgress }}%</span>
+        <div v-if="isUploading" class="mt-4">
+            <ProgressBar :value="uploadProgress" class="h-2" />
+            <span class="text-sm text-surface-500 mt-1 block">Uploading... {{ uploadProgress }}%</span>
+        </div>
     </div>
-  </div>
 </template>
 ```
 
