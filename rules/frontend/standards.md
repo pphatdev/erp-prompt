@@ -34,6 +34,21 @@ Use this skill when developing components, pages, or state management in the Nux
 - Use Pinia for global state (User info, Tenant config, Shared settings).
 - Avoid putting large datasets in global state; use local state or Nuxt's data fetching instead.
 
+### 5. Date & Time Formatting (P2)
+- **Single source of truth**: All datetime/date renders MUST go through `~/composables/useDateFormat.ts`. Do NOT call `Date#toLocaleString`, `Date#toLocaleDateString`, or hand-roll formatters in pages/components.
+- **Canonical shapes**:
+  - `formatDateTime(input)` → `"21 May 2026 03:45 PM"` (day month-name year, 12-hour clock with AM/PM).
+  - `formatDate(input)` → `"21 May 2026"` (date only).
+- **Inputs**: accepts ISO strings, `Date` objects, numbers, `null`, or `undefined`. Invalid/empty input returns the em-dash placeholder (`—`) so callers don't need to guard.
+- **When to use which**: prefer `formatDateTime` for event stamps (applied at, converted at, audit log timestamps). Use `formatDate` for date-only domain fields (hired at, posted at, created at columns in admin tables).
+- **Adding a new page**: import the named functions (`import { formatDateTime, formatDate } from '~/composables/useDateFormat'`) — do not duplicate the logic locally even "just for this one date."
+
+### 6. Confirm Modals (P2)
+- **No native browser dialogs**: `confirm()`, `alert()`, and `prompt()` are forbidden in pages/components. They break the design language, can't be themed, and can't be tested via Playwright.
+- **Use `toast.confirm()`**: Destructive or state-changing actions (publish, close, archive, delete, convert) MUST go through the `confirm()` method exposed by `useToast()` (rendered by `components/ConfirmDialog.vue`). It returns a Promise resolving `true` on accept, `false` on cancel/Escape/backdrop.
+- **Tone**: pick `color: 'danger'` for irreversible actions, `'warning'` for compliance/lock actions, `'primary'` for forward/publish actions. Pair with a matching `ti-*` icon.
+- **Example**: see `pages/payroll.vue` (`processPeriod`, `closePeriod`) and `pages/vacancies.vue` (`publish`) for canonical usage.
+
 ## Best Practices
 - **Mobile First**: Always design for mobile responsiveness first using Tailwind's `sm:`, `md:`, `lg:` prefixes.
 - **Performance**: Optimize images and use lazy-loading for heavy components.
