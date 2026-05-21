@@ -65,12 +65,22 @@ backend/
 │   ├── migrations/
 │   │   ├── central/              # Landlord schema: tenants, domains tables
 │   │   │   └── 2024_01_01_000001_create_tenants_table.php
-│   │   ├── tenant/               # Per-tenant schemas (30 migration files)
-│   │   │   ├── 2016_06_01_000001_create_oauth_auth_codes_table.php
+│   │   ├── tenant/               # Per-tenant schemas (31 migration files)
+│   │   │   ├── 2016_06_01_000001_create_oauth_auth_codes_table.php        # ⚠️ with hasTable guard
+│   │   │   ├── 2016_06_01_000002_create_oauth_access_tokens_table.php     # ⚠️ with hasTable guard
+│   │   │   ├── 2016_06_01_000003_create_oauth_refresh_tokens_table.php    # ⚠️ with hasTable guard
+│   │   │   ├── 2016_06_01_000004_create_oauth_clients_table.php           # ⚠️ with hasTable guard
+│   │   │   ├── 2016_06_01_000005_create_oauth_personal_access_clients_table.php  # ⚠️ with hasTable guard
 │   │   │   ├── 2024_01_01_000002_create_users_table.php
 │   │   │   ├── 2024_01_01_000003_create_rbac_tables.php
-│   │   │   └── ... (all business module schemas)
+│   │   │   └── ... (all business module schemas up to _000027)
+│   │   │   └── 2024_01_01_000027_fix_oauth_user_id_to_uuid.php            # UUID compat fix
 │   │   └── (root)                # Shared: oauth_*, cache, personal_access_tokens
+│   │       ├── 2026_05_21_014519_create_oauth_auth_codes_table.php        # UUID-compatible user_id
+│   │       ├── 2026_05_21_014520_create_oauth_access_tokens_table.php     # UUID-compatible user_id
+│   │       ├── 2026_05_21_014521_create_oauth_refresh_tokens_table.php
+│   │       ├── 2026_05_21_014522_create_oauth_clients_table.php
+│   │       └── 2026_05_21_014523_create_oauth_personal_access_clients_table.php
 │   └── seeders/
 │       ├── DatabaseSeeder.php    # → calls CentralSeeder (landlord)
 │       └── TenantDatabaseSeeder.php  # → seeds per-tenant data
@@ -101,6 +111,56 @@ Every module under `app/Tenants/Modules/{Module}/` **must** follow this layout:
 ├── Requests/             # FormRequest validation classes
 └── Policies/             # (optional) Fine-grained authorization
 ```
+
+---
+
+## OAuth Migration Architecture (Critical — Two Layers)
+
+This project uses a **two-layer OAuth migration strategy** to support both the central landlord database and per-tenant databases.
+
+### Layer 1: Root-Level Migrations (Central/Landlord DB)
+Located in `database/migrations/` (root level). These run on the **central landlord database** via `php artisan migrate`.
+
+> **Important:** These root-level oauth_* migration files use UUID-compatible `string(100)` for `user_id` directly — no post-fix migration needed.
+
+```php
+// Root oauth_access_tokens — user_id is already string(100)
+Schema::create('oauth_access_tokens', function (Blueprint $table) {
+    $table->string('id', 100)->primary();
+    $table->string('user_id', 100)->nullable()->index(); // UUID-compatible
+    $table->unsignedBigInteger('client_id');
+    $table->string('name')->nullable();
+    $table->text('scopes')->nullable();
+    $table->boolean('revoked');
+    $table->timestamps();
+    $table->dateTime('expires_at')->nullable();
+});
+```
+
+### Layer 2: Tenant-Level Migrations (Per-Tenant DBs)
+Located in `database/migrations/tenant/`. These run on each **tenant database** via `php artisan tenants:migrate`.
+
+> **Important:** All tenant-level oauth_* files MUST use `Schema::hasTable()` guards to be idempotent (in case Passport published duplicate files).
+
+```php
+// Tenant oauth migration pattern — ALWAYS use hasTable guard
+public function up(): void
+{
+    if (!Schema::hasTable('oauth_access_tokens')) {
+        Schema::create('oauth_access_tokens', function (Blueprint $table) {
+            $table->string('id', 100)->primary();
+            $table->string('user_id', 100)->nullable()->index(); // UUID-compatible
+            $table->unsignedBigInteger('client_id');
+            // ...
+        });
+    }
+}
+```
+
+### Layer 3: UUID Fix Migration (Tenant DBs Only)
+`2024_01_01_000027_fix_oauth_user_id_to_uuid.php` — runs in tenant migrations ONLY.
+
+This migration is a **safety net** that alters any pre-existing `oauth_access_tokens.user_id` and `oauth_auth_codes.user_id` columns from `bigint` to `string(100)` when old Passport defaults were already applied. It uses `Schema::hasTable()` guards to be safe.
 
 ---
 
@@ -182,6 +242,16 @@ Tests **always** point to `erp_system_test` — never the development database.
 Copy from `.env.example`. Key blocks:
 
 ```ini
+APP_NAME="ERP Enterprise"
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://localhost
+
+LOG_CHANNEL=stack
+LOG_DEPRECATIONS_CHANNEL=null
+LOG_LEVEL=debug
+
 # Central Landlord Database
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
@@ -194,7 +264,19 @@ DB_PASSWORD=erp_secret
 TENANCY_DATABASE_MANAGER=pgsql
 TENANCY_CENTRAL_DOMAINS=localhost,api.erp-system.test
 
+BROADCAST_DRIVER=log
+CACHE_STORE=file
+FILESYSTEM_DISK=local
+QUEUE_CONNECTION=sync
+SESSION_DRIVER=file
+SESSION_LIFETIME=120
+
+# Passport — Personal Access Client (auto-generated by passport:install)
+PASSPORT_PERSONAL_ACCESS_CLIENT_ID=
+PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET=
+
 # Passport — Password Grant (deterministic for dev/test)
+# Create with: php artisan passport:client --password
 PASSPORT_PASSWORD_CLIENT_ID=33
 PASSPORT_PASSWORD_CLIENT_SECRET=b3x5ItVFBU46N3oJljIKrbibQLR0CT0LKlzKddG7
 ```
@@ -203,7 +285,7 @@ PASSPORT_PASSWORD_CLIENT_SECRET=b3x5ItVFBU46N3oJljIKrbibQLR0CT0LKlzKddG7
 
 ## First-Time Setup — Exact Command Sequence
 
-Run these commands in order. **Deviating from this order causes cascading errors.**
+Run these commands **in this exact order**. Deviating causes cascading errors.
 
 ```bash
 # 1. Copy environment template
@@ -215,28 +297,38 @@ composer install
 # 3. Generate app encryption key
 php artisan key:generate
 
-# 4. Generate Passport OAuth encryption keys (ONLY keys — no migrations)
-php artisan passport:keys
+# 4. Generate Passport RSA keys and create default OAuth clients
+#    ⚠️  Use passport:install ONCE on a fresh project — it also runs oauth_* migrations.
+#    After this, NEVER run passport:install --force again (creates duplicate migration files).
+php artisan passport:install
 
-# 5. Create central landlord tables (tenants, domains)
+# 5. Create the password grant client (note the ID/secret printed — add to .env)
+php artisan passport:client --password
+
+# 6. Create central landlord tables (tenants, domains)
 #    ⚠️  migrations/central/ is NOT auto-discovered by 'migrate'
 php artisan migrate --path=database/migrations/central
 
-# 6. Run root-level shared migrations (oauth_*, cache, personal_access_tokens)
+# 7. Run root-level shared migrations (oauth_*, cache, personal_access_tokens)
 php artisan migrate
 
-# 7. Seed the landlord DB — this CREATES the tenant databases
+# 8. Seed the landlord DB — this CREATES the tenant databases
 php artisan db:seed
 
-# 8. Migrate every tenant database (databases now exist after Step 7)
+# 9. Migrate every tenant database (databases now exist after Step 8)
 php artisan tenants:migrate
 
-# 9. Seed tenant-specific data (users, roles, demo data)
+# 10. Seed tenant-specific data (users, roles, demo data)
 php artisan tenants:seed
 
-# 10. Start the development server
+# 11. Copy client ID/secrets from Steps 4–5 into .env, then clear config cache:
+php artisan config:clear
+
+# 12. Start the development server
 php artisan serve
 ```
+
+> **Deterministic Passport Credentials:** For dev/test repeatability, after step 5 you can re-seed `oauth_clients` via `DatabaseSeeder` to force the ID to `33` and use the shared secret defined in `.env.example`.
 
 ---
 
@@ -352,15 +444,18 @@ use App\Models\Traits\Auditable;
 
 ## Passport Rules (Critical)
 
-### Initial Setup Only
+### Initial Setup (Fresh Project — ONCE)
 ```bash
-php artisan passport:install    # Generates keys + runs oauth_* migrations ONCE
-php artisan passport:client --password  # Creates password grant client
+# ✅ Generates RSA keys + runs oauth_* migrations once
+php artisan passport:install
+
+# Then create the password grant client
+php artisan passport:client --password
 ```
 
 ### After Initial Setup — Keys Only
 ```bash
-# ✅ Safe — regenerates keys only
+# ✅ Safe — regenerates RSA keys ONLY, no migration files touched
 php artisan passport:keys --force
 
 # ❌ NEVER — republishes migration files with NEW timestamps every run
@@ -371,11 +466,23 @@ php artisan passport:install --force
 > `Passport::ignoreMigrations()` **does not exist** in Passport 12.x / Laravel 11.
 > If duplicate migrations were published, patch each one with `if (! Schema::hasTable(...))` guard.
 
+### Why Two Sets of OAuth Migrations Exist
+
+This project intentionally has **two sets** of oauth_* migration files:
+
+| Set | Location | Runs On |
+|---|---|---|
+| Root (`2026_05_21_01452*`) | `database/migrations/` | Central landlord DB (via `php artisan migrate`) |
+| Tenant (`2016_06_01_0000*`) | `database/migrations/tenant/` | Each tenant DB (via `php artisan tenants:migrate`) |
+
+Both sets use `string(100)` for `user_id` to be UUID-compatible from the start.
+Tenant-level files use `Schema::hasTable()` guards to be fully idempotent.
+
 ---
 
 ## Security — OAuth Key Files
 
-`php artisan passport:keys` (or `passport:install`) generates two RSA-2048 key files:
+`php artisan passport:install` (or `passport:keys`) generates two RSA-2048 key files:
 
 | File | Purpose | Sensitivity |
 |---|---|---|
@@ -439,3 +546,16 @@ php artisan tenants:seed            # Seed all tenant databases
 php artisan tenants:migrate-fresh   # Drop & recreate all tenant tables
 php artisan tenants:run {command}   # Run any artisan command per-tenant
 ```
+
+---
+
+## Common Errors & Quick Fixes
+
+| Error | Root Cause | Fix |
+|---|---|---|
+| `relation "tenants" does not exist` | Central migrations never ran | `php artisan migrate --path=database/migrations/central` |
+| `relation "users" does not exist` on login | `tenants:migrate` ran before `db:seed` | `db:seed` → `tenants:migrate` → `tenants:seed` |
+| `SQLSTATE[42P07]: relation "oauth_*" already exists` | `passport:install --force` ran multiple times | Add `Schema::hasTable()` guards to duplicate migration files |
+| `Call to undefined method Passport::ignoreMigrations()` | Method removed in Passport 12.x | Remove the call; use `Schema::hasTable()` guard pattern |
+| `Database connection [central] not configured` | Hardcoded `'central'` in `config/tenancy.php` | Set `'central_connection' => env('DB_CONNECTION', 'pgsql')` |
+| `Class not found: MySQLDatabaseManager` | Wrong namespace in tenancy.php | Remove `\Database` from the namespace string |

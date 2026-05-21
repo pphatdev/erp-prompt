@@ -46,7 +46,7 @@ Use this skill when implementing new API endpoints, business services, or databa
 - **Documentation**: Use JSDoc-style comments for complex business logic explanations within services.
 
 ## Troubleshooting
-- **First Build `.env` Generation**: When initializing the project, always duplicate `.env.example` to `.env` and run `php artisan key:generate` before doing anything else.
+- **First Build `.env` Generation**: When initializing the project, always duplicate `.env.example` to `.env` and run `php artisan key:generate` before doing anything else. Then run `php artisan passport:install` (once) to generate RSA keys and oauth_* tables. See `rules/backend/backend_setup.md` for the full 12-step sequence.
 - **Missing `artisan` File**: If `composer install` fails at `postAutoloadDump` with `Could not open input file: artisan`, ensure the Laravel 11 `artisan` file exists at the project root. Recreate it with standard Laravel boilerplate if necessary.
 - **Missing Base Controller**: If you see `Class "App\Http\Controllers\Controller" not found`, ensure the abstract `Controller.php` file exists in `app/Http/Controllers/`.
 - **Composer SSL/TLS Errors**: On Windows environments, if Composer throws OpenSSL errors, uncomment `;extension=openssl` and `;extension_dir = "ext"` in your active `php.ini` (found via `php --ini`).
@@ -74,7 +74,9 @@ Use this skill when implementing new API endpoints, business services, or databa
 - **N+1 Queries**: Use `Eager Loading` (`with()`) to prevent performance bottlenecks. Use the `laravel-query-detector` in development.
 - **Validation Errors**: If 422 errors are unclear, ensure the Form Request's `messages()` method provides helpful feedback.
 - **Transaction Deadlocks**: Keep database transactions as short as possible and avoid external API calls inside them.
-- **`relation "tenants" does not exist` on `tenants:migrate`**: The central migrations at `database/migrations/central/` were never run. This path is **not** auto-discovered by `php artisan migrate`. Run `php artisan migrate --path=database/migrations/central` first. See `rules/tenancy/skill.md` for the full 5-step sequence.
+- **`relation "tenants" does not exist` on `tenants:migrate`**: The central migrations at `database/migrations/central/` were never run. This path is **not** auto-discovered by `php artisan migrate`. Run `php artisan migrate --path=database/migrations/central` first. See `rules/tenancy/skill.md` for the full 8-step sequence.
 - **`relation "users" does not exist` on login**: `tenants:migrate` was executed before `db:seed`. The central seeder provisions tenant databases — if migrate runs before seed, the databases are empty. Correct order: `db:seed` → `tenants:migrate` → `tenants:seed`.
 - **`SQLSTATE[42P07]: relation "oauth_auth_codes" already exists`**: `passport:install --force` was run multiple times, each time publishing new migration files with fresh timestamps. Apply a `Schema::hasTable()` guard to each duplicate file. See `rules/auth/skill.md` for the full pattern.
+- **`oauth_access_tokens.user_id` type mismatch**: Passport's default uses `unsignedBigInteger` for `user_id` but this project uses UUID string keys. Tenant migration `_000027_fix_oauth_user_id_to_uuid.php` patches this automatically — run `php artisan tenants:migrate` to apply it.
+- **`passport:setup` command not found**: This project uses `passport:install` (not `passport:setup`). Run `php artisan passport:install` for initial setup, then `php artisan passport:client --password` to create the password grant client.
 
