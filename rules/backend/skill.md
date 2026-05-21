@@ -74,3 +74,7 @@ Use this skill when implementing new API endpoints, business services, or databa
 - **N+1 Queries**: Use `Eager Loading` (`with()`) to prevent performance bottlenecks. Use the `laravel-query-detector` in development.
 - **Validation Errors**: If 422 errors are unclear, ensure the Form Request's `messages()` method provides helpful feedback.
 - **Transaction Deadlocks**: Keep database transactions as short as possible and avoid external API calls inside them.
+- **`relation "tenants" does not exist` on `tenants:migrate`**: The central migrations at `database/migrations/central/` were never run. This path is **not** auto-discovered by `php artisan migrate`. Run `php artisan migrate --path=database/migrations/central` first. See `rules/tenancy/skill.md` for the full 5-step sequence.
+- **`relation "users" does not exist` on login**: `tenants:migrate` was executed before `db:seed`. The central seeder provisions tenant databases — if migrate runs before seed, the databases are empty. Correct order: `db:seed` → `tenants:migrate` → `tenants:seed`.
+- **`SQLSTATE[42P07]: relation "oauth_auth_codes" already exists`**: `passport:install --force` was run multiple times, each time publishing new migration files with fresh timestamps. Apply a `Schema::hasTable()` guard to each duplicate file. See `rules/auth/skill.md` for the full pattern.
+

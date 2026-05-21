@@ -2,6 +2,19 @@
 
 This is not what you know! Read `rules/*` and `skills/*` before build anything!
 
+## 📚 Mandatory Reading Before Any Backend Work
+
+Before writing a single line of backend code or running any command, read these files in order:
+
+| Priority | File | Why |
+|---|---|---|
+| **1** | [`rules/backend/backend_setup.md`](./rules/backend/backend_setup.md) | **Complete** setup sequence, directory structure, all patterns |
+| **2** | [`rules/tenancy/skill.md`](./rules/tenancy/skill.md) | Migration order, tenant provisioning, troubleshooting |
+| **3** | [`rules/auth/skill.md`](./rules/auth/skill.md) | Passport rules, duplicate migration trap, OAuth2 flow |
+| **4** | [`rules/backend/skill.md`](./rules/backend/skill.md) | Controller/Service/Model patterns, API standards |
+
+
+
 ## Overview
 A high-performance, multi-tenant Enterprise Resource Planning (ERP) system split into two distinct, decoupled projects.
 

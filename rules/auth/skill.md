@@ -32,6 +32,52 @@ Use this skill when implementing login flows, managing user sessions, or integra
 - **Frontend Permission Checks**: Use a global `v-can` directive or a computed `hasPermission(name)` helper to conditionally render UI elements like "Edit" buttons or "Delete" actions.
 - **Route Protection**: Wrap all sensitive routes in the `can:` middleware.
 
+## Passport Installation Rules
+
+> **CRITICAL**: Follow these rules to avoid creating duplicate migration files that break `php artisan migrate`.
+
+### Initial Setup (Fresh Project)
+```bash
+# Step 1 — Generate encryption keys and run oauth_* migrations ONCE
+php artisan passport:install
+
+# Step 2 — Create the password grant client (use deterministic ID if seeder expects it)
+php artisan passport:client --password
+```
+
+### Re-Generating Keys Only (After Initial Setup)
+```bash
+# ✅ CORRECT — only regenerates encryption keys, does NOT touch migration files
+php artisan passport:keys --force
+
+# ❌ WRONG — republishes migration files with NEW timestamps every single run
+# This creates duplicate oauth_* migration files (e.g. _015030_, _015038_, _015136_...)
+# Each duplicate will then fail with: SQLSTATE[42P07]: relation "oauth_auth_codes" already exists
+php artisan passport:install --force
+```
+
+### If Duplicate Migrations Were Already Created
+If `passport:install --force` was accidentally run multiple times, every newly published set of `oauth_*` migration files must be patched with a `Schema::hasTable()` guard:
+
+```php
+// Pattern for all duplicate oauth_* migration files
+public function up(): void
+{
+    if (! Schema::hasTable('oauth_auth_codes')) {  // check before create
+        Schema::create('oauth_auth_codes', function (Blueprint $table) {
+            // ... columns
+        });
+    }
+}
+
+public function down(): void
+{
+    // Intentionally empty — managed by the original migration
+}
+```
+
+> `Passport::ignoreMigrations()` **does not exist** in Passport 11.x (Laravel 11). Do not use it — it will throw `Call to undefined method`. The `Schema::hasTable()` guard pattern above is the correct workaround.
+
 ## Best Practices
 - **Never Trust the Frontend**: Always re-verify permissions in the backend Service layer, even if the UI hid the button.
 - **Cache Permissions**: Use Redis to cache user permissions for the duration of the session to avoid redundant database queries.
@@ -41,6 +87,8 @@ Use this skill when implementing login flows, managing user sessions, or integra
 - **Scoped Permissions**: Use Passport **Scopes** to limit the actions an access token can perform.
 
 ## Troubleshooting
+- **`SQLSTATE[42P07]: relation "oauth_auth_codes" already exists`**: `passport:install --force` was run more than once. New migration files with different timestamps were created. Apply the `Schema::hasTable()` no-op guard to every duplicate file, or delete the duplicates if the original `014519_*` migrations already ran.
+- **`Call to undefined method Passport::ignoreMigrations()`**: This method does not exist in Passport 11.x. Remove the call. Use the `Schema::hasTable()` guard in migration files instead.
 - **Token Expired**: If a user is logged out unexpectedly, check the `expires_in` value and the frontend refresh logic.
 - **Invalid Tenant**: If a valid token fails with a 403, verify that the token's `tenant_id` matches the current active tenant in the request.
 - **SSO Callback Failure**: Check the `REDIRECT_URI` configuration in both the identity provider and the Laravel `.env` file.
