@@ -57,6 +57,7 @@ Permissions follow `module.feature.action[.scope]`. The base form is the **admin
 ### Backend (Laravel)
 - **Namespace**: `App\Tenants\Modules\IAM`
 - **Service Layer**: Use `TenantService.php`, `UserService.php`, `RoleService.php`.
+- **User Password Contract (P0)**: `App\Models\Tenant\User` declares `'password' => 'hashed'` in `casts()`. **Pass plaintext** to `User::create([...])` and `$user->update([...])` — the cast hashes it once. **Never** call `Hash::make()` on the password in `UserService` (or any service): the cast's `Hash::isHashed()` driver guard mis-detects under config drift and re-hashes, producing `bcrypt(bcrypt($plain))`. The symptom is "freshly created users can't log in even though the seeded admin can" because the seeded hash was written under matching config. Same rule for `forceFill(['password' => ...])`. See [`rules/auth/skill.md`](../../rules/auth/skill.md) under *Best Practices → Never Double-Hash Passwords*.
 - **Security**: Critical permission changes MUST require OTP verification.
 - **Logging**: All changes to roles/permissions MUST be recorded in `audit_logs`.
 

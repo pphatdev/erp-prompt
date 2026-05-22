@@ -15,6 +15,11 @@ Use this skill when implementing new API endpoints, business services, or databa
 - **Logic Isolation**: Move all business logic, calculations, and external integrations to Service classes.
 - **Atomicity**: Ensure service methods are atomic. Use `DB::transaction()` for operations spanning multiple tables.
 - **Dependencies**: Inject models or other services via the constructor.
+- **Respect Model Casts (P0)**: Do not re-implement transformations the model already declares via `casts()`. Specifically:
+  - Never call `Hash::make()` on an attribute the model casts as `'hashed'` (e.g. `User::password`). The cast hashes plaintext exactly once; double-hashing breaks `Hash::check()` and produces silent "Invalid credentials" on login. See [`rules/auth/skill.md`](../auth/skill.md) for the full story.
+  - Never `json_encode()` an attribute cast as `'array'` / `'json'` — the cast serializes on write.
+  - Never `Crypt::encrypt()` an attribute cast as `'encrypted'`.
+  - General rule: if the model casts an attribute, the service passes the **decoded/plaintext** value and lets Eloquent's setAttribute do the work.
 
 ### 3. Model & Database Patterns
 - **UUIDs**: Use UUIDs as primary keys for all models.
@@ -79,4 +84,5 @@ Use this skill when implementing new API endpoints, business services, or databa
 - **`SQLSTATE[42P07]: relation "oauth_auth_codes" already exists`**: `passport:install --force` was run multiple times, each time publishing new migration files with fresh timestamps. Apply a `Schema::hasTable()` guard to each duplicate file. See `rules/auth/skill.md` for the full pattern.
 - **`oauth_access_tokens.user_id` type mismatch**: Passport's default uses `unsignedBigInteger` for `user_id` but this project uses UUID string keys. Tenant migration `_000027_fix_oauth_user_id_to_uuid.php` patches this automatically — run `php artisan tenants:migrate` to apply it.
 - **`passport:setup` command not found**: This project uses `passport:install` (not `passport:setup`). Run `php artisan passport:install` for initial setup, then `php artisan passport:client --password` to create the password grant client.
+- **New user can't login but seeded admin can**: A service is calling `Hash::make()` on the password before assignment, and the User model already declares `'password' => 'hashed'` in `casts()`. The cast re-hashes on top of the manual hash, so `Hash::check($plain, $stored)` fails. Remove `Hash::make()` from the service — pass plaintext, let the cast hash exactly once. Existing broken rows must be re-saved with their intended plaintext (`$user->forceFill(['password' => $plain])->save()`).
 

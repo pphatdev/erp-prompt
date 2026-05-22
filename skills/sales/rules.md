@@ -17,20 +17,32 @@ Permissions follow the standard `module.feature.action` pattern defined in [iam.
 
 ## 2. Implementation Standards
 
-### Order-to-Cash (O2C) Workflow
-1. **Inquiry/Quotation**: Create lead and generate quote.
-2. **Approval**: Wait for customer sign-off.
-3. **Order Conversion**: Convert approved quote to Sales Order.
-4. **Inventory Check**: Deduct stock via `InventoryService`.
-5. **Fulfillment**: Update status to `shipped`.
-6. **Invoicing**: Generate PDF invoice and post to FMS (Accounts Receivable).
-7. **Settlement**: Record payment and close order.
+### Hybrid Order-to-Cash (O2C) Workflow
+1. **Create Customer**: Register the new client/lead.
+2. **Create Quote**: 
+   - Add Products (Can be a mix of **Software** modules and **Hardware** like Laptops/Phones).
+   - Select Product Variant (e.g., Monthly/Yearly for Software, or Color/Storage for Hardware).
+   - Set Quantity, Unit Price, Total Price, Due Date.
+   - Set Status (`New`, `Confirmed`, `Cancelled`).
+3. **Create Sales Order**: 
+   - Convert from Quote.
+   - Set Status (`New`, `Confirmed`, `Cancelled`).
+4. **Create Invoice**:
+   - Convert from Sales Order.
+   - Set Status (`New`, `Confirmed`, `Cancelled`).
+5. **Setup Subscription** (For Software/SaaS Products):
+   - Convert from Sales Order.
+   - Set Status (`New`, `Confirmed`, `Cancelled`).
+   - *Note for Hardware*: If the Sales Order includes Hardware, trigger inventory deduction and shipping fulfillment simultaneously.
+6. **Customer Access** (Tenant Provisioning):
+   - Create customer account.
+   - Customer can login to the system.
 
 ### Backend (Laravel)
 - **Namespace**: `App\Tenants\Modules\Sales`
-- **Service Layer**: Logic in `Services/OrderService.php`, `Services/CrmService.php`, etc.
-- **Transactions**: Order creation and inventory deduction MUST be atomic.
-- **Resources**: Use `OrderResource` and `CustomerResource` for API responses.
+- **Service Layer**: Logic in `Services/OrderService.php`, `Services/SubscriptionService.php`, and `Services/InventoryService.php`.
+- **Transactions**: Order creation, inventory deduction, and subscription provisioning MUST be atomic.
+- **Resources**: Use `OrderResource`, `SubscriptionResource`, and `CustomerResource` for API responses.
 
 ### Frontend (Nuxt/PrimeVue)
 - **Path**: `src/modules/sales/`

@@ -106,3 +106,11 @@
 - Report Scheduling & Delivery
 - Report Security & Access Control
 - Report Audit & Compliance Tracking
+
+## 13. Configuration & Tenant Settings
+- **[Detailed Specification: Configuration](./configuration/overview.md)**
+- Company Profile & Legal Information
+- Localization & Regional Settings (Currency, Timezone)
+- Branding & UI Customization (Logos, Colors)
+- Module Enablement & Feature Toggles
+- Global Security Policies

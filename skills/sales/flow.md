@@ -2,15 +2,19 @@
 
 ```mermaid
 graph TD
-    A[New Lead] --> B[Customer Inquiry]
-    B --> C[Create Quotation]
-    C --> D{Customer Approved?}
-    D -- No --> E[Revise or Close]
-    D -- Yes --> F[Convert to Sales Order]
-    F --> G[Check Inventory]
-    G --> H[Fulfill/Ship Order]
-    H --> I[Generate Invoice]
-    I --> J[Record Accounts Receivable in FMS]
-    J --> K[Payment Received]
-    K --> L[End: Order Closed]
+    A[Create Customer] --> B[Create Quotation]
+    B -->|Add Product, Variant, Qt, Prices, Dates| C[Set Quote Status: New/Confirmed/Cancelled]
+    C -- Confirmed --> D[Create Sales Order]
+    
+    %% Sales Order Conversion
+    D -->|Convert from Sales Order| E[Create Invoice]
+    D -->|Convert from Sales Order| F[Setup Subscription]
+    D -->|If Hardware| G[Check & Deduct Inventory]
+    
+    %% Status Management
+    E -->|Set Status: New/Confirmed/Cancelled| H[Record Accounts Receivable]
+    F -->|Set Status: New/Confirmed/Cancelled| I[Create Customer Account]
+    
+    I --> J[Customer Logins to System]
+    G --> K[Ship/Fulfill Hardware]
 ```
