@@ -6,6 +6,7 @@ The HRM module manages the complete lifecycle of an employee, including recruitm
 ## 1. Core Modules
 
 ### Recruitment (Talent Acquisition & ATS)
+- **Initial Data Collection**: Serves as the primary entry point for [HR Staff Information](./employee_data_collection.md). Core fields (Name, Contact, Resumes, etc.) collected during recruitment are automatically migrated to the Employee Profile upon conversion.
 - **Job Vacancy Management**: Requisitions, job descriptions, and locations.
 - **Applicant Pipeline**: Tracking candidates from sourcing to offer.
 - **Interview Management**: Scheduling and structured feedback.
@@ -13,7 +14,8 @@ The HRM module manages the complete lifecycle of an employee, including recruitm
 - **Interactive Quiz Engine**: Structured multi-choice/short-answer tests with automated grading and time tracking linked directly to the application.
 
 ### Workforce Management (Employees)
-- **Unified Profile**: Personal, employment, and contact data.
+- **[Detailed Data Requirements: HR Staff Information Collection](./employee_data_collection.md)**
+- **Unified Profile**: Personal, employment, and contact data. MUST adhere to all mandatory and sensitive field specifications defined in the data collection spec.
 - **Org Structure**: Department mapping and reporting lines.
 - **Status Tracking**: Active, Separated, and Monitored segments.
 

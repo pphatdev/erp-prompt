@@ -2,16 +2,23 @@
 
 This is not what you know! Read `rules/*` and `skills/*` before build anything!
 
-## 📚 Mandatory Reading Before Any Backend Work
+## 📚 Mandatory Reading Before Any Task
 
-Before writing a single line of backend code or running any command, read these files in order:
+Before writing a single line of code, running any command, or starting a session, read these files in order based on your task context:
 
+### Global Core (Read Always)
 | Priority | File | Why |
 |---|---|---|
 | **1** | [`rules/backend/backend_setup.md`](./rules/backend/backend_setup.md) | **Complete** setup sequence, directory structure, all patterns |
 | **2** | [`rules/tenancy/skill.md`](./rules/tenancy/skill.md) | Migration order, tenant provisioning, troubleshooting |
 | **3** | [`rules/auth/skill.md`](./rules/auth/skill.md) | Passport rules, duplicate migration trap, OAuth2 flow |
 | **4** | [`rules/backend/skill.md`](./rules/backend/skill.md) | Controller/Service/Model patterns, API standards |
+
+### HRM & Employee Data (Read when working on HRM/Recruitment/Employees)
+| Priority | File | Why |
+|---|---|---|
+| **1** | [`skills/hrm/employee_data_collection.md`](./skills/hrm/employee_data_collection.md) | **MANDATORY**: Core employee data fields, required vs optional flags, privacy/encryption rules, and recruitment integration. |
+| **2** | [`skills/hrm/rules.md`](./skills/hrm/rules.md) | Candidate-to-employee conversion logic and permissions. |
 
 
 
