@@ -11,6 +11,7 @@ use App\Models\Tenant\PayrollPeriod;
 use App\Models\Tenant\Payslip;
 use App\Tenants\Modules\FMS\Services\AccountingService;
 use App\Tenants\Modules\IAM\Services\WorkflowStatusService;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -25,9 +26,18 @@ class PayrollService
 
     private const NSSF_RATE = 0.04;
 
+    /**
+     * Hourly-rate divisor: standard 160 hours per month (40 h/wk × 4 weeks).
+     * Used to derive the hourly rate for overtime earnings. Spec §3.B says
+     * "or per-tenant standard" — tenant override deferred to a future slice.
+     */
+    private const STANDARD_MONTHLY_HOURS = 160;
+
     public function __construct(
         private readonly WorkflowStatusService $statuses,
         private readonly AccountingService $accounting,
+        private readonly AttendanceService $attendance,
+        private readonly OvertimeService $overtime,
     ) {
     }
 
@@ -51,7 +61,7 @@ class PayrollService
             $employees = Employee::query()->where('status', 'active')->get();
 
             $payslips = $employees->map(function (Employee $employee) use ($period) {
-                $calculation = $this->computeFor($employee);
+                $calculation = $this->computeFor($employee, $period);
 
                 return Payslip::create([
                     'payroll_period_id' => $period->id,
@@ -93,34 +103,88 @@ class PayrollService
     }
 
     /**
-     * Compute earnings/deductions for an employee. Pure function — no I/O.
+     * Compute earnings/deductions for an employee. When a period is supplied,
+     * also applies:
+     *   - absent_deduction = (base / workdays_in_period) × absent_days
+     *   - unpaid_leave_deduction = same formula × unpaid_leave_days
+     *   - overtime earnings = sum(approved_hours × multiplier) × hourly_rate
      *
      * @return array{gross: float, net: float, earnings: array, deductions: array}
      */
-    public function computeFor(Employee $employee): array
+    public function computeFor(Employee $employee, ?PayrollPeriod $period = null): array
     {
         $base = (float) ($employee->base_salary ?? 0);
 
         $earnings = [
             'base' => $base,
             'bonus' => 0.0,
+            'overtime' => 0.0,
         ];
-
-        $gross = array_sum($earnings);
-
         $deductions = [
-            'tax'  => round($gross * self::TAX_RATE, 2),
-            'nssf' => round($gross * self::NSSF_RATE, 2),
+            'tax'  => 0.0,
+            'nssf' => 0.0,
+            'absent' => 0.0,
+            'unpaid_leave' => 0.0,
         ];
+
+        if ($period !== null && $base > 0) {
+            $start = $period->start_date ? CarbonImmutable::parse($period->start_date) : null;
+            $end   = $period->end_date   ? CarbonImmutable::parse($period->end_date)   : null;
+
+            if ($start && $end) {
+                $workdays = $this->countWorkdays($start, $end);
+
+                // Attendance-driven deductions.
+                if ($workdays > 0) {
+                    $summary = $this->attendance->summaryFor($employee->id, $start->toDateString(), $end->toDateString());
+                    $perDay  = round($base / $workdays, 2);
+                    $halfDayDeduction = round($perDay * 0.5, 2);
+
+                    $deductions['absent'] = round($perDay * $summary['absent'], 2);
+                    $deductions['unpaid_leave'] = round($perDay * $summary['unpaid_leave'], 2);
+                    // Half-day rows are partially deducted — half a workday.
+                    if ($summary['halfDay'] > 0) {
+                        $deductions['absent'] = round($deductions['absent'] + $halfDayDeduction * $summary['halfDay'], 2);
+                    }
+                }
+
+                // Overtime earnings.
+                $weighted = $this->overtime->approvedWeightedHoursFor($employee->id, $start->toDateString(), $end->toDateString());
+                if ($weighted > 0) {
+                    $hourly = $base / self::STANDARD_MONTHLY_HOURS;
+                    $earnings['overtime'] = round($weighted * $hourly, 2);
+                }
+            }
+        }
+
+        $gross = round(array_sum($earnings), 2);
+
+        $deductions['tax']  = round($gross * self::TAX_RATE, 2);
+        $deductions['nssf'] = round($gross * self::NSSF_RATE, 2);
 
         $net = round($gross - array_sum($deductions), 2);
 
         return [
-            'gross' => round($gross, 2),
+            'gross' => $gross,
             'net' => $net,
             'earnings' => $earnings,
             'deductions' => $deductions,
         ];
+    }
+
+    /**
+     * Mon-Fri count between start and end inclusive. Holiday calendar is
+     * deferred — when it lands, subtract recognised holidays here.
+     */
+    private function countWorkdays(CarbonImmutable $start, CarbonImmutable $end): int
+    {
+        $count = 0;
+        for ($d = $start; $d->lessThanOrEqualTo($end); $d = $d->addDay()) {
+            if (!$d->isWeekend()) {
+                $count++;
+            }
+        }
+        return $count;
     }
 
     /**

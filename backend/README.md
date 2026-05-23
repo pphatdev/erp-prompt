@@ -60,6 +60,10 @@ php artisan passport:keys
 php artisan passport:client --personal
 ```
 
+> [!WARNING]
+> **Never run `php artisan passport:install --force` after initial setup.** It re-publishes Passport migration files with new timestamps on every run, creating duplicate `oauth_*` migration files. Running `migrate` afterwards will fail with `relation "oauth_auth_codes" already exists`. If you only need to regenerate encryption keys, use `php artisan passport:keys --force` instead.
+
+
 ### 4. Configure Database Credentials
 Verify that your `.env` contains the correct central database credentials matching your Docker instance:
 ```ini
@@ -72,12 +76,40 @@ DB_USERNAME=erp_user
 DB_PASSWORD=erp_secret
 ```
 
-### 5. Run Migrations & Database Setup
-Apply core tables to the landlord database:
+### 5. Run Migrations & Seed Database
+
+> [!IMPORTANT]
+> **Order is critical.** `tenants:migrate` must run **after** `db:seed` — the central seeder creates tenant databases. Running `tenants:migrate` before seeding means no tenant DBs exist yet, and any subsequent login/query will fail with `relation "users" does not exist`.
+
+Run in this exact order:
+
 ```bash
-# Run central landlord migrations
+# Step 1 — Create the central landlord tables (tenants, domains, etc.)
+php artisan migrate --path=database/migrations/central
+
+# Step 2 — Run root-level migrations (oauth_*, cache, personal_access_tokens, etc.)
 php artisan migrate
+
+# Step 3 — Seed the central/landlord database (this CREATES tenant databases)
+php artisan db:seed
+
+# Step 4 — NOW migrate tenant databases (they exist after Step 3)
+php artisan tenants:migrate
+
+# Step 5 — Seed tenant-specific data (users, roles, demo data, etc.)
+php artisan tenants:seed
 ```
+
+| Step | Path / Command | Purpose |
+|---|---|---|
+| 1 | `migrate --path=database/migrations/central` | Creates `tenants` & `domains` tables in the landlord DB |
+| 2 | `migrate` | Creates shared tables: `oauth_*`, `cache`, `jobs`, etc. |
+| 3 | `db:seed` | Seeds the landlord DB and **provisions tenant databases** |
+| 4 | `tenants:migrate` | Runs all `migrations/tenant/` schemas on each tenant DB |
+| 5 | `tenants:seed` | Seeds tenant-scoped data (users, roles, config, etc.) |
+
+> [!NOTE]
+> If you add a new tenant after initial setup, run `php artisan tenants:migrate` and `php artisan tenants:seed` again — they are idempotent and will only target un-migrated databases.
 
 ### 6. Run the Server
 Start the local development server:

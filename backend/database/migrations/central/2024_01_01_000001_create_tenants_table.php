@@ -13,8 +13,7 @@ return new class extends Migration
     {
         if (!Schema::hasTable('tenants')) {
             Schema::create('tenants', function (Blueprint $table) {
-                $table->string('id')->primary();
-                $table->string('handle')->unique();
+                $table->string('handle')->primary();
                 $table->string('name');
 
                 // Custom data for the tenant (branding, settings, etc.)

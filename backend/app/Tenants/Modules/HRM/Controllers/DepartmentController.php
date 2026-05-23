@@ -18,6 +18,8 @@ class DepartmentController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', Department::class);
+
         $paginator = $this->paginateQuery(Department::query()->orderBy('name'), $request);
 
         return $this->paginatedResponse(DepartmentResource::class, $paginator, $request);
@@ -25,16 +27,22 @@ class DepartmentController extends Controller
 
     public function store(StoreDepartmentRequest $request): DepartmentResource
     {
+        $this->authorize('create', Department::class);
+
         return new DepartmentResource(Department::create($request->validated()));
     }
 
     public function show(Department $department): DepartmentResource
     {
+        $this->authorize('view', $department);
+
         return new DepartmentResource($department);
     }
 
     public function update(StoreDepartmentRequest $request, Department $department): DepartmentResource
     {
+        $this->authorize('update', $department);
+
         $department->update($request->validated());
 
         return new DepartmentResource($department);
@@ -42,6 +50,8 @@ class DepartmentController extends Controller
 
     public function destroy(Department $department): JsonResponse
     {
+        $this->authorize('delete', $department);
+
         $department->delete();
 
         return response()->json(['message' => 'Department archived.'], 200);

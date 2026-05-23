@@ -5,7 +5,6 @@ namespace App\Tenants\Modules\IAM\Services;
 use App\Models\Tenant\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class UserService
 {
@@ -18,6 +17,12 @@ class UserService
 
     /**
      * Create a new user and assign roles.
+     *
+     * Password is intentionally passed as plaintext — the User model's
+     * `'password' => 'hashed'` cast hashes it on assignment. Calling
+     * Hash::make() here as well risks double-hashing when the cast's
+     * `Hash::isHashed()` driver check disagrees with the value (a known
+     * Laravel 11 footgun that produces "Invalid credentials" on login).
      */
     public function createUser(array $data): User
     {
@@ -25,7 +30,7 @@ class UserService
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
-                'password' => Hash::make($data['password']),
+                'password' => $data['password'],
                 'is_active' => $data['is_active'] ?? true,
             ]);
 
@@ -38,15 +43,12 @@ class UserService
     }
 
     /**
-     * Update an existing user.
+     * Update an existing user. Same hashing contract as createUser — the
+     * cast hashes the password on save, do not Hash::make here.
      */
     public function updateUser(User $user, array $data): User
     {
         return DB::transaction(function () use ($user, $data) {
-            if (isset($data['password'])) {
-                $data['password'] = Hash::make($data['password']);
-            }
-
             $user->update($data);
 
             if (isset($data['role_ids'])) {
@@ -55,5 +57,14 @@ class UserService
 
             return $user;
         });
+    }
+
+    /**
+     * Reset a user's password. Plaintext is passed — the 'hashed' cast
+     * hashes exactly once on assignment. Never call Hash::make() here.
+     */
+    public function resetPassword(User $user, string $password): void
+    {
+        $user->forceFill(['password' => $password])->save();
     }
 }

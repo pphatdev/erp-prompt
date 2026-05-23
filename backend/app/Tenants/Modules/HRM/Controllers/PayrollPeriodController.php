@@ -26,6 +26,8 @@ class PayrollPeriodController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', PayrollPeriod::class);
+
         $paginator = $this->paginateQuery(
             PayrollPeriod::query()->withCount('payslips')->orderBy('start_date', 'desc'),
             $request
@@ -36,16 +38,22 @@ class PayrollPeriodController extends Controller
 
     public function store(StorePayrollPeriodRequest $request): PayrollPeriodResource
     {
+        $this->authorize('create', PayrollPeriod::class);
+
         return new PayrollPeriodResource($this->payroll->createPeriod($request->validated()));
     }
 
     public function show(PayrollPeriod $payrollPeriod): PayrollPeriodResource
     {
+        $this->authorize('view', $payrollPeriod);
+
         return new PayrollPeriodResource($payrollPeriod->loadCount('payslips'));
     }
 
     public function process(PayrollPeriod $payrollPeriod): AnonymousResourceCollection|JsonResponse
     {
+        $this->authorize('process', $payrollPeriod);
+
         try {
             $payslips = $this->payroll->processPeriod($payrollPeriod);
         } catch (DomainException $e) {
@@ -57,6 +65,8 @@ class PayrollPeriodController extends Controller
 
     public function close(PayrollPeriod $payrollPeriod): PayrollPeriodResource|JsonResponse
     {
+        $this->authorize('close', $payrollPeriod);
+
         try {
             $period = $this->payroll->closePeriod($payrollPeriod);
         } catch (DomainException $e) {

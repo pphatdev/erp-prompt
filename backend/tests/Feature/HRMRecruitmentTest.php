@@ -80,7 +80,7 @@ class HRMRecruitmentTest extends TenantTestCase
 
         // Create employee record linked to user
         $employee1 = Employee::create([
-            'employee_id' => 'EMP-001',
+            'employee_id' => 'TT-0001',
             'first_name' => 'Regular',
             'last_name' => 'Employee',
             'email' => 'emp@test.com',

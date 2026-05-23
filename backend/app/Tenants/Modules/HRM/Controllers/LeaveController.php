@@ -28,6 +28,16 @@ class LeaveController extends Controller
         $this->authorize('viewAny', Leave::class);
 
         $filters = $request->only(['employeeId', 'status']);
+
+        // Self-service caller (no `hrm.leave.read` admin grant) gets their
+        // own rows only — overrides any employeeId in the query string so
+        // the listing endpoint can't be used to enumerate other employees'
+        // leave history.
+        $user = $request->user();
+        if (!$user?->hasPermission('hrm.leave.read')) {
+            $filters['employeeId'] = $user?->employee?->id;
+        }
+
         $paginator = $this->paginateQuery($this->leaves->buildIndexQuery($filters), $request);
 
         return $this->paginatedResponse(LeaveResource::class, $paginator, $request);
@@ -79,8 +89,19 @@ class LeaveController extends Controller
         return new LeaveResource($leave);
     }
 
-    public function balance(Employee $employee): JsonResponse
+    public function balance(Request $request, Employee $employee): JsonResponse
     {
+        // Admin (`hrm.leave.read`) can pull any employee's balance.
+        // Self-service callers (`.self`) can only pull their own.
+        $user = $request->user();
+        $isAdmin = $user?->hasPermission('hrm.leave.read') ?? false;
+        $isSelf = $user?->employee?->id === $employee->id
+            && $user?->hasPermission('hrm.leave.read.self');
+
+        if (!$isAdmin && !$isSelf) {
+            abort(403, 'Not authorized to view this employee\'s leave balance.');
+        }
+
         return response()->json([
             'data' => $this->leaves->balanceSheetFor($employee),
         ]);

@@ -19,21 +19,68 @@ class Order extends Model
 
     protected $fillable = [
         'order_number',
+        'quotation_id',
         'customer_id',
+        'subtotal',
+        'tax_amount',
         'total_amount',
         'status',
         'ordered_at',
+        'due_date',
+        'confirmed_at',
+        'cancelled_at',
+        'cancel_reason',
         'tenant_id',
     ];
+
+    protected $casts = [
+        'subtotal' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'total_amount' => 'decimal:2',
+        'ordered_at' => 'datetime',
+        'due_date' => 'date',
+        'confirmed_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+    ];
+
+    public const STATUS_NEW = 'new';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUSES = [self::STATUS_NEW, self::STATUS_CONFIRMED, self::STATUS_CANCELLED];
 
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function invoice()
+    {
+        return $this->hasOne(Invoice::class);
+    }
+
+    public function subscription()
+    {
+        return $this->hasOne(Subscription::class);
+    }
+
+    public function isConfirmed(): bool
+    {
+        return $this->status === self::STATUS_CONFIRMED;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === self::STATUS_CANCELLED;
     }
 
     protected static function boot()

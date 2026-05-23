@@ -6,6 +6,7 @@ namespace App\Models\Tenant;
 
 use App\Models\Traits\Auditable;
 use App\Models\Traits\BelongsToTenant;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -22,6 +23,7 @@ class Application extends Model
         'job_vacancy_id',
         'referrer_employee_id',
         'employee_id',
+        'candidate_code',
         'applicant_name',
         'applicant_email',
         'applicant_phone',
@@ -76,6 +78,44 @@ class Application extends Model
             if (empty($model->{$model->getKeyName()})) {
                 $model->{$model->getKeyName()} = (string) Str::uuid();
             }
+
+            if (empty($model->candidate_code)) {
+                $model->candidate_code = static::generateCandidateCode($model->applied_at);
+            }
         });
+    }
+
+    /**
+     * Format: `CAN-YYYYMM-NNN` (e.g. CAN-202605-001). The numeric component
+     * resets each month so recruiters can scan a code and immediately tell
+     * when the candidate was received. Sequence is computed from the max
+     * suffix already present for the same month — soft-deleted rows included
+     * so withdrawn applications don't free their numbers for reuse.
+     *
+     * Concurrent callers may race; the `applications.candidate_code` unique
+     * constraint is the final guard. Callers should be prepared to retry on
+     * a 23505 violation (the submit flow already runs in a DB transaction).
+     */
+    public static function generateCandidateCode(mixed $reference = null): string
+    {
+        $month = Carbon::parse($reference ?: now())->format('Ym');
+        $prefix = "CAN-{$month}-";
+
+        $rows = static::withTrashed()
+            ->where('candidate_code', 'like', $prefix . '%')
+            ->pluck('candidate_code');
+
+        $max = 0;
+        $pattern = '/^' . preg_quote($prefix, '/') . '(\d+)$/';
+        foreach ($rows as $code) {
+            if (preg_match($pattern, (string) $code, $m)) {
+                $n = (int) $m[1];
+                if ($n > $max) {
+                    $max = $n;
+                }
+            }
+        }
+
+        return sprintf('%s%03d', $prefix, $max + 1);
     }
 }

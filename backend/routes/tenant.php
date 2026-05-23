@@ -26,7 +26,10 @@ use App\Tenants\Modules\HRM\Controllers\LeaveController;
 use App\Tenants\Modules\HRM\Controllers\LeaveTypeController;
 use App\Tenants\Modules\HRM\Controllers\PayrollPeriodController;
 use App\Tenants\Modules\HRM\Controllers\PayslipController;
+use App\Tenants\Modules\HRM\Controllers\AttendanceController;
+use App\Tenants\Modules\HRM\Controllers\OvertimeRequestController;
 use App\Tenants\Modules\HRM\Controllers\PositionController;
+use App\Tenants\Modules\HRM\Controllers\ShiftController;
 use App\Tenants\Modules\HRM\Controllers\PublicCareersController;
 use App\Tenants\Modules\HRM\Controllers\QuizController;
 use App\Tenants\Modules\IAM\Controllers\RoleController;
@@ -38,10 +41,16 @@ use App\Tenants\Modules\Projects\Controllers\ProjectController;
 use App\Tenants\Modules\Projects\Controllers\TaskController;
 use App\Tenants\Modules\Projects\Controllers\TimesheetController;
 use App\Tenants\Modules\Reporting\Controllers\DashboardController;
+use App\Tenants\Modules\Reporting\Controllers\DashboardSummaryController;
 use App\Tenants\Modules\Reporting\Controllers\WidgetController;
 use App\Tenants\Modules\Sales\Controllers\CustomerController;
+use App\Tenants\Modules\Sales\Controllers\InvoiceController;
 use App\Tenants\Modules\Sales\Controllers\LeadController;
 use App\Tenants\Modules\Sales\Controllers\OrderController;
+use App\Tenants\Modules\Sales\Controllers\QuotationController;
+use App\Tenants\Modules\Sales\Controllers\SubscriptionController;
+use App\Tenants\Modules\Settings\Controllers\ModuleController;
+use App\Tenants\Modules\Settings\Controllers\SettingController;
 use Illuminate\Support\Facades\Route;
 use App\Tenants\Modules\IAM\Controllers\AuthController;
 use App\Http\Middleware\InitializeTenancyByHandle;
@@ -81,11 +90,15 @@ Route::middleware([
     Route::get('/public/job-vacancies/{jobVacancy}', [PublicCareersController::class, 'showVacancy']);
     Route::post('/public/applications', [PublicCareersController::class, 'submitApplication']);
 
+    // Public branding (logo, primary color) — used by login & public surfaces.
+    Route::get('/settings/public', [SettingController::class, 'public']);
+
     Route::middleware('auth:api')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         
         // IAM Management
+        Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
         Route::apiResource('users', UserController::class);
         Route::apiResource('roles', RoleController::class);
 
@@ -94,19 +107,59 @@ Route::middleware([
         Route::apiResource('workflow-statuses', WorkflowStatusController::class)
             ->parameters(['workflow-statuses' => 'workflowStatus']);
 
+        // Configuration & Tenant Settings (key/value)
+        Route::get('/settings', [SettingController::class, 'index']);
+        Route::put('/settings', [SettingController::class, 'update']);
+
+        // Modules — sidebar menu items stored in DB, mapped to products
+        Route::get('/modules', [ModuleController::class, 'index']);
+        Route::get('/modules/slugs', [ModuleController::class, 'slugs']);
+        Route::get('/modules/all', [ModuleController::class, 'allForManagement']);
+        Route::patch('/modules/{module}/toggle', [ModuleController::class, 'toggle']);
+        Route::post('/modules/{module}/sync-product', [ModuleController::class, 'syncProduct']);
+
         // Sales & CRM Module
+        Route::get('/customers/check-handle', [CustomerController::class, 'checkHandle']);
         Route::apiResource('customers', CustomerController::class);
         Route::apiResource('leads', LeadController::class);
         Route::post('/leads/{lead}/win', [LeadController::class, 'win']);
-        
-        Route::apiResource('orders', OrderController::class);
+
+        // Hybrid Sales — Quotations (top of the funnel after Customer)
+        Route::apiResource('quotations', QuotationController::class)
+            ->only(['index', 'store', 'show', 'destroy']);
+        Route::post('/quotations/{quotation}/items', [QuotationController::class, 'addItem']);
+        Route::post('/quotations/{quotation}/confirm', [QuotationController::class, 'confirm']);
+        Route::post('/quotations/{quotation}/cancel', [QuotationController::class, 'cancel']);
+        Route::post('/quotations/{quotation}/convert-to-order', [OrderController::class, 'storeFromQuotation']);
+
+        // Hybrid Sales — Orders
+        Route::apiResource('orders', OrderController::class)
+            ->only(['index', 'store', 'show']);
         Route::post('/orders/{order}/confirm', [OrderController::class, 'confirm']);
+        Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel']);
+
+        // Hybrid Sales — Invoices (1:1 with Order, AR posted on confirm)
+        Route::get('/invoices', [InvoiceController::class, 'index']);
+        Route::get('/invoices/{invoice}', [InvoiceController::class, 'show']);
+        Route::post('/invoices/{invoice}/confirm', [InvoiceController::class, 'confirm']);
+        Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel']);
+
+        // Hybrid Sales — Subscriptions (software fulfillment)
+        Route::get('/subscriptions', [SubscriptionController::class, 'index']);
+        Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show']);
+        Route::post('/subscriptions/{subscription}/confirm', [SubscriptionController::class, 'confirm']);
+        Route::post('/subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel']);
 
         // FMS Module
         Route::apiResource('accounts', AccountController::class);
         Route::apiResource('ledger', LedgerController::class);
 
         // HRM Module — Phase 1: Workforce
+        // Self-service profile lookup/edit. Listed before the apiResource so
+        // `/employees/me` doesn't get routed through the `{employee}` UUID
+        // parameter binding.
+        Route::get('/employees/me', [EmployeeController::class, 'me']);
+        Route::patch('/employees/me', [EmployeeController::class, 'updateSelf']);
         Route::apiResource('employees', EmployeeController::class);
         Route::apiResource('departments', DepartmentController::class);
         Route::apiResource('positions', PositionController::class);
@@ -117,6 +170,25 @@ Route::middleware([
         Route::post('/leaves/{leave}/approve', [LeaveController::class, 'approve']);
         Route::post('/leaves/{leave}/reject', [LeaveController::class, 'reject']);
         Route::get('/employees/{employee}/leave-balance', [LeaveController::class, 'balance']);
+
+        // HRM Module — Time Off & Attendance, Slice 1: Shifts + EmployeeShifts
+        Route::apiResource('shifts', ShiftController::class);
+        Route::post('/shifts/{shift}/assignments', [ShiftController::class, 'assign']);
+        Route::get('/employees/{employee}/shift-assignments', [ShiftController::class, 'assignmentsForEmployee']);
+
+        // HRM Module — Time Off & Attendance, Slice 2: Attendance logs
+        Route::post('/attendance/clock-in', [AttendanceController::class, 'clockIn']);
+        Route::post('/attendance/clock-out', [AttendanceController::class, 'clockOut']);
+        Route::get('/attendance/logs', [AttendanceController::class, 'index']);
+        Route::get('/attendance/logs/{attendanceLog}', [AttendanceController::class, 'show']);
+        // Slice 4: manual reconciliation trigger.
+        Route::post('/attendance/reconcile', [AttendanceController::class, 'reconcile']);
+
+        // HRM Module — Time Off & Attendance, Slice 3: Overtime
+        Route::apiResource('overtime-requests', OvertimeRequestController::class)
+            ->parameters(['overtime-requests' => 'overtimeRequest'])
+            ->only(['index', 'store', 'show', 'destroy']);
+        Route::patch('/overtime-requests/{overtimeRequest}/process', [OvertimeRequestController::class, 'process']);
 
         // HRM Module — Phase 3: Payroll
         Route::apiResource('payroll-periods', PayrollPeriodController::class)
@@ -195,7 +267,9 @@ Route::middleware([
         Route::post('/cms-documents/{document}/checkin', [CmsDocumentController::class, 'checkin']);
 
         // Reporting & Analytics Module
+        Route::get('/dashboard/summary', DashboardSummaryController::class);
         Route::apiResource('dashboards', DashboardController::class);
+        Route::get('/dashboards/{dashboard}/export', [DashboardController::class, 'export']);
         Route::apiResource('widgets', WidgetController::class);
     });
 

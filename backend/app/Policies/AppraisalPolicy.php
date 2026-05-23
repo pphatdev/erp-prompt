@@ -14,18 +14,22 @@ class AppraisalPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('hrm.performance.read');
+        return $user->hasPermission('hrm.performance.read')
+            || $user->hasPermission('hrm.performance.read.self');
     }
 
     /**
-     * The reviewee and the assigned reviewer can always view the appraisal;
-     * everyone else needs hrm.performance.read.
+     * The reviewee and assigned reviewer can view via `.self` scope; HR/admin
+     * with `hrm.performance.read` can view anyone's.
      */
     public function view(User $user, Appraisal $appraisal): bool
     {
-        if ($this->isOwnerOrReviewer($user, $appraisal)) {
+        if ($this->isOwnerOrReviewer($user, $appraisal)
+            && $user->hasPermission('hrm.performance.read.self')
+        ) {
             return true;
         }
+
         return $user->hasPermission('hrm.performance.read');
     }
 
@@ -40,25 +44,32 @@ class AppraisalPolicy
     }
 
     /**
-     * The reviewee submits their own self-assessment; HR/managers can submit
-     * on behalf when needed.
+     * Reviewee submits their own self-assessment with the dedicated
+     * `submit.self` permission; HR can submit on behalf via the broader
+     * write permission.
      */
     public function submit(User $user, Appraisal $appraisal): bool
     {
-        if ($user->employee?->id === $appraisal->employee_id) {
+        if ($user->employee?->id === $appraisal->employee_id
+            && $user->hasPermission('hrm.performance.submit.self')
+        ) {
             return true;
         }
+
         return $user->hasPermission('hrm.performance.write');
     }
 
     /**
-     * The assigned reviewer scores submitted appraisals; HR can override.
+     * Reviewer scoring stays as a privileged-by-relationship bypass —
+     * being the assigned reviewer is itself the grant. HR override still
+     * works via `hrm.performance.write`.
      */
     public function review(User $user, Appraisal $appraisal): bool
     {
         if ($user->employee?->id === $appraisal->reviewer_id) {
             return true;
         }
+
         return $user->hasPermission('hrm.performance.write');
     }
 

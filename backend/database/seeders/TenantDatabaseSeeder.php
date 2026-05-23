@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use App\Models\Tenant\Permission;
 use App\Models\Tenant\Role;
 
@@ -33,11 +34,54 @@ class TenantDatabaseSeeder extends Seeder
             ['name' => 'Read Orders', 'slug' => 'sales.orders.read', 'module' => 'sales', 'feature' => 'orders', 'action' => 'read'],
             ['name' => 'Write Orders', 'slug' => 'sales.orders.write', 'module' => 'sales', 'feature' => 'orders', 'action' => 'write'],
 
-            // HRM Self Service & Workforce
-            ['name' => 'Read Leaves', 'slug' => 'hrm.leave.read', 'module' => 'hrm', 'feature' => 'leave', 'action' => 'read'],
-            ['name' => 'Write Leaves', 'slug' => 'hrm.leave.write', 'module' => 'hrm', 'feature' => 'leave', 'action' => 'write'],
-            ['name' => 'Read Appraisals', 'slug' => 'hrm.performance.read', 'module' => 'hrm', 'feature' => 'performance', 'action' => 'read'],
-            ['name' => 'Read Payroll/Payslips', 'slug' => 'hrm.payroll.read', 'module' => 'hrm', 'feature' => 'payroll', 'action' => 'read'],
+            // HRM — Employees / Workforce (admin scope)
+            ['name' => 'Read Employees',   'slug' => 'hrm.employee.read',   'module' => 'hrm', 'feature' => 'employee',   'action' => 'read'],
+            ['name' => 'Write Employees',  'slug' => 'hrm.employee.write',  'module' => 'hrm', 'feature' => 'employee',   'action' => 'write'],
+            ['name' => 'Delete Employees', 'slug' => 'hrm.employee.delete', 'module' => 'hrm', 'feature' => 'employee',   'action' => 'delete'],
+
+            // HRM — Leave (admin scope)
+            ['name' => 'Read Leaves',      'slug' => 'hrm.leave.read',      'module' => 'hrm', 'feature' => 'leave',      'action' => 'read'],
+            ['name' => 'Write Leaves',     'slug' => 'hrm.leave.write',     'module' => 'hrm', 'feature' => 'leave',      'action' => 'write'],
+            ['name' => 'Delete Leaves',    'slug' => 'hrm.leave.delete',    'module' => 'hrm', 'feature' => 'leave',      'action' => 'delete'],
+
+            // HRM — Performance / Appraisals (admin scope)
+            ['name' => 'Read Appraisals',  'slug' => 'hrm.performance.read',  'module' => 'hrm', 'feature' => 'performance', 'action' => 'read'],
+            ['name' => 'Write Appraisals', 'slug' => 'hrm.performance.write', 'module' => 'hrm', 'feature' => 'performance', 'action' => 'write'],
+
+            // HRM — Payroll & Payslips (admin scope)
+            ['name' => 'Read Payroll/Payslips',  'slug' => 'hrm.payroll.read',  'module' => 'hrm', 'feature' => 'payroll', 'action' => 'read'],
+            ['name' => 'Write Payroll Periods',  'slug' => 'hrm.payroll.write', 'module' => 'hrm', 'feature' => 'payroll', 'action' => 'write'],
+
+            // HRM — Recruitment (admin scope)
+            ['name' => 'Read Recruitment',   'slug' => 'hrm.recruitment.read',   'module' => 'hrm', 'feature' => 'recruitment', 'action' => 'read'],
+            ['name' => 'Write Recruitment',  'slug' => 'hrm.recruitment.write',  'module' => 'hrm', 'feature' => 'recruitment', 'action' => 'write'],
+            ['name' => 'Delete Recruitment', 'slug' => 'hrm.recruitment.delete', 'module' => 'hrm', 'feature' => 'recruitment', 'action' => 'delete'],
+
+            // HRM — Quiz Authoring (admin scope)
+            ['name' => 'Read Quizzes',   'slug' => 'hrm.quiz.read',   'module' => 'hrm', 'feature' => 'quiz', 'action' => 'read'],
+            ['name' => 'Write Quizzes',  'slug' => 'hrm.quiz.write',  'module' => 'hrm', 'feature' => 'quiz', 'action' => 'write'],
+            ['name' => 'Delete Quizzes', 'slug' => 'hrm.quiz.delete', 'module' => 'hrm', 'feature' => 'quiz', 'action' => 'delete'],
+
+            // Reporting — Dashboards & Widgets
+            ['name' => 'Read Dashboards',   'slug' => 'reporting.dashboard.read',   'module' => 'reporting', 'feature' => 'dashboard', 'action' => 'read'],
+            ['name' => 'Write Dashboards',  'slug' => 'reporting.dashboard.write',  'module' => 'reporting', 'feature' => 'dashboard', 'action' => 'write'],
+            ['name' => 'Delete Dashboards', 'slug' => 'reporting.dashboard.delete', 'module' => 'reporting', 'feature' => 'dashboard', 'action' => 'delete'],
+            ['name' => 'Export Dashboards', 'slug' => 'reporting.dashboard.export', 'module' => 'reporting', 'feature' => 'dashboard', 'action' => 'export'],
+
+            // Settings — Tenant configuration (branding, locale, security, etc.)
+            ['name' => 'Read Settings',  'slug' => 'settings.read',  'module' => 'settings', 'feature' => 'settings', 'action' => 'read'],
+            ['name' => 'Write Settings', 'slug' => 'settings.write', 'module' => 'settings', 'feature' => 'settings', 'action' => 'write'],
+
+            // HRM — Self-Service (`.self` scope). Granted to the standard
+            // `employee` role; each pairs with the matching admin permission so
+            // policies can gate "own row + .self" OR "any row + admin".
+            ['name' => 'Read Own Employee Profile',   'slug' => 'hrm.employee.read.self',     'module' => 'hrm', 'feature' => 'employee',    'action' => 'read.self'],
+            ['name' => 'Update Own Employee Profile', 'slug' => 'hrm.employee.write.self',    'module' => 'hrm', 'feature' => 'employee',    'action' => 'write.self'],
+            ['name' => 'Read Own Leaves',             'slug' => 'hrm.leave.read.self',        'module' => 'hrm', 'feature' => 'leave',       'action' => 'read.self'],
+            ['name' => 'Submit Own Leaves',           'slug' => 'hrm.leave.write.self',       'module' => 'hrm', 'feature' => 'leave',       'action' => 'write.self'],
+            ['name' => 'Read Own Payslips',           'slug' => 'hrm.payslip.read.self',      'module' => 'hrm', 'feature' => 'payslip',     'action' => 'read.self'],
+            ['name' => 'Read Own Appraisals',         'slug' => 'hrm.performance.read.self',  'module' => 'hrm', 'feature' => 'performance', 'action' => 'read.self'],
+            ['name' => 'Submit Own Self-Assessment',  'slug' => 'hrm.performance.submit.self','module' => 'hrm', 'feature' => 'performance', 'action' => 'submit.self'],
         ];
 
         foreach ($permissions as $permission) {
@@ -52,15 +96,20 @@ class TenantDatabaseSeeder extends Seeder
 
         $adminRole->permissions()->sync(Permission::all());
 
-        // Create Admin User
+        // Create Admin User — pass plaintext; the User model's 'hashed' cast hashes exactly once
         $adminUser = \App\Models\Tenant\User::firstOrCreate(
             ['email' => 'admin@example.com'],
             [
                 'name' => 'System Administrator',
-                'password' => \Illuminate\Support\Facades\Hash::make('password'),
+                'password' => 'password',
                 'is_active' => true,
             ]
         );
+
+        // Self-heal rows that were double-hashed by a previous run of this seeder
+        if (!Hash::check('password', $adminUser->getAuthPassword())) {
+            $adminUser->forceFill(['password' => 'password'])->save();
+        }
 
         // Assign Admin Role
         if (!$adminUser->roles->contains($adminRole->id)) {
@@ -73,24 +122,53 @@ class TenantDatabaseSeeder extends Seeder
             'description' => 'Standard employee role with access to self-service portals.',
         ]);
 
+        // Employee role is strictly self-service. NEVER grant the broad
+        // `hrm.*.read` admin permissions here — those expose every employee's
+        // payslip/leave/appraisal to anyone with the role. The `.self`
+        // permissions pair with policy ownership checks so a regular employee
+        // can only read/write rows that belong to them.
         $employeeRole->permissions()->sync(
             Permission::whereIn('slug', [
-                'hrm.leave.read',
-                'hrm.leave.write',
-                'hrm.performance.read',
-                'hrm.payroll.read'
+                'hrm.employee.read.self',
+                'hrm.employee.write.self',
+                'hrm.leave.read.self',
+                'hrm.leave.write.self',
+                'hrm.payslip.read.self',
+                'hrm.performance.read.self',
+                'hrm.performance.submit.self',
             ])->get()
         );
 
-        // Create Employee User
+        // Create Dashboard Viewer Role — read-only access to dashboards plus
+        // permission to export their data. Stakeholders/auditors get this
+        // grant when they need analytics visibility without the authority to
+        // create, edit, or delete dashboards/widgets.
+        $dashboardViewerRole = Role::updateOrCreate(['slug' => 'dashboard_viewer'], [
+            'name' => 'Dashboard Viewer',
+            'description' => 'Read-only access to dashboards with export capability. Cannot create, edit, or delete dashboards/widgets.',
+        ]);
+
+        $dashboardViewerRole->permissions()->sync(
+            Permission::whereIn('slug', [
+                'reporting.dashboard.read',
+                'reporting.dashboard.export',
+            ])->get()
+        );
+
+        // Create Employee User — pass plaintext; the User model's 'hashed' cast hashes exactly once
         $employeeUser = \App\Models\Tenant\User::firstOrCreate(
             ['email' => 'role.base@tanent.com'],
             [
                 'name' => 'Base Employee User',
-                'password' => \Illuminate\Support\Facades\Hash::make('password'),
+                'password' => 'password',
                 'is_active' => true,
             ]
         );
+
+        // Self-heal rows that were double-hashed by a previous run of this seeder
+        if (!Hash::check('password', $employeeUser->getAuthPassword())) {
+            $employeeUser->forceFill(['password' => 'password'])->save();
+        }
 
         // Assign Employee Role
         if (!$employeeUser->roles->contains($employeeRole->id)) {
@@ -102,7 +180,7 @@ class TenantDatabaseSeeder extends Seeder
             \App\Models\Tenant\Employee::firstOrCreate(
                 ['email' => 'role.base@tanent.com'],
                 [
-                    'employee_id' => 'EMP-001',
+                    'employee_id' => 'TT-0001',
                     'first_name' => 'Base',
                     'last_name' => 'Employee',
                     'user_id' => $employeeUser->id,
@@ -114,6 +192,12 @@ class TenantDatabaseSeeder extends Seeder
 
         // Seed default workflow statuses for every HRM module
         $this->seedWorkflowStatuses();
+
+        // Seed the minimal Chart of Accounts required for FMS operations
+        $this->seedChartOfAccounts();
+
+        // Seed all sidebar menu items as Module rows (idempotent)
+        $this->call(ModuleSeeder::class);
 
         // Create Passport Personal Access Client if it doesn't exist
         if (\Illuminate\Support\Facades\Schema::hasTable('oauth_clients')) {
@@ -127,6 +211,80 @@ class TenantDatabaseSeeder extends Seeder
                     null, 'Tenant Personal Access Client', 'http://localhost'
                 );
             }
+            
+            // Seed Deterministic Password Grant Client
+            \Illuminate\Support\Facades\DB::table('oauth_clients')->updateOrInsert(
+                ['id' => 33], // Deterministic ID required by AGENTS.md
+                [
+                    'user_id'                => null,
+                    'name'                   => 'Tenant Password Client',
+                    'secret'                 => 'b3x5ItVFBU46N3oJljIKrbibQLR0CT0LKlzKddG7',
+                    'provider'               => 'users',
+                    'redirect'               => 'http://localhost',
+                    'personal_access_client' => false,
+                    'password_client'        => true,
+                    'revoked'                => false,
+                    'created_at'             => now(),
+                    'updated_at'             => now(),
+                ]
+            );
+        }
+    }
+
+    /**
+     * Idempotent seed of a minimal Chart of Accounts. Every tenant needs at
+     * least the three accounts referenced by InvoiceService::postArJournal():
+     *   1200 — Accounts Receivable (asset)
+     *   4000 — Sales Revenue       (revenue)
+     *   2150 — Sales Tax Payable   (liability)
+     *
+     * The full standard chart is seeded here so that other FMS features
+     * (AP, payroll journals, etc.) also have the accounts they expect without
+     * extra configuration.  All rows are upserted on `code` so re-running
+     * this seeder is safe.
+     */
+    private function seedChartOfAccounts(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('accounts')) {
+            return;
+        }
+
+        $accounts = [
+            // ── Assets (1xxx) ──────────────────────────────────────────────
+            ['code' => '1000', 'name' => 'Cash & Bank',            'type' => 'asset'],
+            ['code' => '1100', 'name' => 'Petty Cash',             'type' => 'asset'],
+            ['code' => '1200', 'name' => 'Accounts Receivable',    'type' => 'asset'],   // AR — invoice confirm
+            ['code' => '1300', 'name' => 'Prepaid Expenses',       'type' => 'asset'],
+            ['code' => '1400', 'name' => 'Inventory',              'type' => 'asset'],
+
+            // ── Liabilities (2xxx) ─────────────────────────────────────────
+            ['code' => '2100', 'name' => 'Accounts Payable',       'type' => 'liability'],
+            ['code' => '2150', 'name' => 'Sales Tax Payable',      'type' => 'liability'], // tax — invoice confirm
+            ['code' => '2200', 'name' => 'Accrued Liabilities',    'type' => 'liability'],
+            ['code' => '2300', 'name' => 'Salaries Payable',       'type' => 'liability'],
+
+            // ── Equity (3xxx) ──────────────────────────────────────────────
+            ['code' => '3000', 'name' => 'Retained Earnings',      'type' => 'equity'],
+            ['code' => '3100', 'name' => 'Owner\'s Equity',        'type' => 'equity'],
+
+            // ── Revenue (4xxx) ─────────────────────────────────────────────
+            ['code' => '4000', 'name' => 'Sales Revenue',          'type' => 'revenue'],  // revenue — invoice confirm
+            ['code' => '4100', 'name' => 'Service Revenue',        'type' => 'revenue'],
+            ['code' => '4200', 'name' => 'Other Income',           'type' => 'revenue'],
+
+            // ── Expenses (5xxx) ────────────────────────────────────────────
+            ['code' => '5000', 'name' => 'Cost of Goods Sold',     'type' => 'expense'],
+            ['code' => '5100', 'name' => 'Salaries & Wages',       'type' => 'expense'],
+            ['code' => '5200', 'name' => 'Rent & Utilities',       'type' => 'expense'],
+            ['code' => '5300', 'name' => 'General & Administrative','type' => 'expense'],
+            ['code' => '5400', 'name' => 'Depreciation',           'type' => 'expense'],
+        ];
+
+        foreach ($accounts as $account) {
+            \App\Models\Tenant\Account::updateOrCreate(
+                ['code' => $account['code']],
+                array_merge($account, ['balance' => 0])
+            );
         }
     }
 

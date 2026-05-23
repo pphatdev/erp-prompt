@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tenants\Modules\Sales\Resources;
 
 use Illuminate\Http\Request;
@@ -7,22 +9,27 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class OrderResource extends JsonResource
 {
-    /**
-     * Transform the resource into an array.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->id,
-            'order_number' => $this->order_number,
+            'orderNumber' => $this->order_number,
+            'quotationId' => $this->quotation_id,
+            'customerId' => $this->customer_id,
             'customer' => new CustomerResource($this->whenLoaded('customer')),
-            'total_amount' => (float) $this->total_amount,
             'status' => $this->status,
-            'ordered_at' => $this->ordered_at ? $this->ordered_at->toIso8601String() : null,
+            'subtotal' => (float) $this->subtotal,
+            'taxAmount' => (float) $this->tax_amount,
+            'totalAmount' => (float) $this->total_amount,
+            'dueDate' => optional($this->due_date)->toDateString(),
+            'orderedAt' => optional($this->ordered_at)->toIso8601String(),
+            'confirmedAt' => optional($this->confirmed_at)->toIso8601String(),
+            'cancelledAt' => optional($this->cancelled_at)->toIso8601String(),
+            'cancelReason' => $this->cancel_reason,
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
-            'created_at' => $this->created_at->toIso8601String(),
+            'invoiceId' => $this->whenLoaded('invoice', fn () => $this->invoice?->id),
+            'subscriptionId' => $this->whenLoaded('subscription', fn () => $this->subscription?->id),
+            'createdAt' => optional($this->created_at)->toIso8601String(),
         ];
     }
 }

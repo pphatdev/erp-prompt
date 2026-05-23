@@ -12,24 +12,32 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     use HasDatabase, HasDomains;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
+     * `handle` is the primary key — human-readable, URL-safe, and unique.
+     * Stancl derives the tenant database name from getTenantKey(), which
+     * returns this value, so databases are named `tenant_{handle}`.
      */
+    protected $primaryKey = 'handle';
+    public $incrementing  = false;
+    protected $keyType    = 'string';
+
     protected $fillable = [
-        'id',
         'handle',
         'name',
         'data',
     ];
 
     /**
-     * Get the tenant's unique handle.
+     * Tell Stancl which column is the tenant identifier. This is used
+     * internally for tenant resolution, database naming, and event payloads.
      */
+    public function getTenantKeyName(): string
+    {
+        return 'handle';
+    }
+
     public static function getCustomColumns(): array
     {
         return [
-            'id',
             'handle',
             'name',
         ];

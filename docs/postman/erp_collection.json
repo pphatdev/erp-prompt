@@ -1909,7 +1909,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"leave_type_id\": \"{{leave_type_id}}\",\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-06-05\",\n  \"reason\": \"Family visit\"\n}",
+              "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"leave_type_id\": \"{{leave_type_id}}\",\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-06-05\",\n  \"leave_session\": \"full_day\",\n  \"reason\": \"Family visit\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -1917,7 +1917,7 @@
               "host": [ "{{base_url}}" ],
               "path": [ "api", "v1", "leaves" ]
             },
-            "description": "Submits a leave request with status=pending. `days` defaults to inclusive span between start/end if omitted. If an `ApprovalWorkflow` exists for `module=hrm, type=leave`, an `ApprovalRequest` is opened atomically and routed to the workflow's first level."
+            "description": "Submits a leave request with status=pending. `days` defaults to inclusive span between start/end if omitted. **Half-day support**: pass `leave_session=morning` or `afternoon` to force `days=0.5` (start_date must equal end_date in that case). Balance pre-check INCLUDES pending requests, so parallel submissions can't overspend the annual allowance. If an `ApprovalWorkflow` exists for `module=hrm, type=leave`, an `ApprovalRequest` is opened atomically and routed to the workflow's first level."
           },
           "response": []
         },
@@ -1959,7 +1959,7 @@
               "host": [ "{{base_url}}" ],
               "path": [ "api", "v1", "employees", "{{employee_id}}", "leave-balance" ]
             },
-            "description": "Returns per leave-type balance sheet: `annualAllowance`, `used`, `remaining` for the current year."
+            "description": "Returns per leave-type balance sheet: `annualAllowance`, `accrued` (pro-rata monthly from hired_at: annual/12 × elapsed months, capped at annual), `used` (approved leaves YTD), `remaining` (accrued − approved − pending). All values support 0.5 increments for half-day leaves."
           },
           "response": []
         },
@@ -1973,6 +1973,364 @@
               "host": [ "{{base_url}}" ],
               "path": [ "api", "v1", "leaves", "{{leave_id}}" ]
             }
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Shifts",
+          "description": "Shift definitions + employee assignments. Used by Attendance to resolve grace/half-day boundaries at clock-in, and by the daily reconciliation job to identify scheduled workdays.\n\nPermissions: read is wide (any attendance-reader can resolve their assigned shift); write requires `hrm.shift.write`; delete requires `hrm.shift.delete`.",
+          "item": [
+        {
+          "name": "List Shifts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "shifts" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Shift",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('shift_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Day Shift\",\n  \"start_time\": \"08:00:00\",\n  \"end_time\": \"17:00:00\",\n  \"grace_period_minutes\": 15,\n  \"half_day_threshold_minutes\": 120\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "shifts" ]
+            },
+            "description": "Define a shift window. Overnight shifts (end_time before start_time) are rejected with 422 — that case awaits day-boundary support in reconciliation."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Shift",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts/{{shift_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "shifts", "{{shift_id}}" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Shift",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Day Shift\",\n  \"start_time\": \"09:00:00\",\n  \"end_time\": \"18:00:00\",\n  \"grace_period_minutes\": 10,\n  \"half_day_threshold_minutes\": 120\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts/{{shift_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "shifts", "{{shift_id}}" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Shift",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts/{{shift_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "shifts", "{{shift_id}}" ]
+            },
+            "description": "Soft-delete. Existing employee assignments stay traversable for audit but no new employees can reference this shift."
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Shift to Employee",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/shifts/{{shift_id}}/assignments",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "shifts", "{{shift_id}}", "assignments" ]
+            },
+            "description": "Assign an employee to this shift. `end_date=null` = open-ended (active going forward). The service auto-closes any currently-open assignment for the same employee by stamping its `end_date` to `start_date - 1`, so reconciliation has unambiguous shift ownership per date."
+          },
+          "response": []
+        },
+        {
+          "name": "Employee Shift Assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/employees/{{employee_id}}/shift-assignments?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "employees", "{{employee_id}}", "shift-assignments" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" }
+              ]
+            },
+            "description": "List the assignment history for a single employee. Sorted by `start_date` descending — the current/open assignment surfaces first."
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Attendance",
+          "description": "Clock-in/out + reconciliation. Self-service callers use `hrm.attendance.clock.self` to stamp their own time; admins with `hrm.attendance.read` see all rows.\n\n**Geofence**: when the caller's department has `latitude`/`longitude` set, clock-in is validated via Haversine distance against `geofence_radius_meters` (defaults to 100m). Lat/lon become required for those callers and a 422 lists the actual distance vs. the limit on miss.\n\n**IP whitelist**: when `department.attendance_ip_whitelist` is a non-empty JSON array of IPv4 CIDR ranges, clock-in / clock-out from outside the whitelist 422 with `client_ip`.\n\n**Status resolution** (against the active shift's grace + half-day thresholds): `present` ≤ start+grace; `late` between grace and half_day_threshold; `half_day` > half_day_threshold. Clock-out before shift end-time promotes the row to `early_out` (unless already `half_day`).",
+          "item": [
+        {
+          "name": "Clock In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('attendance_log_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 11.5564,\n  \"longitude\": 104.9282\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/attendance/clock-in",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "attendance", "clock-in" ]
+            },
+            "description": "Records the caller's check-in for today. Latitude/longitude only required when the department has a geofence configured; otherwise they're optional audit fields. Resolves status against the active shift (defaults to `present` when no shift is assigned)."
+          },
+          "response": []
+        },
+        {
+          "name": "Clock Out",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 11.5564,\n  \"longitude\": 104.9282\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/attendance/clock-out",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "attendance", "clock-out" ]
+            },
+            "description": "Stamps `check_out` on today's open log. 422s when no clock-in for today, or when already clocked out. Promotes `present`/`late` rows to `early_out` if before shift end."
+          },
+          "response": []
+        },
+        {
+          "name": "List Attendance Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/attendance/logs?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "attendance", "logs" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "employeeId", "value": "{{employee_id}}", "disabled": true },
+                { "key": "status", "value": "absent", "disabled": true },
+                { "key": "from", "value": "2026-05-01", "disabled": true },
+                { "key": "to", "value": "2026-05-31", "disabled": true }
+              ]
+            },
+            "description": "Self-service callers (without `hrm.attendance.read`) are force-filtered to their own employee_id by the controller — the `employeeId` query param is ignored for them."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Attendance Log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/attendance/logs/{{attendance_log_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "attendance", "logs", "{{attendance_log_id}}" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Manual Reconcile",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-05-20\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/attendance/reconcile",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "attendance", "reconcile" ]
+            },
+            "description": "Admin trigger for the gap-fill pass. Default date is yesterday. Idempotent — already-resolved rows are skipped. The same logic runs unattended via `ReconcileAttendanceJob` at 01:00 daily. Returns `{ processed, created, skipped }`."
+          },
+          "response": []
+        }
+          ]
+        },
+        {
+          "name": "Overtime Requests",
+          "description": "Overtime lifecycle: submit → approve | reject | cancel. Approved overtime adds weighted earnings to the next payroll period via `PayrollService::computeFor()`.\n\n**Rate multiplier** — `1.5` (default weekday OT), `2.0` (weekend, auto-promoted by the service when `date` is Sat/Sun), `3.0` (holiday — holiday calendar deferred; pass explicitly for now). Self-service callers can only submit + cancel their own pending requests; admins (`hrm.overtime.write`) drive `process`.",
+          "item": [
+        {
+          "name": "List Overtime Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/overtime-requests?page=1&limit=15",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "overtime-requests" ],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "15" },
+                { "key": "employeeId", "value": "{{employee_id}}", "disabled": true },
+                { "key": "status", "value": "pending", "disabled": true },
+                { "key": "from", "value": "2026-05-01", "disabled": true },
+                { "key": "to", "value": "2026-05-31", "disabled": true }
+              ]
+            },
+            "description": "Self-service callers (without `hrm.overtime.read`) are force-filtered to their own `employee_id`."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Overtime Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var data = pm.response.json().data;",
+                  "    if (data && data.id) pm.collectionVariables.set('overtime_request_id', data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"date\": \"2026-05-25\",\n  \"hours\": 3.0,\n  \"rate_multiplier\": 1.5,\n  \"reason\": \"Production support — peak release\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/overtime-requests",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "overtime-requests" ]
+            },
+            "description": "Submits a pending overtime request. Self-service callers can only submit for themselves — the request middleware overwrites `employee_id` from the auth context. If `rate_multiplier` is omitted, the service auto-promotes weekend dates to 2.0×; weekday default is 1.5×."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Overtime Request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/overtime-requests/{{overtime_request_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "overtime-requests", "{{overtime_request_id}}" ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Process Overtime Request",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approve\",\n  \"reason\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/overtime-requests/{{overtime_request_id}}/process",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "overtime-requests", "{{overtime_request_id}}", "process" ]
+            },
+            "description": "Admin endpoint — `decision` is `approve` or `reject`. On reject, the optional `reason` is appended after the requester's original reason (never overwrites). Requires `hrm.overtime.write`. 422 if the row is not in `pending`."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Overtime Request",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/overtime-requests/{{overtime_request_id}}",
+              "host": [ "{{base_url}}" ],
+              "path": [ "api", "v1", "overtime-requests", "{{overtime_request_id}}" ]
+            },
+            "description": "Cancels a pending request. Owners (`hrm.overtime.write.self`) can cancel their own; admins (`hrm.overtime.write`) can cancel any. 422 if already approved/rejected."
           },
           "response": []
         }

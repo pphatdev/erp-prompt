@@ -18,7 +18,18 @@ class Department extends Model
     protected $fillable = [
         'name',
         'code',
+        'latitude',
+        'longitude',
+        'geofence_radius_meters',
+        'attendance_ip_whitelist',
         'tenant_id',
+    ];
+
+    protected $casts = [
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'geofence_radius_meters' => 'integer',
+        'attendance_ip_whitelist' => 'array',
     ];
 
     protected static function boot()

@@ -20,7 +20,11 @@ class StoreLeaveRequest extends FormRequest
             'leave_type_id' => 'required|uuid|exists:leave_types,id',
             'start_date'    => 'required|date',
             'end_date'      => 'required|date|after_or_equal:start_date',
-            'days'          => 'nullable|integer|min:1',
+            // Decimal so 0.5 (half-day) round-trips. The service overwrites
+            // `days` to exactly 0.5 when `leave_session` is morning/afternoon
+            // — caller's value is only honoured for full_day requests.
+            'days'          => 'nullable|numeric|min:0.5|max:365',
+            'leave_session' => 'sometimes|in:full_day,morning,afternoon',
             'reason'        => 'nullable|string|max:500',
         ];
     }

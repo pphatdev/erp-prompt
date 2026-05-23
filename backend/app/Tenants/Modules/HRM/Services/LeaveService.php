@@ -50,7 +50,31 @@ class LeaveService
             throw new DomainException('end_date must be on or after start_date.');
         }
 
-        $data['days']   = $data['days'] ?? ($start->diffInDays($end) + 1);
+        $session = $data['leave_session'] ?? Leave::SESSION_FULL_DAY;
+        $data['leave_session'] = $session;
+
+        if (in_array($session, Leave::HALF_DAY_SESSIONS, true)) {
+            // Morning/afternoon imply a single calendar day with exactly 0.5d.
+            if (!$start->isSameDay($end)) {
+                throw new DomainException('Half-day leave must start and end on the same date.');
+            }
+            // Trust the session — overwrite any caller-supplied days so the
+            // balance maths can't be spoofed by sending days=1 with session=morning.
+            $data['days'] = 0.5;
+        } else {
+            $data['days'] = (float) ($data['days'] ?? ($start->diffInDays($end) + 1));
+        }
+
+        // Balance pre-check INCLUDES pending so a user can't fan out N tiny
+        // requests in parallel and approve them all past the cap later.
+        $remaining = $this->balanceFor($data['employee_id'], $data['leave_type_id']);
+        if ($remaining + 0.0001 < $data['days']) {
+            throw new DomainException(sprintf(
+                'Insufficient leave balance (%.1f day(s) remaining).',
+                $remaining,
+            ));
+        }
+
         $data['status'] = $this->statuses->initialFor('hrm.leave');
 
         return DB::transaction(function () use ($data) {
@@ -112,10 +136,18 @@ class LeaveService
 
         return DB::transaction(function () use ($leave, $finalStatus) {
             if ($finalStatus === 'approved') {
-                $remaining = $this->balanceFor($leave->employee_id, $leave->leave_type_id);
+                // Re-add this leave's own days back into available since it's
+                // currently counted in `locked` (status=pending). Otherwise
+                // approving a leave that exactly equals remaining would always
+                // 422.
+                $remaining = $this->balanceFor($leave->employee_id, $leave->leave_type_id)
+                    + (float) $leave->days;
 
-                if ($remaining < $leave->days) {
-                    throw new DomainException("Insufficient leave balance ({$remaining} day(s) remaining).");
+                if ($remaining + 0.0001 < (float) $leave->days) {
+                    throw new DomainException(sprintf(
+                        'Insufficient leave balance (%.1f day(s) remaining).',
+                        $remaining,
+                    ));
                 }
             }
 
@@ -152,42 +184,99 @@ class LeaveService
         });
     }
 
-    public function balanceFor(string $employeeId, string $leaveTypeId): int
+    public function balanceFor(string $employeeId, string $leaveTypeId): float
     {
         /** @var LeaveType|null $type */
         $type = LeaveType::find($leaveTypeId);
         if (!$type) {
-            return 0;
+            return 0.0;
         }
 
-        $used = (int) Leave::query()
-            ->where('employee_id', $employeeId)
-            ->where('leave_type_id', $leaveTypeId)
-            ->where('status', 'approved')
-            ->whereYear('start_date', now()->year)
-            ->sum('days');
+        $employee = Employee::find($employeeId);
+        $accrued  = $employee ? $this->accruedDaysFor($employee, $type) : (float) $type->annual_allowance;
+        $locked   = $this->lockedDaysFor($employeeId, $leaveTypeId);
 
-        return max(0, (int) $type->annual_allowance - $used);
+        return max(0.0, $accrued - $locked);
     }
 
     public function balanceSheetFor(Employee $employee): array
     {
         return LeaveType::query()->get()->map(function (LeaveType $type) use ($employee) {
-            $used = (int) Leave::query()
+            $accrued = $this->accruedDaysFor($employee, $type);
+            $used    = (float) Leave::query()
                 ->where('employee_id', $employee->id)
                 ->where('leave_type_id', $type->id)
                 ->where('status', 'approved')
                 ->whereYear('start_date', now()->year)
                 ->sum('days');
 
+            $locked  = $this->lockedDaysFor($employee->id, $type->id);
+
             return [
                 'leaveTypeId' => $type->id,
                 'name' => $type->name,
                 'annualAllowance' => (int) $type->annual_allowance,
-                'used' => $used,
-                'remaining' => max(0, (int) $type->annual_allowance - $used),
+                'accrued' => round($accrued, 2),
+                'used' => round($used, 2),
+                // remaining = accrued − (approved + pending). Pending is
+                // captured by lockedDaysFor() to prevent double-spending
+                // allowance via parallel requests.
+                'remaining' => round(max(0.0, $accrued - $locked), 2),
             ];
         })->all();
+    }
+
+    /**
+     * Spec §3.A.2 — Annual Allowance / 12 per month, accrued on the 1st.
+     * Pro-rata for employees joining mid-year (count from `hired_at` month).
+     *
+     * Compute-on-the-fly: no per-employee accrual table yet. When carryover
+     * policies land we can swap this for a stored ledger; signature stays.
+     */
+    public function accruedDaysFor(Employee $employee, LeaveType $type): float
+    {
+        $annual = (float) $type->annual_allowance;
+        if ($annual <= 0) {
+            return 0.0;
+        }
+
+        $now    = CarbonImmutable::now();
+        $hired  = $employee->hired_at
+            ? CarbonImmutable::parse($employee->hired_at)
+            : $now->startOfYear();
+
+        // The accrual year starts in January for employees hired before this
+        // year, or in their hire month for employees hired mid-year.
+        $start = $hired->year < $now->year
+            ? $now->startOfYear()
+            : $hired->startOfMonth();
+
+        if ($start->greaterThan($now)) {
+            return 0.0;   // Not started yet.
+        }
+
+        // Inclusive month count: hired in Jan, current Mar → 3 months (Jan/Feb/Mar).
+        $months = ($now->year - $start->year) * 12 + ($now->month - $start->month) + 1;
+        $months = max(0, min(12, $months));
+
+        $monthly = round($annual / 12, 2);
+
+        return min($annual, $monthly * $months);
+    }
+
+    /**
+     * Locked = approved + pending leaves for the current year. Pending counts
+     * so that an approver can't push the employee past the cap by approving
+     * stacked requests retroactively.
+     */
+    private function lockedDaysFor(string $employeeId, string $leaveTypeId): float
+    {
+        return (float) Leave::query()
+            ->where('employee_id', $employeeId)
+            ->where('leave_type_id', $leaveTypeId)
+            ->whereIn('status', ['approved', 'pending'])
+            ->whereYear('start_date', now()->year)
+            ->sum('days');
     }
 
     private function leaveWorkflow(): ?ApprovalWorkflow

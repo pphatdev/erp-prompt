@@ -78,6 +78,22 @@ class UserController extends Controller
     }
 
     /**
+     * Reset the specified user's password.
+     */
+    public function resetPassword(Request $request, User $user): JsonResponse
+    {
+        Gate::authorize('update', $user);
+        $data = $request->validate([
+            'password'              => 'required|string|min:8|confirmed',
+            'password_confirmation' => 'required|string',
+        ]);
+
+        $this->userService->resetPassword($user, $data['password']);
+
+        return response()->json(['message' => 'Password reset successfully.']);
+    }
+
+    /**
      * Remove the specified user from storage.
      */
     public function destroy(User $user): JsonResponse

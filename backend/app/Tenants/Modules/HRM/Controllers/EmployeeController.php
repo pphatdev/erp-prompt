@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant\Employee;
 use App\Tenants\Modules\HRM\Requests\StoreEmployeeRequest;
 use App\Tenants\Modules\HRM\Requests\UpdateEmployeeRequest;
+use App\Tenants\Modules\HRM\Requests\UpdateEmployeeSelfRequest;
 use App\Tenants\Modules\HRM\Resources\EmployeeResource;
 use App\Tenants\Modules\HRM\Services\EmployeeService;
 use Illuminate\Http\JsonResponse;
@@ -59,5 +60,42 @@ class EmployeeController extends Controller
         $this->employees->terminateEmployee($employee);
 
         return response()->json(['message' => 'Employee terminated.'], 200);
+    }
+
+    /**
+     * Self-service: return the authenticated user's own employee record.
+     * 404s if the user has no linked employee row (e.g. external admin
+     * accounts) so the frontend can react without parsing 403 vs. 200-empty.
+     */
+    public function me(Request $request): EmployeeResource|JsonResponse
+    {
+        $employee = $request->user()?->employee;
+        if (!$employee) {
+            return response()->json(['message' => 'No employee record linked to this account.'], 404);
+        }
+
+        $this->authorize('view', $employee);
+
+        return new EmployeeResource($employee->load(['department', 'position']));
+    }
+
+    /**
+     * Self-service: update non-sensitive fields on the caller's own employee
+     * record. UpdateEmployeeSelfRequest enforces the field whitelist; the
+     * policy enforces row ownership + `.self` permission. Salary, bank,
+     * department, position, email, and status remain admin-only.
+     */
+    public function updateSelf(UpdateEmployeeSelfRequest $request): EmployeeResource|JsonResponse
+    {
+        $employee = $request->user()?->employee;
+        if (!$employee) {
+            return response()->json(['message' => 'No employee record linked to this account.'], 404);
+        }
+
+        $this->authorize('updateSelf', $employee);
+
+        $employee = $this->employees->updateEmployee($employee, $request->validated());
+
+        return new EmployeeResource($employee);
     }
 }

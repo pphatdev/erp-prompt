@@ -16,13 +16,14 @@ return new class extends Migration
             Schema::create('roles', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->string('name');
-                $table->string('slug')->unique();
+                $table->string('slug');
                 $table->string('description')->nullable();
                 
                 $table->string('tenant_id');
                 $table->timestamps();
                 $table->softDeletes();
                 
+                $table->unique(['tenant_id', 'slug']);
                 $table->index('tenant_id');
             });
         }
@@ -32,7 +33,7 @@ return new class extends Migration
             Schema::create('permissions', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->string('name');
-                $table->string('slug')->unique(); // Pattern: module.feature.action
+                $table->string('slug'); // Pattern: module.feature.action
                 $table->string('module');
                 $table->string('feature');
                 $table->string('action');
@@ -41,6 +42,7 @@ return new class extends Migration
                 $table->timestamps();
                 
                 $table->index(['module', 'feature', 'action']);
+                $table->unique(['tenant_id', 'slug']);
                 $table->index('tenant_id');
             });
         }

@@ -19,12 +19,19 @@ class Leave extends Model
     protected $keyType = 'string';
     public $incrementing = false;
 
+    public const SESSION_FULL_DAY  = 'full_day';
+    public const SESSION_MORNING   = 'morning';
+    public const SESSION_AFTERNOON = 'afternoon';
+
+    public const HALF_DAY_SESSIONS = [self::SESSION_MORNING, self::SESSION_AFTERNOON];
+
     protected $fillable = [
         'employee_id',
         'leave_type_id',
         'start_date',
         'end_date',
         'days',
+        'leave_session',
         'reason',
         'status',
         'tenant_id',
@@ -33,7 +40,8 @@ class Leave extends Model
     protected $casts = [
         'start_date' => 'date',
         'end_date'   => 'date',
-        'days'       => 'integer',
+        // Decimal so half-day requests (0.5) round-trip without truncation.
+        'days'       => 'float',
     ];
 
     public function employee(): BelongsTo
