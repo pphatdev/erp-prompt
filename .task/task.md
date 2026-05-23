@@ -1,28 +1,123 @@
-# Main Project Tasks
+# ERP Master Progress Registry
 
-This file tracks the overarching progress across all ERP modules. Use the links below to navigate to the specific task checklists and contexts for each module.
+> Last synced: 2026-05-23
 
-## Core Modules
-- [x] [IAM (Identity & Access Management)](./iam/task.md) — Both Backend API and Frontend screens (Login, Users, Roles) fully complete.
-- [x] [Sales (O2C & CRM)](./sales/task.md) — Hybrid Sales full stack: backend (Quote → Order → Invoice + Subscription + Stock deduction, one transactional fulfillment) + frontend (card-grid funnel across Quotations / Sales Orders / Invoices / Subscriptions with inline-variant quote builder, atomic-confirm warnings, journal-entry surface). Provisioning listener + credit-note + tax engine still planned.
-- [x] [FMS (Financial Management)](./fms/task.md) — Backend accounts & balanced journal entry engine complete with tests; Frontend pending.
-- [x] [HRM (Workforce & Payroll)](./hrm/task.md) — Phases 1–4 complete on Backend & Frontend (Workforce, Leave, Payroll, Recruitment); Performance review complete.
-- [x] [HRM Time Off & Attendance](./time_off_attendance/task.md) — Docs + backend implementation complete (5 slices): shifts/employee-shifts CRUD, attendance logs with Haversine geofence + IPv4 whitelist, overtime requests, daily reconciliation job + payroll deductions/OT earnings, half-day leave with pro-rata accrual. Pending: Pest tests, frontend UI, eApprovals integration for overtime.
+## Infrastructure & Platform
+- [x] Laravel multi-tenant backend (stancl/tenancy v3, multi-database)
+- [x] Nuxt 3 frontend with Tailwind CSS 4 + PrimeVue
+- [x] Laravel Passport OAuth2 (password grant, deterministic client IDs)
+- [x] `useApi` composable — auto `X-Tenant-Handle` + token rotation
+- [x] PostgreSQL self-referential FK fix (split Schema::create + Schema::table)
 
-## Specialized Modules
-- [x] [eApprovals](./eapprovals/task.md) — Backend engine, workflow actions, and tests complete; Frontend pending.
-- [x] [Inventory Management](./inventory/task.md) — Backend schema, stock movement transactions, and tests complete; Frontend Products UI complete.
-- [x] [eDocuments (Policy Explorer)](./edocuments/task.md) — Backend document & folder services and tests complete; Frontend pending.
-- [x] [Fixed Asset Management](./assets/task.md) — Backend depreciation engine & tests complete.
-- [x] [Fleet Management](./fleet/task.md) — Backend maintenance, fuel logs, and tests complete.
-- [x] [Project Management](./projects/task.md) — Backend tasks, timesheets, and tests complete; Frontend Tasks UI complete.
-- [x] [Document Management (CMS)](./documents/task.md) — Backend CMS folders, files checkout/checkin, and tests complete.
-- [x] [Reporting & Analytics](./reporting/task.md) — Backend dashboards, widgets, and tests complete; Frontend Dashboard UI complete.
+## IAM (Identity & Access Management)
+- [x] Users CRUD (`/users`)
+- [x] Roles & permissions matrix — DB-backed, 4 tables
+- [x] `module.feature.action` permission slugs
+- [x] `hasPermission()` on User model (bypasses Gate)
+- [x] `settings.read` / `settings.write` permissions seeded
+- [x] `SettingsPermissionSeeder` for existing-tenant backfill
 
-## Global UI & Architecture
-- [x] [Layout & Visual Specification](./design/task.md) — Design tokens (§2, §3, §9) synced with global frontend stylesheet and layout templates.
-- [x] [File Upload Process Rules](./uploads/task.md) — Standardized file validation, chunking, and multi-tenant isolation rules.
-- [x] [Configuration & Tenant Settings](./configuration/task.md) — Key/value `tenant_settings` store, Branding/Locale/Notifications/Security tabs, `/settings/public` for login-screen branding, customizer↔backend sync. Logo upload & module toggles still planned.
+## Modules System
+- [x] `modules` table (self-FK, `is_active`, `is_core`, `parent_id`, `sort_order`, `group`)
+- [x] `product_modules` pivot (software products linked to system modules)
+- [x] `ModuleController` — index, allForManagement, toggle, slugs, syncProduct
+- [x] `useModules` composable — singleton, fail-open, `hasModule()`
+- [x] Sidebar module gating (`moduleSlug` on nav items)
+- [x] Entitlement cascade — `expandEntitledSlugs()` propagates parent to children on provisioning
+- [x] Settings Modules tab (adminOnly, tree view, toggle, core protected)
+- [x] `ModuleSeeder` — static menu items seeded to DB
 
+## Sidebar / Layout
+- [x] `default.vue` layout — compact rail, flyout hover, mobile drawer
+- [x] Permission-gated nav items (OR semantics for arrays)
+- [x] Loading skeleton (`skeletonGroups`, `nav-skeleton` shimmer CSS)
+- [x] Breadcrumb system with entity-name override
 
+## Settings / Branding
+- [x] `GET /settings`, `PUT /settings` (key/value store)
+- [x] `UpdateSettingsRequest::authorize()` — uses `hasPermission()` not Gate
+- [x] Customer admin can update branding (logo, colors, theme)
+- [x] Theme applied immediately on save + persisted in localStorage
+- [x] Settings tabs: branding, locale, notifications, security, modules (adminOnly), platform (adminOnly)
 
+## Dashboard
+- [x] `GET /api/v1/dashboard/summary` — `DashboardSummaryController` + `DashboardSummaryService`
+- [x] KPIs: employees, leave, attendance, sales, inventory, projects, finance
+- [x] Charts: 7-day revenue trend + headcount by department
+- [x] Recent: last 5 orders + last 5 pending leaves
+- [x] `useDashboard` composable — singleton, 5-min staleness, `revenueBars`, `headcountBars`
+- [x] Admin dashboard: full KPI grid + charts + tables
+- [x] Customer dashboard: module-gated sections (hrm / sales)
+- [x] Shimmer skeletons + error state + refresh button
+
+## Sales / CRM
+- [x] Customers CRUD + handle check
+- [x] Leads CRUD + win action
+- [x] Quotations (index, store, show, destroy + items)
+- [x] Orders (CRUD + fulfillment flow)
+- [x] Invoices (CRUD + confirm/cancel)
+- [x] Subscriptions (CRUD + activate/cancel)
+- [x] `TenantProvisioningService` — provision DB on subscription creation
+- [x] Software products linked to system modules (modal picker, badge display)
+
+## HRM
+- [x] Employees CRUD
+- [x] Departments, Positions
+- [x] Leave Requests + Leave Types
+- [x] Shifts, Attendance (clock in/out), Overtime
+- [x] Payroll Periods + Payslips
+- [x] Vacancies, Applications, Candidates (Kanban)
+- [x] Appraisals
+- [x] Public careers portal (no-auth)
+
+## Inventory
+- [x] Products CRUD (with variants, module linking for software type)
+- [x] Stock Movements
+- [ ] Warehouse management UI
+- [ ] Supplier management UI
+- [ ] Purchase Orders UI
+
+## FMS (Financial Management)
+- [x] Chart of Accounts
+- [x] Journal Entries + Ledger
+- [ ] AP/AR module UI
+- [ ] Tax management UI
+- [ ] Financial reports UI
+
+## Projects
+- [x] Projects CRUD (backend)
+- [x] Tasks CRUD + status update
+- [x] Timesheets
+- [ ] Project dashboard UI page
+- [ ] Kanban board UI
+
+## Assets
+- [ ] Asset CRUD UI
+- [ ] Depreciation UI
+
+## Fleet
+- [ ] Vehicle management UI
+- [ ] Fuel logs UI
+- [ ] Maintenance logs UI
+
+## eApprovals
+- [x] Approval workflows + levels (backend)
+- [x] Approval actions (backend)
+- [ ] eApprovals UI page
+
+## eDocuments / Documents
+- [x] CMS Folders + Documents (backend)
+- [x] Document check-in/check-out (backend)
+- [ ] Document explorer UI
+
+## Reporting & Analytics
+- [x] Dashboard/Widget CRUD infrastructure
+- [x] `DashboardSummaryService` with real aggregation queries
+- [ ] Configurable widget dashboard builder UI
+- [ ] Scheduled reports UI
+- [ ] Export to PDF/Excel
+
+## Testing
+- [ ] Pest tenancy isolation tests (P0)
+- [ ] Vitest component tests
+- [ ] Playwright E2E for critical flows
