@@ -70,6 +70,9 @@
             <button class="btn btn-ghost text-xs" @click="openEditModal(user)">
               <i class="ti ti-pencil" />Edit
             </button>
+            <button class="btn btn-ghost text-xs text-(--color-warning)" @click="openResetPasswordModal(user)" title="Reset password">
+              <i class="ti ti-key" />Password
+            </button>
             <button class="btn text-xs text-(--color-danger) border border-(--color-danger)/20 hover:bg-(--color-danger-subtle)" @click="deleteUserProfile(user.id)">
               <i class="ti ti-user-off" />Terminate
             </button>
@@ -77,7 +80,45 @@
         </article>
       </section>
 
-      <!-- Modal -->
+      <!-- Reset Password Modal -->
+      <div v-if="showResetModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="glass-card rounded-2xl w-full max-w-sm p-6 shadow-(--shadow-lg) bg-(--bg-card)">
+          <header class="flex items-center justify-between mb-5">
+            <div>
+              <h3>Reset password</h3>
+              <p class="text-xxs text-(--text-muted) mt-0.5 truncate">{{ resetTarget?.name }}</p>
+            </div>
+            <button class="topbar-btn" @click="showResetModal = false"><i class="ti ti-x" /></button>
+          </header>
+
+          <form @submit.prevent="submitResetPassword" class="space-y-4">
+            <div>
+              <label class="block text-xxs font-bold text-(--text-muted) uppercase tracking-wide mb-1.5">New password</label>
+              <input v-model="resetForm.password" type="password" required minlength="8" class="form-control" placeholder="Min. 8 characters" />
+            </div>
+            <div>
+              <label class="block text-xxs font-bold text-(--text-muted) uppercase tracking-wide mb-1.5">Confirm password</label>
+              <input v-model="resetForm.password_confirmation" type="password" required minlength="8" class="form-control" placeholder="Repeat new password" />
+              <p v-if="resetForm.password && resetForm.password_confirmation && resetForm.password !== resetForm.password_confirmation" class="text-xxs text-(--color-danger) mt-1">
+                Passwords do not match.
+              </p>
+            </div>
+
+            <footer class="pt-4 border-t border-(--border-color) flex justify-end gap-2">
+              <button type="button" class="btn btn-ghost text-xs" @click="showResetModal = false">Cancel</button>
+              <button
+                type="submit"
+                class="btn btn-primary text-xs"
+                :disabled="!resetForm.password || resetForm.password !== resetForm.password_confirmation || resetForm.password.length < 8"
+              >
+                <i class="ti ti-key" />Set password
+              </button>
+            </footer>
+          </form>
+        </div>
+      </div>
+
+      <!-- Create / Edit Modal -->
       <div v-if="showModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="glass-card rounded-2xl w-full max-w-md p-6 shadow-(--shadow-lg) bg-(--bg-card)">
           <header class="flex items-center justify-between mb-5">
@@ -154,6 +195,10 @@ const showModal = ref(false)
 const editingUser = ref<User | null>(null)
 const form = ref({ name: '', email: '', password: '', role_ids: [] as string[], is_active: true })
 
+const showResetModal = ref(false)
+const resetTarget = ref<User | null>(null)
+const resetForm = ref({ password: '', password_confirmation: '' })
+
 const filteredUsers = computed(() => users.value.filter(u => {
   const matchSearch = u.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
                       u.email.toLowerCase().includes(searchQuery.value.toLowerCase())
@@ -213,6 +258,26 @@ const saveUser = async () => {
     showModal.value = false
   } catch (err: any) {
     toast.error('Failed to save user.', err?.data?.message || 'Verify form inputs and try again.')
+  }
+}
+
+const openResetPasswordModal = (user: User) => {
+  resetTarget.value = user
+  resetForm.value = { password: '', password_confirmation: '' }
+  showResetModal.value = true
+}
+
+const submitResetPassword = async () => {
+  if (!resetTarget.value) return
+  try {
+    await api.post(`/users/${resetTarget.value.id}/reset-password`, {
+      password: resetForm.value.password,
+      password_confirmation: resetForm.value.password_confirmation,
+    })
+    showResetModal.value = false
+    toast.success('Password reset', `Password for ${resetTarget.value.name} has been updated.`)
+  } catch (err: any) {
+    toast.error('Reset failed.', err?.data?.message || 'Verify the password meets requirements.')
   }
 }
 

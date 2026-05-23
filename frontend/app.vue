@@ -34,6 +34,9 @@ onMounted(() => {
   const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
   applyTheme(saved || (prefersDark ? 'dark' : 'light'))
 
+  // Pull tenant branding from backend (best-effort, public endpoint).
+  tenantStore.syncBranding()
+
   setTimeout(() => {
     const path = router.currentRoute.value.path
     if (!authStore.isAuthenticated && path !== '/login') {

@@ -88,8 +88,8 @@
           <table class="w-full text-left">
             <thead>
               <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
-                <th class="px-4 py-3 font-semibold">Employee</th>
                 <th class="px-4 py-3 font-semibold font-mono">ID</th>
+                <th class="px-4 py-3 font-semibold">Employee</th>
                 <th class="px-4 py-3 font-semibold">Department</th>
                 <th class="px-4 py-3 font-semibold">Position</th>
                 <th class="px-4 py-3 font-semibold">Hired</th>
@@ -100,21 +100,26 @@
             </thead>
             <tbody class="divide-y divide-(--border-color)">
               <tr v-for="emp in employees" :key="emp.id" class="hover:bg-(--bg-muted) transition-colors">
+                <td class="px-4 py-3 font-mono text-xs text-(--text-body)">{{ emp.employeeId }}</td>
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3 min-w-0">
                     <div class="w-9 h-9 rounded-lg bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold text-xs shrink-0">
                       {{ initials(emp) }}
                     </div>
                     <div class="min-w-0">
-                      <div class="text-xs font-semibold text-(--text-heading) truncate">{{ emp.fullName }}</div>
+                      <NuxtLink
+                        :to="`/employees/${emp.id}`"
+                        class="text-xs font-semibold text-(--text-heading) truncate hover:text-(--color-primary) hover:underline underline-offset-2 block"
+                      >
+                        {{ emp.fullName }}
+                      </NuxtLink>
                       <div class="text-xxs text-(--text-muted) truncate">{{ emp.email }}</div>
                     </div>
                   </div>
                 </td>
-                <td class="px-4 py-3 font-mono text-xs text-(--text-body)">{{ emp.employeeId }}</td>
                 <td class="px-4 py-3 text-xs">{{ emp.department?.name || '—' }}</td>
                 <td class="px-4 py-3 text-xs">{{ emp.position?.title || '—' }}</td>
-                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ emp.hiredAt || '—' }}</td>
+                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatDate(emp.hiredAt) }}</td>
                 <td v-if="canSeeSalary" class="px-4 py-3 text-right font-mono text-xs">
                   {{ emp.baseSalary != null ? formatMoney(emp.baseSalary) : '—' }}
                 </td>
@@ -122,19 +127,15 @@
                   <Badge :variant="statusVariant(emp.status)" :dot="true">{{ emp.status }}</Badge>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="btn btn-ghost text-xs px-2 py-1" @click="openEditModal(emp)" title="Edit">
-                      <i class="ti ti-pencil" />
-                    </button>
-                    <button
-                      v-if="emp.status !== 'terminated'"
-                      class="btn text-xs px-2 py-1 text-(--color-danger) hover:bg-(--color-danger-subtle)"
-                      @click="terminate(emp)"
-                      title="Terminate"
-                    >
-                      <i class="ti ti-user-off" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    class="emp-card-kebab"
+                    :class="{ 'emp-card-kebab--open': cardMenu.open && cardMenu.emp?.id === emp.id }"
+                    title="Actions"
+                    @click.stop="openCardMenu(emp, $event)"
+                  >
+                    <i class="ti ti-dots-vertical" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -177,9 +178,13 @@
                   />
                 </div>
                 <div class="min-w-0">
-                  <h3 class="text-sm font-semibold text-(--text-heading) truncate" :class="emp.status === 'terminated' ? 'opacity-70' : ''">
+                  <NuxtLink
+                    :to="`/employees/${emp.id}`"
+                    class="text-sm font-semibold text-(--text-heading) truncate block hover:text-(--color-primary) hover:underline underline-offset-2"
+                    :class="emp.status === 'terminated' ? 'opacity-70' : ''"
+                  >
                     {{ emp.fullName }}
-                  </h3>
+                  </NuxtLink>
                   <p class="text-xxs uppercase tracking-wider font-bold text-(--color-primary) truncate">
                     {{ emp.position?.title || '—' }}
                   </p>
@@ -262,6 +267,9 @@
         :style="{ top: cardMenu.y + 'px', left: cardMenu.x + 'px' }"
         @click.stop
       >
+        <NuxtLink :to="`/employees/${cardMenu.emp.id}`" class="action-item" @click="closeCardMenu">
+          <i class="ti ti-user-circle" /> View profile
+        </NuxtLink>
         <button class="action-item" @click="cardActionEdit">
           <i class="ti ti-pencil" /> Edit
         </button>
@@ -362,6 +370,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useApi } from '~/composables/useApi'
+import { formatDate } from '~/composables/useDateFormat'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 import Badge from '~/components/Badge.vue'
@@ -449,7 +458,7 @@ const formatRelativeDate = (iso: string): string => {
   if (!Number.isFinite(then)) return iso
   const diffMs = Date.now() - then
   const days = Math.floor(diffMs / 86_400_000)
-  if (days < 0) return new Date(iso).toLocaleDateString()
+  if (days < 0) return formatDate(iso)
   if (days < 30) return `${days || 1} day${days === 1 ? '' : 's'} ago`
   const months = Math.floor(days / 30)
   if (months < 12) return `${months} mo ago`

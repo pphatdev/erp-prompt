@@ -87,7 +87,12 @@
                   <div>{{ lv.startDate }}</div>
                   <div class="text-(--text-muted) text-xxs">→ {{ lv.endDate }}</div>
                 </td>
-                <td class="px-4 py-3 font-mono text-xs text-right">{{ lv.days }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-right">
+                  {{ lv.days.toFixed(1).replace(/\.0$/, '') }}
+                  <span v-if="lv.leaveSession && lv.leaveSession !== 'full_day'" class="text-xxs text-(--text-muted) ml-0.5">
+                    ({{ lv.leaveSession === 'morning' ? 'AM' : 'PM' }})
+                  </span>
+                </td>
                 <td class="px-4 py-3 text-xs text-(--text-body) max-w-[240px] truncate" :title="lv.reason || ''">
                   {{ lv.reason || '—' }}
                 </td>
@@ -95,32 +100,17 @@
                   <Badge :variant="statusVariant(lv.status)" :dot="true">{{ lv.status }}</Badge>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <template v-if="lv.status === 'pending' && canApprove">
-                      <button
-                        class="btn text-xs px-2 py-1 text-(--color-success) hover:bg-(--color-success-subtle, var(--color-success)/10)"
-                        title="Approve"
-                        @click="approve(lv)"
-                      >
-                        <i class="ti ti-check" />
-                      </button>
-                      <button
-                        class="btn text-xs px-2 py-1 text-(--color-warning) hover:bg-(--color-warning-subtle, var(--color-warning)/10)"
-                        title="Reject"
-                        @click="reject(lv)"
-                      >
-                        <i class="ti ti-x" />
-                      </button>
-                    </template>
-                    <button
-                      v-if="lv.status === 'pending'"
-                      class="btn text-xs px-2 py-1 text-(--color-danger) hover:bg-(--color-danger-subtle)"
-                      title="Withdraw"
-                      @click="withdraw(lv)"
-                    >
-                      <i class="ti ti-trash" />
-                    </button>
-                  </div>
+                  <button
+                    v-if="lv.status === 'pending'"
+                    type="button"
+                    class="action-trigger"
+                    :class="{ 'action-trigger-open': actionMenu.open && actionMenu.leave?.id === lv.id }"
+                    title="Actions"
+                    @click.stop="openActionMenu(lv, $event)"
+                  >
+                    <i class="ti ti-dots-vertical" />
+                  </button>
+                  <span v-else class="text-xxs text-(--text-muted)">—</span>
                 </td>
               </tr>
             </tbody>
@@ -170,7 +160,35 @@
             </div>
             <div>
               <label class="form-label">End date</label>
-              <input v-model="form.end_date" type="date" required class="form-control" />
+              <input
+                v-model="form.end_date"
+                type="date"
+                :required="form.leave_session === 'full_day'"
+                :disabled="form.leave_session !== 'full_day'"
+                class="form-control"
+              />
+              <p v-if="form.leave_session !== 'full_day'" class="text-xxs text-(--text-muted) mt-1">
+                Half-day request — locked to start date.
+              </p>
+            </div>
+
+            <div class="sm:col-span-2">
+              <label class="form-label">Session</label>
+              <div class="flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
+                <button
+                  v-for="opt in (['full_day', 'morning', 'afternoon'] as const)"
+                  :key="opt"
+                  type="button"
+                  class="flex-1 px-3 py-1 rounded text-xxs uppercase tracking-widest font-bold transition-colors"
+                  :class="form.leave_session === opt ? 'bg-(--bg-card) text-(--color-primary) shadow-(--shadow-sm)' : 'text-(--text-muted) hover:text-(--text-heading)'"
+                  @click="selectSession(opt)"
+                >
+                  {{ opt.replace('_', ' ') }}
+                </button>
+              </div>
+              <p class="text-xxs text-(--text-muted) mt-1">
+                Half-day options consume 0.5 days from your balance.
+              </p>
             </div>
 
             <div class="sm:col-span-2">
@@ -223,6 +241,27 @@
           </ul>
         </div>
       </div>
+
+      <!-- Action dropdown -->
+      <div
+        v-if="actionMenu.open && actionMenu.leave"
+        class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
+        :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
+        @click.stop
+      >
+        <template v-if="canApprove">
+          <button class="action-item action-item-success" @click="actionApprove">
+            <i class="ti ti-check" /> Approve
+          </button>
+          <button class="action-item action-item-warning" @click="actionReject">
+            <i class="ti ti-x" /> Reject
+          </button>
+          <hr class="my-1 border-(--border-color)" />
+        </template>
+        <button class="action-item action-item-danger" @click="actionWithdraw">
+          <i class="ti ti-trash" /> Withdraw
+        </button>
+      </div>
     </div>
   </NuxtLayout>
 </template>
@@ -242,12 +281,22 @@ interface Leave {
   startDate: string
   endDate: string
   days: number
+  leaveSession?: 'full_day' | 'morning' | 'afternoon'
   reason: string | null
   status: 'pending' | 'approved' | 'rejected'
   employee?: EmployeeLite
   leaveType?: LeaveType
 }
-interface BalanceRow { leaveTypeId: string; name: string; annualAllowance: number; used: number; remaining: number }
+interface BalanceRow {
+  leaveTypeId: string
+  name: string
+  annualAllowance: number
+  // New since slice 5 — exposed separately so the UI can show progress
+  // (e.g. "3.5 of 1.5 monthly accrual already used"). Optional for backward compat.
+  accrued?: number
+  used: number
+  remaining: number
+}
 interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; total: number; totalPages: number } }
 
 const api = useApi()
@@ -266,18 +315,36 @@ const filters = reactive({ employeeId: '', status: '' as '' | 'pending' | 'appro
 const showSubmitModal = ref(false)
 const saving = ref(false)
 const formError = ref<string | null>(null)
+type LeaveSession = 'full_day' | 'morning' | 'afternoon'
 const form = reactive({
   employee_id: '',
   leave_type_id: '',
   start_date: '',
   end_date: '',
+  leave_session: 'full_day' as LeaveSession,
   reason: ''
 })
+
+const selectSession = (opt: LeaveSession) => {
+  form.leave_session = opt
+  // Half-day requests are single-day by contract — lock end_date to start_date
+  // so the user can't accidentally submit a multi-day morning leave.
+  if (opt !== 'full_day' && form.start_date) {
+    form.end_date = form.start_date
+  }
+}
 
 const showBalanceModal = ref(false)
 const balanceLoading = ref(false)
 const balance = ref<BalanceRow[]>([])
 const balanceEmployee = computed(() => employees.value.find(e => e.id === filters.employeeId) || null)
+
+const actionMenu = reactive({
+  open: false,
+  x: 0,
+  y: 0,
+  leave: null as Leave | null
+})
 
 const statusVariant = (s: string): 'success' | 'warning' | 'danger' =>
   s === 'approved' ? 'success' : s === 'pending' ? 'warning' : 'danger'
@@ -320,7 +387,14 @@ watch(() => [filters.employeeId, filters.status], () => {
 })
 
 const openSubmitModal = () => {
-  Object.assign(form, { employee_id: '', leave_type_id: '', start_date: '', end_date: '', reason: '' })
+  Object.assign(form, {
+    employee_id: '',
+    leave_type_id: '',
+    start_date: '',
+    end_date: '',
+    leave_session: 'full_day' as LeaveSession,
+    reason: ''
+  })
   formError.value = null
   showSubmitModal.value = true
 }
@@ -333,7 +407,11 @@ const submitLeave = async () => {
       employee_id: form.employee_id,
       leave_type_id: form.leave_type_id,
       start_date: form.start_date,
-      end_date: form.end_date,
+      // Half-day requests collapse end_date onto start_date — server validates
+      // the same invariant, but keep this defensive so the disabled input's
+      // stale state can't ship a wider range.
+      end_date: form.leave_session === 'full_day' ? form.end_date : form.start_date,
+      leave_session: form.leave_session,
       reason: form.reason || null
     })
     showSubmitModal.value = false
@@ -389,7 +467,42 @@ const openBalanceModal = async () => {
   }
 }
 
+const openActionMenu = (lv: Leave, ev: MouseEvent) => {
+  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+  const menuWidth = 180
+  const menuMaxHeight = 200
+  const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+  const wouldOverflow = rect.bottom + menuMaxHeight + 8 > window.innerHeight
+  actionMenu.leave = lv
+  actionMenu.x = Math.max(8, left)
+  actionMenu.y = wouldOverflow ? rect.top - menuMaxHeight - 6 : rect.bottom + 6
+  actionMenu.open = true
+}
+
+const closeActionMenu = () => { actionMenu.open = false; actionMenu.leave = null }
+
+const actionApprove = async () => {
+  const lv = actionMenu.leave
+  closeActionMenu()
+  if (lv) await approve(lv)
+}
+
+const actionReject = async () => {
+  const lv = actionMenu.leave
+  closeActionMenu()
+  if (lv) await reject(lv)
+}
+
+const actionWithdraw = async () => {
+  const lv = actionMenu.leave
+  closeActionMenu()
+  if (lv) await withdraw(lv)
+}
+
 onMounted(async () => {
+  if (import.meta.client) {
+    document.addEventListener('click', closeActionMenu)
+  }
   await Promise.all([loadLookups(), loadLeaves()])
 })
 </script>
@@ -415,4 +528,38 @@ onMounted(async () => {
   cursor: pointer;
 }
 .topbar-btn:hover { background: var(--bg-muted); color: var(--text-heading); }
+
+.action-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-trigger:hover { background: var(--bg-muted); color: var(--text-heading); }
+.action-trigger-open { background: var(--bg-muted); color: var(--color-primary); }
+
+.action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-heading);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-item:hover { background: var(--bg-muted); }
+.action-item-success { color: var(--color-success); }
+.action-item-success:hover { background: var(--color-success-subtle, rgb(var(--color-success-rgb, 34 197 94) / 0.1)); }
+.action-item-warning { color: var(--color-warning); }
+.action-item-warning:hover { background: var(--color-warning-subtle, rgb(var(--color-warning-rgb, 250 173 20) / 0.1)); }
+.action-item-danger { color: var(--color-danger); }
+.action-item-danger:hover { background: var(--color-danger-subtle); }
 </style>

@@ -79,7 +79,7 @@
               <tr v-for="v in vacancies" :key="v.id" class="hover:bg-(--bg-muted) transition-colors">
                 <td class="px-4 py-3">
                   <div class="text-xs font-semibold text-(--text-heading)">{{ v.title }}</div>
-                  <div class="text-xxs text-(--text-muted) font-mono">{{ v.postedAt || '—' }}</div>
+                  <div class="text-xxs text-(--text-muted) font-mono">{{ formatDate(v.postedAt) }}</div>
                 </td>
                 <td class="px-4 py-3 text-xs">{{ v.department?.name || '—' }}</td>
                 <td class="px-4 py-3 text-xs">{{ v.location || '—' }}</td>
@@ -99,35 +99,14 @@
                   <Badge :variant="statusVariant(v.status)" :dot="true">{{ v.status }}</Badge>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="btn btn-ghost text-xs px-2 py-1" @click="openEditModal(v)" title="Edit">
-                      <i class="ti ti-pencil" />
-                    </button>
-                    <button
-                      v-if="v.status === 'draft' && canWrite"
-                      class="btn btn-primary text-xs px-2 py-1"
-                      @click="publish(v)"
-                      title="Publish"
-                    >
-                      <i class="ti ti-send" />Publish
-                    </button>
-                    <button
-                      v-if="['open','paused'].includes(v.status) && canWrite"
-                      class="btn text-xs px-2 py-1 text-(--color-warning) border border-(--color-warning)/20 hover:bg-(--color-warning-subtle, var(--color-warning)/10)"
-                      @click="closeVacancy(v)"
-                      title="Close"
-                    >
-                      <i class="ti ti-lock" />Close
-                    </button>
-                    <button
-                      v-if="canWrite"
-                      class="btn text-xs px-2 py-1 text-(--color-danger) hover:bg-(--color-danger-subtle)"
-                      @click="archive(v)"
-                      title="Archive"
-                    >
-                      <i class="ti ti-trash" />
-                    </button>
-                  </div>
+                  <button
+                    class="action-trigger"
+                    :class="{ 'action-trigger-open': actionMenu.open && actionMenu.vacancy?.id === v.id }"
+                    title="Actions"
+                    @click.stop="openActionMenu(v, $event)"
+                  >
+                    <i class="ti ti-dots-vertical" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -232,6 +211,43 @@
           </form>
         </div>
       </div>
+
+      <!-- Action dropdown -->
+      <div
+        v-if="actionMenu.open && actionMenu.vacancy"
+        class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
+        :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
+        @click.stop
+      >
+        <button class="action-item" @click="actionEdit">
+          <i class="ti ti-pencil" /> Edit
+        </button>
+        <NuxtLink
+          :to="`/applications?vacancyId=${actionMenu.vacancy.id}`"
+          class="action-item"
+          @click="closeActionMenu"
+        >
+          <i class="ti ti-users" /> View applications
+        </NuxtLink>
+        <template v-if="canWrite && actionMenu.vacancy.status === 'draft'">
+          <hr class="my-1 border-(--border-color)" />
+          <button class="action-item action-item-primary" @click="actionPublish">
+            <i class="ti ti-send" /> Publish
+          </button>
+        </template>
+        <template v-if="canWrite && ['open','paused'].includes(actionMenu.vacancy.status)">
+          <hr class="my-1 border-(--border-color)" />
+          <button class="action-item action-item-warning" @click="actionClose">
+            <i class="ti ti-lock" /> Close vacancy
+          </button>
+        </template>
+        <template v-if="canWrite">
+          <hr class="my-1 border-(--border-color)" />
+          <button class="action-item action-item-danger" @click="actionArchive">
+            <i class="ti ti-trash" /> Archive
+          </button>
+        </template>
+      </div>
     </div>
   </NuxtLayout>
 </template>
@@ -239,6 +255,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useApi } from '~/composables/useApi'
+import { formatDate } from '~/composables/useDateFormat'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 
@@ -280,6 +297,13 @@ const showModal = ref(false)
 const editing = ref<Vacancy | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
+
+const actionMenu = reactive({
+  open: false,
+  x: 0,
+  y: 0,
+  vacancy: null as Vacancy | null
+})
 const form = reactive({
   title: '',
   description: '',
@@ -419,7 +443,14 @@ const saveVacancy = async () => {
 }
 
 const publish = async (v: Vacancy) => {
-  if (!confirm(`Publish "${v.title}" and open it for applications?`)) return
+  const ok = await toast.confirm({
+    title: `Publish "${v.title}"?`,
+    description: 'The vacancy will become visible and open for applications. You can pause or close it again later.',
+    confirmLabel: 'Publish vacancy',
+    color: 'primary',
+    icon: 'ti-send'
+  })
+  if (!ok) return
   try {
     await api.post(`/job-vacancies/${v.id}/publish`)
     await loadVacancies()
@@ -455,7 +486,52 @@ const archive = async (v: Vacancy) => {
   }
 }
 
+const openActionMenu = (v: Vacancy, ev: MouseEvent) => {
+  const target = ev.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  const menuWidth = 200
+  const menuMaxHeight = 240
+  const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+  const wouldOverflow = rect.bottom + menuMaxHeight + 8 > window.innerHeight
+  actionMenu.vacancy = v
+  actionMenu.x = Math.max(8, left)
+  actionMenu.y = wouldOverflow ? rect.top - menuMaxHeight - 6 : rect.bottom + 6
+  actionMenu.open = true
+}
+
+const closeActionMenu = () => {
+  actionMenu.open = false
+  actionMenu.vacancy = null
+}
+
+const actionEdit = () => {
+  const v = actionMenu.vacancy
+  closeActionMenu()
+  if (v) openEditModal(v)
+}
+
+const actionPublish = () => {
+  const v = actionMenu.vacancy
+  closeActionMenu()
+  if (v) publish(v)
+}
+
+const actionClose = () => {
+  const v = actionMenu.vacancy
+  closeActionMenu()
+  if (v) closeVacancy(v)
+}
+
+const actionArchive = () => {
+  const v = actionMenu.vacancy
+  closeActionMenu()
+  if (v) archive(v)
+}
+
 onMounted(async () => {
+  if (import.meta.client) {
+    document.addEventListener('click', closeActionMenu)
+  }
   await Promise.all([loadLookups(), loadVacancies()])
 })
 </script>
@@ -472,4 +548,38 @@ onMounted(async () => {
   cursor: pointer;
 }
 .topbar-btn:hover { background: var(--bg-muted); color: var(--text-heading); }
+
+.action-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-trigger:hover { background: var(--bg-muted); color: var(--text-heading); }
+.action-trigger-open { background: var(--bg-muted); color: var(--color-primary); }
+
+.action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-heading);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-item:hover { background: var(--bg-muted); }
+.action-item-primary { color: var(--color-primary); font-weight: 600; }
+.action-item-primary:hover { background: var(--color-primary-subtle); }
+.action-item-warning { color: var(--color-warning); }
+.action-item-warning:hover { background: var(--color-warning-subtle, rgb(var(--color-warning-rgb, 250 173 20) / 0.1)); }
+.action-item-danger { color: var(--color-danger); }
+.action-item-danger:hover { background: var(--color-danger-subtle); }
 </style>

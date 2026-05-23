@@ -54,18 +54,15 @@
                 <td class="px-4 py-3 font-mono text-xs text-(--text-body)">{{ d.code }}</td>
                 <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatDate(d.createdAt) }}</td>
                 <td class="px-4 py-3 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="btn btn-ghost text-xs px-2 py-1" @click="openEditModal(d)" title="Edit">
-                      <i class="ti ti-pencil" />
-                    </button>
-                    <button
-                      class="btn text-xs px-2 py-1 text-(--color-danger) hover:bg-(--color-danger-subtle)"
-                      @click="removeDepartment(d)"
-                      title="Archive"
-                    >
-                      <i class="ti ti-trash" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    class="action-trigger"
+                    :class="{ 'action-trigger-open': actionMenu.open && actionMenu.dept?.id === d.id }"
+                    title="Actions"
+                    @click.stop="openActionMenu(d, $event)"
+                  >
+                    <i class="ti ti-dots-vertical" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -115,6 +112,22 @@
           </form>
         </div>
       </div>
+
+      <!-- Action dropdown -->
+      <div
+        v-if="actionMenu.open && actionMenu.dept"
+        class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
+        :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
+        @click.stop
+      >
+        <button class="action-item" @click="actionEdit">
+          <i class="ti ti-pencil" /> Edit
+        </button>
+        <hr class="my-1 border-(--border-color)" />
+        <button class="action-item action-item-danger" @click="actionArchive">
+          <i class="ti ti-trash" /> Archive
+        </button>
+      </div>
     </div>
   </NuxtLayout>
 </template>
@@ -122,6 +135,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useApi } from '~/composables/useApi'
+import { formatDate } from '~/composables/useDateFormat'
 import { useToast } from '~/composables/useToast'
 
 interface Department { id: string; name: string; code: string; createdAt: string | null }
@@ -141,13 +155,18 @@ const saving = ref(false)
 const formError = ref<string | null>(null)
 const form = reactive({ name: '', code: '' })
 
+const actionMenu = reactive({
+  open: false,
+  x: 0,
+  y: 0,
+  dept: null as Department | null
+})
+
 const filtered = computed(() => {
   if (!search.value) return departments.value
   const q = search.value.toLowerCase()
   return departments.value.filter(d => d.name.toLowerCase().includes(q) || d.code.toLowerCase().includes(q))
 })
-
-const formatDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : '—'
 
 const loadDepartments = async () => {
   loading.value = true
@@ -206,7 +225,38 @@ const removeDepartment = async (d: Department) => {
 
 watch(() => pagination.limit, () => { pagination.page = 1 })
 
-onMounted(loadDepartments)
+const openActionMenu = (d: Department, ev: MouseEvent) => {
+  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+  const menuWidth = 180
+  const menuMaxHeight = 120
+  const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+  const wouldOverflow = rect.bottom + menuMaxHeight + 8 > window.innerHeight
+  actionMenu.dept = d
+  actionMenu.x = Math.max(8, left)
+  actionMenu.y = wouldOverflow ? rect.top - menuMaxHeight - 6 : rect.bottom + 6
+  actionMenu.open = true
+}
+
+const closeActionMenu = () => { actionMenu.open = false; actionMenu.dept = null }
+
+const actionEdit = () => {
+  const d = actionMenu.dept
+  closeActionMenu()
+  if (d) openEditModal(d)
+}
+
+const actionArchive = async () => {
+  const d = actionMenu.dept
+  closeActionMenu()
+  if (d) await removeDepartment(d)
+}
+
+onMounted(() => {
+  if (import.meta.client) {
+    document.addEventListener('click', closeActionMenu)
+  }
+  loadDepartments()
+})
 </script>
 
 <style scoped>
@@ -230,4 +280,34 @@ onMounted(loadDepartments)
   cursor: pointer;
 }
 .topbar-btn:hover { background: var(--bg-muted); color: var(--text-heading); }
+
+.action-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-trigger:hover { background: var(--bg-muted); color: var(--text-heading); }
+.action-trigger-open { background: var(--bg-muted); color: var(--color-primary); }
+
+.action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-heading);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-item:hover { background: var(--bg-muted); }
+.action-item-danger { color: var(--color-danger); }
+.action-item-danger:hover { background: var(--color-danger-subtle); }
 </style>

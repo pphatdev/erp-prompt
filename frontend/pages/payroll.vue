@@ -53,27 +53,15 @@
                   <Badge :variant="statusVariant(p.status)" :dot="true">{{ p.status }}</Badge>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="btn btn-ghost text-xs px-2 py-1" @click="viewPayslips(p)" title="View payslips">
-                      <i class="ti ti-receipt-2" />Payslips
-                    </button>
-                    <button
-                      v-if="p.status === 'draft' && canWrite"
-                      class="btn btn-primary text-xs px-2 py-1"
-                      @click="processPeriod(p)"
-                      title="Process payroll"
-                    >
-                      <i class="ti ti-player-play" />Process
-                    </button>
-                    <button
-                      v-if="p.status === 'processed' && canWrite"
-                      class="btn text-xs px-2 py-1 text-(--color-warning) border border-(--color-warning)/20 hover:bg-(--color-warning-subtle, var(--color-warning)/10)"
-                      @click="closePeriod(p)"
-                      title="Close period"
-                    >
-                      <i class="ti ti-lock" />Close
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    class="action-trigger"
+                    :class="{ 'action-trigger-open': actionMenu.open && actionMenu.period?.id === p.id }"
+                    title="Actions"
+                    @click.stop="openActionMenu(p, $event)"
+                  >
+                    <i class="ti ti-dots-vertical" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -188,6 +176,30 @@
           </footer>
         </div>
       </div>
+
+      <!-- Action dropdown -->
+      <div
+        v-if="actionMenu.open && actionMenu.period"
+        class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
+        :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
+        @click.stop
+      >
+        <button class="action-item" @click="actionViewPayslips">
+          <i class="ti ti-receipt-2" /> View payslips
+        </button>
+        <template v-if="canWrite && actionMenu.period.status === 'draft'">
+          <hr class="my-1 border-(--border-color)" />
+          <button class="action-item action-item-primary" @click="actionProcess">
+            <i class="ti ti-player-play" /> Process payroll
+          </button>
+        </template>
+        <template v-if="canWrite && actionMenu.period.status === 'processed'">
+          <hr class="my-1 border-(--border-color)" />
+          <button class="action-item action-item-warning" @click="actionClose">
+            <i class="ti ti-lock" /> Close period
+          </button>
+        </template>
+      </div>
     </div>
   </NuxtLayout>
 </template>
@@ -238,6 +250,13 @@ const showPayslipsModal = ref(false)
 const payslipsLoading = ref(false)
 const payslips = ref<Payslip[]>([])
 const activePeriod = ref<PayrollPeriod | null>(null)
+
+const actionMenu = reactive({
+  open: false,
+  x: 0,
+  y: 0,
+  period: null as PayrollPeriod | null
+})
 
 const statusVariant = (s: string): 'secondary' | 'success' | 'warning' =>
   s === 'closed' ? 'warning' : s === 'processed' ? 'success' : 'secondary'
@@ -346,7 +365,44 @@ const viewPayslips = async (p: PayrollPeriod) => {
   }
 }
 
-onMounted(loadPeriods)
+const openActionMenu = (p: PayrollPeriod, ev: MouseEvent) => {
+  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+  const menuWidth = 200
+  const menuMaxHeight = 200
+  const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+  const wouldOverflow = rect.bottom + menuMaxHeight + 8 > window.innerHeight
+  actionMenu.period = p
+  actionMenu.x = Math.max(8, left)
+  actionMenu.y = wouldOverflow ? rect.top - menuMaxHeight - 6 : rect.bottom + 6
+  actionMenu.open = true
+}
+
+const closeActionMenu = () => { actionMenu.open = false; actionMenu.period = null }
+
+const actionViewPayslips = async () => {
+  const p = actionMenu.period
+  closeActionMenu()
+  if (p) await viewPayslips(p)
+}
+
+const actionProcess = async () => {
+  const p = actionMenu.period
+  closeActionMenu()
+  if (p) await processPeriod(p)
+}
+
+const actionClose = async () => {
+  const p = actionMenu.period
+  closeActionMenu()
+  if (p) await closePeriod(p)
+}
+
+onMounted(() => {
+  if (import.meta.client) {
+    document.addEventListener('click', closeActionMenu)
+  }
+  loadPeriods()
+})
 </script>
 
 <style scoped>
@@ -370,4 +426,36 @@ onMounted(loadPeriods)
   cursor: pointer;
 }
 .topbar-btn:hover { background: var(--bg-muted); color: var(--text-heading); }
+
+.action-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-trigger:hover { background: var(--bg-muted); color: var(--text-heading); }
+.action-trigger-open { background: var(--bg-muted); color: var(--color-primary); }
+
+.action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-heading);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-item:hover { background: var(--bg-muted); }
+.action-item-primary { color: var(--color-primary); font-weight: 600; }
+.action-item-primary:hover { background: var(--color-primary-subtle); }
+.action-item-warning { color: var(--color-warning); }
+.action-item-warning:hover { background: var(--color-warning-subtle, rgb(var(--color-warning-rgb, 250 173 20) / 0.1)); }
 </style>

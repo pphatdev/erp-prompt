@@ -84,43 +84,15 @@
                   <Badge :variant="statusVariant(a.status)" :dot="true">{{ a.status }}</Badge>
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="btn btn-ghost text-xs px-2 py-1" @click="openEditModal(a)" title="Edit / view">
-                      <i class="ti ti-pencil" />
-                    </button>
-                    <button
-                      v-if="a.status === 'draft' && canWrite"
-                      class="btn btn-primary text-xs px-2 py-1"
-                      @click="submit(a)"
-                      title="Submit"
-                    >
-                      <i class="ti ti-send" />Submit
-                    </button>
-                    <button
-                      v-if="a.status === 'submitted' && canWrite"
-                      class="btn text-xs px-2 py-1 text-(--color-info) border border-(--color-info)/20 hover:bg-(--color-info-subtle, var(--color-info)/10)"
-                      @click="openReviewModal(a)"
-                      title="Review"
-                    >
-                      <i class="ti ti-stars" />Review
-                    </button>
-                    <button
-                      v-if="a.status === 'reviewed' && canWrite"
-                      class="btn text-xs px-2 py-1 text-(--color-warning) border border-(--color-warning)/20 hover:bg-(--color-warning-subtle, var(--color-warning)/10)"
-                      @click="closeAppraisal(a)"
-                      title="Close"
-                    >
-                      <i class="ti ti-lock" />Close
-                    </button>
-                    <button
-                      v-if="a.status !== 'closed' && canWrite"
-                      class="btn text-xs px-2 py-1 text-(--color-danger) hover:bg-(--color-danger-subtle)"
-                      @click="archive(a)"
-                      title="Archive"
-                    >
-                      <i class="ti ti-trash" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    class="action-trigger"
+                    :class="{ 'action-trigger-open': actionMenu.open && actionMenu.appraisal?.id === a.id }"
+                    title="Actions"
+                    @click.stop="openActionMenu(a, $event)"
+                  >
+                    <i class="ti ti-dots-vertical" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -269,6 +241,42 @@
           </form>
         </div>
       </div>
+
+      <!-- Action dropdown -->
+      <div
+        v-if="actionMenu.open && actionMenu.appraisal"
+        class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
+        :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
+        @click.stop
+      >
+        <button class="action-item" @click="actionEdit">
+          <i class="ti ti-pencil" /> Edit / view
+        </button>
+        <template v-if="canWrite && actionMenu.appraisal.status === 'draft'">
+          <hr class="my-1 border-(--border-color)" />
+          <button class="action-item action-item-primary" @click="actionSubmit">
+            <i class="ti ti-send" /> Submit
+          </button>
+        </template>
+        <template v-if="canWrite && actionMenu.appraisal.status === 'submitted'">
+          <hr class="my-1 border-(--border-color)" />
+          <button class="action-item action-item-info" @click="actionReview">
+            <i class="ti ti-stars" /> Review
+          </button>
+        </template>
+        <template v-if="canWrite && actionMenu.appraisal.status === 'reviewed'">
+          <hr class="my-1 border-(--border-color)" />
+          <button class="action-item action-item-warning" @click="actionClose">
+            <i class="ti ti-lock" /> Close
+          </button>
+        </template>
+        <template v-if="canWrite && actionMenu.appraisal.status !== 'closed'">
+          <hr class="my-1 border-(--border-color)" />
+          <button class="action-item action-item-danger" @click="actionArchive">
+            <i class="ti ti-trash" /> Archive
+          </button>
+        </template>
+      </div>
     </div>
   </NuxtLayout>
 </template>
@@ -343,6 +351,13 @@ const reviewForm = reactive({
   overall_rating: 0,
   strengths: '',
   improvements: ''
+})
+
+const actionMenu = reactive({
+  open: false,
+  x: 0,
+  y: 0,
+  appraisal: null as Appraisal | null
 })
 
 const statusVariant = (s: AppraisalStatus): 'secondary' | 'info' | 'warning' | 'success' => {
@@ -521,7 +536,30 @@ const archive = async (a: Appraisal) => {
   }
 }
 
+const openActionMenu = (a: Appraisal, ev: MouseEvent) => {
+  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+  const menuWidth = 200
+  const menuMaxHeight = 280
+  const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+  const wouldOverflow = rect.bottom + menuMaxHeight + 8 > window.innerHeight
+  actionMenu.appraisal = a
+  actionMenu.x = Math.max(8, left)
+  actionMenu.y = wouldOverflow ? rect.top - menuMaxHeight - 6 : rect.bottom + 6
+  actionMenu.open = true
+}
+
+const closeActionMenu = () => { actionMenu.open = false; actionMenu.appraisal = null }
+
+const actionEdit = () => { const a = actionMenu.appraisal; closeActionMenu(); if (a) openEditModal(a) }
+const actionSubmit = async () => { const a = actionMenu.appraisal; closeActionMenu(); if (a) await submit(a) }
+const actionReview = () => { const a = actionMenu.appraisal; closeActionMenu(); if (a) openReviewModal(a) }
+const actionClose = async () => { const a = actionMenu.appraisal; closeActionMenu(); if (a) await closeAppraisal(a) }
+const actionArchive = async () => { const a = actionMenu.appraisal; closeActionMenu(); if (a) await archive(a) }
+
 onMounted(async () => {
+  if (import.meta.client) {
+    document.addEventListener('click', closeActionMenu)
+  }
   await Promise.all([loadLookups(), loadAppraisals()])
 })
 </script>
@@ -538,4 +576,40 @@ onMounted(async () => {
   cursor: pointer;
 }
 .topbar-btn:hover { background: var(--bg-muted); color: var(--text-heading); }
+
+.action-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-trigger:hover { background: var(--bg-muted); color: var(--text-heading); }
+.action-trigger-open { background: var(--bg-muted); color: var(--color-primary); }
+
+.action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-heading);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-item:hover { background: var(--bg-muted); }
+.action-item-primary { color: var(--color-primary); font-weight: 600; }
+.action-item-primary:hover { background: var(--color-primary-subtle); }
+.action-item-info { color: var(--color-info, var(--color-primary)); }
+.action-item-info:hover { background: var(--color-info-subtle, var(--color-primary-subtle)); }
+.action-item-warning { color: var(--color-warning); }
+.action-item-warning:hover { background: var(--color-warning-subtle, rgb(var(--color-warning-rgb, 250 173 20) / 0.1)); }
+.action-item-danger { color: var(--color-danger); }
+.action-item-danger:hover { background: var(--color-danger-subtle); }
 </style>

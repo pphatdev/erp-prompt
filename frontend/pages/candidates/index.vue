@@ -107,7 +107,7 @@
                 draggable="true"
                 @dragstart="onCardDragStart(a, $event)"
                 @dragend="onCardDragEnd"
-                @click="openDetailsModal(a)"
+                @click="openCard(a)"
               >
                 <header class="flex items-start justify-between gap-2 mb-3">
                   <div class="flex items-center gap-2 min-w-0">
@@ -119,7 +119,11 @@
                     </div>
                     <div class="min-w-0">
                       <p class="text-xs font-semibold text-(--text-heading) truncate">{{ a.applicantName }}</p>
-                      <p class="text-xxs text-(--text-muted) truncate">{{ a.vacancy?.title || '—' }}</p>
+                      <p class="text-xxs text-(--text-muted) truncate">
+                        <span v-if="a.candidateCode" class="font-mono text-(--color-primary)">{{ a.candidateCode }}</span>
+                        <span v-if="a.candidateCode && a.vacancy?.title" class="px-1">·</span>
+                        <span>{{ a.vacancy?.title || '—' }}</span>
+                      </p>
                     </div>
                   </div>
 
@@ -236,138 +240,6 @@
         </div>
       </section>
 
-      <!-- Details modal -->
-      <div
-        v-if="detailsOpen"
-        class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        @click.self="detailsOpen = false"
-      >
-        <div class="glass-card rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 shadow-(--shadow-lg) bg-(--bg-card)">
-          <header class="flex items-center justify-between mb-5">
-            <div>
-              <h3 class="text-base font-semibold text-(--text-heading)">{{ detailsApp?.applicantName }}</h3>
-              <p class="text-xxs text-(--text-muted) mt-1">{{ detailsApp?.applicantEmail }}</p>
-            </div>
-            <button class="topbar-btn" @click="detailsOpen = false"><i class="ti ti-x" /></button>
-          </header>
-
-          <dl class="text-xs space-y-3">
-            <div class="flex justify-between gap-3">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">Vacancy</dt>
-              <dd class="text-(--text-heading)">{{ detailsApp?.vacancy?.title || '—' }}</dd>
-            </div>
-            <div v-if="detailsApp" class="flex justify-between gap-3">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">Status</dt>
-              <dd><Badge :variant="statusVariant(detailsApp.status)" :dot="true">{{ detailsApp.status }}</Badge></dd>
-            </div>
-            <div class="flex justify-between gap-3">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">Phone</dt>
-              <dd class="text-(--text-body) font-mono">{{ detailsApp?.applicantPhone || '—' }}</dd>
-            </div>
-            <div class="flex justify-between gap-3">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">Location</dt>
-              <dd class="text-(--text-body)">{{ detailsApp?.location || '—' }}</dd>
-            </div>
-            <div class="flex justify-between gap-3">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">LinkedIn</dt>
-              <dd class="text-(--text-body)">
-                <a v-if="detailsApp?.linkedinUrl" :href="detailsApp.linkedinUrl" target="_blank" class="text-(--color-primary) hover:underline font-mono">
-                  View Profile
-                </a>
-                <span v-else>—</span>
-              </dd>
-            </div>
-            <div v-if="canSeeSalary" class="flex justify-between gap-3">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">Expected</dt>
-              <dd class="text-(--text-body) font-mono">{{ detailsApp?.expectedSalary != null ? formatMoney(detailsApp.expectedSalary) : '—' }}</dd>
-            </div>
-            <div class="flex justify-between gap-3">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">Applied</dt>
-              <dd class="text-(--text-body) font-mono">{{ formatDateTime(detailsApp?.appliedAt || null) }}</dd>
-            </div>
-            <div v-if="detailsApp?.skills?.length" class="flex flex-col gap-1.5 pt-2">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">Skills</dt>
-              <dd class="flex flex-wrap gap-1">
-                <span v-for="skill in detailsApp.skills" :key="skill" class="px-2 py-0.5 rounded bg-(--color-primary-subtle) text-(--color-primary) font-semibold text-[10px]">
-                  {{ skill }}
-                </span>
-              </dd>
-            </div>
-            <div v-if="detailsApp?.education?.length" class="flex flex-col gap-1.5 pt-2 border-t border-(--border-color)">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">Education</dt>
-              <dd class="space-y-2">
-                <div v-for="(edu, index) in detailsApp.education" :key="index" class="text-xxs">
-                  <p class="font-bold text-(--text-heading)">{{ edu.degree }}</p>
-                  <p class="text-(--text-muted)">{{ edu.school }}</p>
-                </div>
-              </dd>
-            </div>
-            <div v-if="detailsApp?.workExperience?.length" class="flex flex-col gap-1.5 pt-2 border-t border-(--border-color)">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold">Work Experience</dt>
-              <dd class="space-y-3">
-                <div v-for="(exp, index) in detailsApp.workExperience" :key="index" class="text-xxs space-y-0.5">
-                  <div class="flex justify-between font-bold text-(--text-heading)">
-                    <span>{{ exp.title }}</span>
-                    <span class="text-(--text-muted) font-normal font-mono">{{ exp.period }}</span>
-                  </div>
-                  <p class="text-(--color-primary)">{{ exp.company }}</p>
-                  <p class="text-(--text-body) mt-1 leading-normal whitespace-pre-line">{{ exp.description }}</p>
-                </div>
-              </dd>
-            </div>
-            <div v-if="detailsApp?.coverLetter" class="pt-2 border-t border-(--border-color)">
-              <dt class="text-(--text-muted) uppercase tracking-widest text-xxs font-bold mb-1">Cover letter</dt>
-              <dd class="rounded-lg bg-(--bg-muted) p-3 text-(--text-body) text-xxs whitespace-pre-wrap leading-normal">{{ detailsApp.coverLetter }}</dd>
-            </div>
-          </dl>
-
-          <!-- Hired → employee conversion footer (mirrors applications.vue) -->
-          <div v-if="detailsApp?.status === 'hired'" class="mt-5 pt-4 border-t border-(--border-color) flex items-center justify-between gap-3 flex-wrap">
-            <div class="text-xxs text-(--text-muted) flex-1 min-w-[180px]">
-              <p v-if="detailsApp?.employeeId" class="text-(--color-success) font-semibold inline-flex items-center gap-1.5">
-                <i class="ti ti-circle-check" /> Linked to employee
-              </p>
-              <p v-else>
-                Create the Employee record for this hire.<br>
-                Department, position, and base salary will be copied from the vacancy.
-              </p>
-              <p v-if="detailsApp && canRevert(detailsApp)" class="mt-1 text-[10px] text-(--text-muted)">
-                Converted {{ relativeTime(detailsApp.convertedAt) }} — undo available within {{ REVERT_WINDOW_DAYS_LABEL }}.
-              </p>
-            </div>
-            <div class="flex items-center gap-2">
-              <button
-                v-if="detailsApp && canRevert(detailsApp)"
-                type="button"
-                class="btn btn-ghost text-xs text-(--color-danger) hover:bg-(--color-danger-subtle)"
-                :disabled="reverting === detailsApp.id"
-                @click="revertConversion(detailsApp!)"
-              >
-                <i :class="['ti', reverting === detailsApp.id ? 'ti-loader animate-spin' : 'ti-arrow-back-up']" />
-                {{ reverting === detailsApp.id ? 'Reverting...' : 'Revert conversion' }}
-              </button>
-              <NuxtLink
-                v-if="detailsApp?.employeeId"
-                :to="`/employees?id=${detailsApp.employeeId}`"
-                class="btn btn-soft-primary text-xs"
-              >
-                <i class="ti ti-user-check" /> View employee
-              </NuxtLink>
-              <button
-                v-else-if="canConvert"
-                type="button"
-                class="btn btn-primary text-xs"
-                :disabled="converting === detailsApp?.id"
-                @click="convertApplicationToEmployee(detailsApp!)"
-              >
-                <i :class="['ti', converting === detailsApp?.id ? 'ti-loader animate-spin' : 'ti-user-plus']" />
-                {{ converting === detailsApp?.id ? 'Converting...' : 'Convert to Employee' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Submit application modal -->
       <div
         v-if="showSubmitModal"
@@ -447,6 +319,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '~/composables/useApi'
+import { formatDate, formatDateTime } from '~/composables/useDateFormat'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 import Badge from '~/components/Badge.vue'
@@ -468,6 +341,7 @@ const STATUS_FLOW: Record<ApplicationStatus, ApplicationStatus[]> = {
 
 interface Application {
   id: string
+  candidateCode: string | null
   jobVacancyId: string
   employeeId: string | null
   applicantName: string
@@ -542,9 +416,6 @@ const filters = reactive({
   jobVacancyId: (route.query.vacancyId as string) || ''
 })
 
-const detailsOpen = ref(false)
-const detailsApp = ref<Application | null>(null)
-
 const showSubmitModal = ref(false)
 const saving = ref(false)
 const formError = ref<string | null>(null)
@@ -590,9 +461,6 @@ const initials = (name: string) =>
 const formatMoney = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 
-const formatDateTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString() : '—'
-
 const relativeTime = (iso: string | null) => {
   if (!iso) return '—'
   const then = new Date(iso).getTime()
@@ -606,7 +474,7 @@ const relativeTime = (iso: string | null) => {
   if (days < 7) return `${days}d ago`
   const wk = Math.floor(days / 7)
   if (wk < 4) return `${wk}w ago`
-  return new Date(iso).toLocaleDateString()
+  return formatDate(iso)
 }
 
 const isOverdue = (a: Application) => {
@@ -708,10 +576,11 @@ watch(() => [filters.search, filters.jobVacancyId], () => {
   searchTimer = setTimeout(loadApplications, 300)
 })
 
-const openDetailsModal = (a: Application) => {
+const openCard = (a: Application) => {
+  // Guard: the click event fires after dragend, so suppress navigation
+  // when the user just released a drag on the same card.
   if (draggingId.value) return
-  detailsApp.value = a
-  detailsOpen.value = true
+  router.push(`/candidates/${a.id}`)
 }
 
 const openSubmitModal = () => {
@@ -879,9 +748,6 @@ const convertApplicationToEmployee = async (app: Application): Promise<void> => 
     // Local patch first so the chip flips immediately, then refresh from server.
     const idx = applications.value.findIndex(x => x.id === app.id)
     if (idx !== -1) applications.value[idx].employeeId = emp.id
-    if (detailsApp.value?.id === app.id) {
-      detailsApp.value = { ...detailsApp.value!, employeeId: emp.id }
-    }
     await loadApplications()
   } catch (err: any) {
     toast.error('Conversion failed.', err?.data?.message)
@@ -909,9 +775,6 @@ const revertConversion = async (app: Application): Promise<void> => {
     if (idx !== -1) {
       applications.value[idx].employeeId = null
       applications.value[idx].convertedAt = null
-    }
-    if (detailsApp.value?.id === app.id) {
-      detailsApp.value = { ...detailsApp.value!, employeeId: null, convertedAt: null }
     }
     await loadApplications()
   } catch (err: any) {

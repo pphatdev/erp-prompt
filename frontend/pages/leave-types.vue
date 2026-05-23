@@ -46,18 +46,15 @@
                 <td class="px-4 py-3 font-mono text-xs text-right">{{ t.annualAllowance }} days</td>
                 <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatDate(t.createdAt) }}</td>
                 <td class="px-4 py-3 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="btn btn-ghost text-xs px-2 py-1" @click="openEditModal(t)" title="Edit">
-                      <i class="ti ti-pencil" />
-                    </button>
-                    <button
-                      class="btn text-xs px-2 py-1 text-(--color-danger) hover:bg-(--color-danger-subtle)"
-                      @click="removeType(t)"
-                      title="Remove"
-                    >
-                      <i class="ti ti-trash" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    class="action-trigger"
+                    :class="{ 'action-trigger-open': actionMenu.open && actionMenu.type?.id === t.id }"
+                    title="Actions"
+                    @click.stop="openActionMenu(t, $event)"
+                  >
+                    <i class="ti ti-dots-vertical" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -107,6 +104,22 @@
           </form>
         </div>
       </div>
+
+      <!-- Action dropdown -->
+      <div
+        v-if="actionMenu.open && actionMenu.type"
+        class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
+        :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
+        @click.stop
+      >
+        <button class="action-item" @click="actionEdit">
+          <i class="ti ti-pencil" /> Edit
+        </button>
+        <hr class="my-1 border-(--border-color)" />
+        <button class="action-item action-item-danger" @click="actionRemove">
+          <i class="ti ti-trash" /> Remove
+        </button>
+      </div>
     </div>
   </NuxtLayout>
 </template>
@@ -114,6 +127,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useApi } from '~/composables/useApi'
+import { formatDate } from '~/composables/useDateFormat'
 import { useToast } from '~/composables/useToast'
 
 interface LeaveType { id: string; name: string; annualAllowance: number; createdAt: string | null }
@@ -132,7 +146,12 @@ const saving = ref(false)
 const formError = ref<string | null>(null)
 const form = reactive({ name: '', annual_allowance: 0 })
 
-const formatDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : '—'
+const actionMenu = reactive({
+  open: false,
+  x: 0,
+  y: 0,
+  type: null as LeaveType | null
+})
 
 const loadTypes = async () => {
   loading.value = true
@@ -188,7 +207,38 @@ const removeType = async (t: LeaveType) => {
   }
 }
 
-onMounted(loadTypes)
+const openActionMenu = (t: LeaveType, ev: MouseEvent) => {
+  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+  const menuWidth = 180
+  const menuMaxHeight = 120
+  const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+  const wouldOverflow = rect.bottom + menuMaxHeight + 8 > window.innerHeight
+  actionMenu.type = t
+  actionMenu.x = Math.max(8, left)
+  actionMenu.y = wouldOverflow ? rect.top - menuMaxHeight - 6 : rect.bottom + 6
+  actionMenu.open = true
+}
+
+const closeActionMenu = () => { actionMenu.open = false; actionMenu.type = null }
+
+const actionEdit = () => {
+  const t = actionMenu.type
+  closeActionMenu()
+  if (t) openEditModal(t)
+}
+
+const actionRemove = async () => {
+  const t = actionMenu.type
+  closeActionMenu()
+  if (t) await removeType(t)
+}
+
+onMounted(() => {
+  if (import.meta.client) {
+    document.addEventListener('click', closeActionMenu)
+  }
+  loadTypes()
+})
 </script>
 
 <style scoped>
@@ -212,4 +262,34 @@ onMounted(loadTypes)
   cursor: pointer;
 }
 .topbar-btn:hover { background: var(--bg-muted); color: var(--text-heading); }
+
+.action-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-trigger:hover { background: var(--bg-muted); color: var(--text-heading); }
+.action-trigger-open { background: var(--bg-muted); color: var(--color-primary); }
+
+.action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-heading);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-item:hover { background: var(--bg-muted); }
+.action-item-danger { color: var(--color-danger); }
+.action-item-danger:hover { background: var(--color-danger-subtle); }
 </style>

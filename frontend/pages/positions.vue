@@ -57,18 +57,15 @@
                 </td>
                 <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatDate(p.createdAt) }}</td>
                 <td class="px-4 py-3 text-center">
-                  <div class="inline-flex items-center gap-1">
-                    <button class="btn btn-ghost text-xs px-2 py-1" @click="openEditModal(p)" title="Edit">
-                      <i class="ti ti-pencil" />
-                    </button>
-                    <button
-                      class="btn text-xs px-2 py-1 text-(--color-danger) hover:bg-(--color-danger-subtle)"
-                      @click="removePosition(p)"
-                      title="Remove"
-                    >
-                      <i class="ti ti-trash" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    class="action-trigger"
+                    :class="{ 'action-trigger-open': actionMenu.open && actionMenu.position?.id === p.id }"
+                    title="Actions"
+                    @click.stop="openActionMenu(p, $event)"
+                  >
+                    <i class="ti ti-dots-vertical" />
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -118,6 +115,22 @@
           </form>
         </div>
       </div>
+
+      <!-- Action dropdown -->
+      <div
+        v-if="actionMenu.open && actionMenu.position"
+        class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
+        :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
+        @click.stop
+      >
+        <button class="action-item" @click="actionEdit">
+          <i class="ti ti-pencil" /> Edit
+        </button>
+        <hr class="my-1 border-(--border-color)" />
+        <button class="action-item action-item-danger" @click="actionRemove">
+          <i class="ti ti-trash" /> Remove
+        </button>
+      </div>
     </div>
   </NuxtLayout>
 </template>
@@ -125,6 +138,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useApi } from '~/composables/useApi'
+import { formatDate } from '~/composables/useDateFormat'
 import { useToast } from '~/composables/useToast'
 
 interface Position { id: string; title: string; level: string | null; createdAt: string | null }
@@ -144,6 +158,13 @@ const saving = ref(false)
 const formError = ref<string | null>(null)
 const form = reactive({ title: '', level: '' })
 
+const actionMenu = reactive({
+  open: false,
+  x: 0,
+  y: 0,
+  position: null as Position | null
+})
+
 const filtered = computed(() => {
   if (!search.value) return positions.value
   const q = search.value.toLowerCase()
@@ -151,8 +172,6 @@ const filtered = computed(() => {
     p.title.toLowerCase().includes(q) || (p.level || '').toLowerCase().includes(q)
   )
 })
-
-const formatDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : '—'
 
 const loadPositions = async () => {
   loading.value = true
@@ -210,7 +229,38 @@ const removePosition = async (p: Position) => {
   }
 }
 
-onMounted(loadPositions)
+const openActionMenu = (p: Position, ev: MouseEvent) => {
+  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+  const menuWidth = 180
+  const menuMaxHeight = 120
+  const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+  const wouldOverflow = rect.bottom + menuMaxHeight + 8 > window.innerHeight
+  actionMenu.position = p
+  actionMenu.x = Math.max(8, left)
+  actionMenu.y = wouldOverflow ? rect.top - menuMaxHeight - 6 : rect.bottom + 6
+  actionMenu.open = true
+}
+
+const closeActionMenu = () => { actionMenu.open = false; actionMenu.position = null }
+
+const actionEdit = () => {
+  const p = actionMenu.position
+  closeActionMenu()
+  if (p) openEditModal(p)
+}
+
+const actionRemove = async () => {
+  const p = actionMenu.position
+  closeActionMenu()
+  if (p) await removePosition(p)
+}
+
+onMounted(() => {
+  if (import.meta.client) {
+    document.addEventListener('click', closeActionMenu)
+  }
+  loadPositions()
+})
 </script>
 
 <style scoped>
@@ -234,4 +284,34 @@ onMounted(loadPositions)
   cursor: pointer;
 }
 .topbar-btn:hover { background: var(--bg-muted); color: var(--text-heading); }
+
+.action-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-trigger:hover { background: var(--bg-muted); color: var(--text-heading); }
+.action-trigger-open { background: var(--bg-muted); color: var(--color-primary); }
+
+.action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-heading);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.action-item:hover { background: var(--bg-muted); }
+.action-item-danger { color: var(--color-danger); }
+.action-item-danger:hover { background: var(--color-danger-subtle); }
 </style>

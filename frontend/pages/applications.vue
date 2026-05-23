@@ -123,6 +123,7 @@
                     @change="toggleSelectAll"
                   >
                 </th>
+                <th class="px-4 py-3 font-semibold">Code</th>
                 <th class="px-4 py-3 font-semibold">Applicant</th>
                 <th class="px-4 py-3 font-semibold">Vacancy</th>
                 <th class="px-4 py-3 font-semibold">Applied</th>
@@ -149,7 +150,15 @@
                   >
                 </td>
                 <td class="px-4 py-3">
-                  <div class="text-xs font-semibold text-(--text-heading)">{{ a.applicantName }}</div>
+                  <span class="font-mono text-xxs text-(--text-muted)">{{ a.candidateCode || '—' }}</span>
+                </td>
+                <td class="px-4 py-3">
+                  <NuxtLink
+                    :to="`/candidates/${a.id}`"
+                    class="text-xs font-semibold text-(--text-heading) hover:text-(--color-primary) hover:underline underline-offset-2"
+                  >
+                    {{ a.applicantName }}
+                  </NuxtLink>
                   <div class="text-xxs text-(--text-muted)">{{ a.applicantEmail }}</div>
                 </td>
                 <td class="px-4 py-3 text-xs">{{ a.vacancy?.title || '—' }}</td>
@@ -343,7 +352,11 @@
           <header class="flex items-center justify-between mb-5">
             <div>
               <h3 class="text-base font-semibold text-(--text-heading)">{{ detailsApp?.applicantName }}</h3>
-              <p class="text-xxs text-(--text-muted) mt-1">{{ detailsApp?.applicantEmail }}</p>
+              <p class="text-xxs text-(--text-muted) mt-1">
+                <span v-if="detailsApp?.candidateCode" class="font-mono text-(--color-primary)">{{ detailsApp.candidateCode }}</span>
+                <span v-if="detailsApp?.candidateCode" class="px-1.5">·</span>
+                {{ detailsApp?.applicantEmail }}
+              </p>
             </div>
             <button class="topbar-btn" @click="detailsOpen = false"><i class="ti ti-x" /></button>
           </header>
@@ -460,9 +473,15 @@
       >
         <button
           class="action-item"
+          @click="actionOpenProfile"
+        >
+          <i class="ti ti-user-circle" /> Open profile
+        </button>
+        <button
+          class="action-item"
           @click="actionView"
         >
-          <i class="ti ti-eye" /> View details
+          <i class="ti ti-eye" /> Quick details
         </button>
         <button
           v-if="canWrite"
@@ -506,6 +525,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '~/composables/useApi'
+import { formatDateTime } from '~/composables/useDateFormat'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 
@@ -516,6 +536,7 @@ type ApplicationStatus = 'applied' | 'screening' | 'interview' | 'offer' | 'hire
 
 interface Application {
   id: string
+  candidateCode: string | null
   jobVacancyId: string
   employeeId: string | null
   applicantName: string
@@ -690,9 +711,6 @@ const statusVariant = (s: ApplicationStatus): 'primary' | 'success' | 'warning' 
 const formatMoney = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 
-const formatDateTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString() : '—'
-
 const loadLookups = async () => {
   try {
     const [v, e] = await Promise.all([
@@ -850,6 +868,12 @@ const openActionMenu = (a: Application, ev: MouseEvent) => {
 const closeActionMenu = () => {
   actionMenu.open = false
   actionMenu.app = null
+}
+
+const actionOpenProfile = () => {
+  const app = actionMenu.app
+  closeActionMenu()
+  if (app) router.push(`/candidates/${app.id}`)
 }
 
 const actionView = () => {

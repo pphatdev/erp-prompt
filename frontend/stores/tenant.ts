@@ -8,6 +8,12 @@ export interface TenantConfig {
   logoUrl?: string
 }
 
+interface PublicSettingRow {
+  key: string
+  value: unknown
+  isPublic: boolean
+}
+
 const DEFAULT_PRIMARY = '59 130 246' // #3b82f6 Electric Indigo (design.md §2.1)
 
 export const useTenantStore = defineStore('tenant', {
@@ -31,26 +37,68 @@ export const useTenantStore = defineStore('tenant', {
       const tenant = this.availableTenants.find(t => t.handle === handle)
       if (tenant) {
         this.currentTenant = tenant
-        if (import.meta.client) {
-          document.documentElement.style.setProperty('--color-primary-rgb', tenant.primaryColor || DEFAULT_PRIMARY)
-        }
       } else {
-        const newTenant: TenantConfig = {
+        this.currentTenant = {
           id: `${handle}-id`,
           handle,
           name: `${handle.charAt(0).toUpperCase() + handle.slice(1)} ERP`,
           primaryColor: DEFAULT_PRIMARY
         }
-        this.currentTenant = newTenant
-        if (import.meta.client) {
-          document.documentElement.style.setProperty('--color-primary-rgb', DEFAULT_PRIMARY)
-        }
+      }
+      if (import.meta.client) {
+        const userAccent = localStorage.getItem('accent')
+        document.documentElement.style.setProperty(
+          '--color-primary-rgb',
+          userAccent || this.currentTenant.primaryColor || DEFAULT_PRIMARY
+        )
       }
     },
     initializeTenant() {
       if (import.meta.client) {
         const stored = localStorage.getItem('tenant_handle')
         this.setTenantByHandle(stored || 'test')
+      }
+    },
+
+    /**
+     * Pull tenant branding (primary color, logo) from the backend public
+     * settings endpoint. Safe to call without auth — the route is whitelisted.
+     * User's local accent override (localStorage.accent) still wins.
+     */
+    async syncBranding() {
+      if (!import.meta.client) return
+      try {
+        const config = useRuntimeConfig()
+        const res = await $fetch<{ data: PublicSettingRow[] }>(
+          `${config.public.apiBase}/settings/public`,
+          {
+            headers: {
+              'X-Tenant-Handle': this.activeHandle,
+              'Accept': 'application/json'
+            }
+          }
+        )
+
+        const map = new Map(res.data.map(r => [r.key, r.value]))
+        const tenantPrimary = map.get('branding.primary_color')
+        const logo = map.get('branding.logo_url')
+
+        if (this.currentTenant && typeof tenantPrimary === 'string') {
+          this.currentTenant.primaryColor = tenantPrimary
+        }
+        if (this.currentTenant && typeof logo === 'string') {
+          this.currentTenant.logoUrl = logo
+        }
+
+        // Re-apply CSS — userAccent override takes precedence over tenant.
+        const userAccent = localStorage.getItem('accent')
+        document.documentElement.style.setProperty(
+          '--color-primary-rgb',
+          userAccent || (typeof tenantPrimary === 'string' ? tenantPrimary : null) ||
+            this.currentTenant?.primaryColor || DEFAULT_PRIMARY
+        )
+      } catch {
+        // Best-effort — branding falls back to local defaults on failure.
       }
     }
   }

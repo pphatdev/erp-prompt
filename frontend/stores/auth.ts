@@ -71,7 +71,12 @@ export const useAuthStore = defineStore('auth', {
         role.permissions?.forEach(p => set.add(p.slug))
       })
       return Array.from(set)
-    }
+    },
+    // True when the caller holds the super-admin short-circuit role. Mirrors
+    // the check inside hasPermission() so the rest of the app (layout, nav
+    // gates, route guards) doesn't have to peek at role slugs directly.
+    isAdmin: (state) =>
+      !!state.user?.roles.some(r => r.slug === 'admin' || r.slug === 'super-admin')
   },
 
   actions: {

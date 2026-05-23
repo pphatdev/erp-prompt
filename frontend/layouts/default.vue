@@ -77,7 +77,23 @@
 
       <!-- Navigation -->
       <nav class="flex-1 px-3 py-4 space-y-5 overflow-y-auto custom-scrollbar">
-        <div v-for="group in navGroups" :key="group.id" class="space-y-1">
+
+        <!-- Skeleton while modules load -->
+        <template v-if="modulesLoading">
+          <div v-for="g in skeletonGroups" :key="g.label" class="space-y-1">
+            <div v-show="!isCompact" class="h-2.5 rounded mb-2 mt-1 mx-3 nav-skeleton" :style="{ width: g.labelWidth }" />
+            <div v-for="(w, i) in g.items" :key="i"
+              class="nav-link nav-skeleton-row">
+              <span class="nav-icon">
+                <span class="w-4 h-4 rounded nav-skeleton block" />
+              </span>
+              <span v-show="!isCompact" class="h-2.5 rounded nav-skeleton" :style="{ width: w }" />
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
+        <div v-for="group in visibleNavGroups" :key="group.id" class="space-y-1">
           <span
             v-show="!isCompact"
             class="block px-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)"
@@ -154,6 +170,7 @@
             </div>
           </template>
         </div>
+        </template>
       </nav>
 
       <!-- Sign out -->
@@ -371,7 +388,7 @@
         <!-- Breadcrumbs above content slot -->
         <nav class="flex items-center flex-wrap gap-x-2 gap-y-1 text-[10px] text-(--text-muted) font-mono uppercase tracking-wider mb-5 select-none">
           <NuxtLink to="/" class="hover:text-(--text-heading) transition-colors">Home</NuxtLink>
-          <template v-for="(crumb, idx) in breadcrumbItems" :key="crumb.to">
+          <template v-for="(crumb, idx) in breadcrumbItems" :key="crumb.label + idx">
             <i class="ti ti-chevron-right text-[8px]" />
             <NuxtLink
               v-if="crumb.to && idx < breadcrumbItems.length - 1"
@@ -380,6 +397,12 @@
             >
               {{ crumb.label }}
             </NuxtLink>
+            <span
+              v-else-if="idx < breadcrumbItems.length - 1"
+              class="text-(--text-muted)"
+            >
+              {{ crumb.label }}
+            </span>
             <span v-else class="text-(--text-heading) font-semibold">{{ crumb.label }}</span>
           </template>
         </nav>
@@ -414,6 +437,13 @@ const router = useRouter()
 const authStore = useAuthStore()
 const tenantStore = useTenantStore()
 const toast = useToast()
+const { load: loadModules, hasModule, loading: modulesLoading } = useModules()
+
+const skeletonGroups = [
+  { label: 'main',      labelWidth: '2.5rem', items: ['60%', '55%'] },
+  { label: 'workspace', labelWidth: '4rem',   items: ['45%', '50%', '55%', '50%'] },
+  { label: 'apps',      labelWidth: '2rem',   items: ['50%', '55%', '60%', '40%', '45%', '50%', '40%', '35%'] },
+]
 
 const hasSubdomain = ref(false)
 
@@ -489,6 +519,18 @@ interface NavItem {
   operational?: boolean
   badge?: string
   badgeVariant?: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary'
+  /**
+   * Permission slug(s) required to see this item. Array means "any one of"
+   * (OR), so an item can surface for both an admin grant and its `.self`
+   * counterpart. Omit to show unconditionally to authenticated users.
+   */
+  permission?: string | string[]
+  /**
+   * DB module slug this item maps to. When set, the item is hidden unless the
+   * current tenant has that module active (is_core or entitled via subscription).
+   * Omit for items that should always be visible (e.g. Dashboard).
+   */
+  moduleSlug?: string
   children?: NavItem[]
 }
 interface NavGroup { id: string; label: string; items: NavItem[] }
@@ -498,8 +540,18 @@ const navGroups: NavGroup[] = [
     id: 'main',
     label: 'Main',
     items: [
-      { label: 'Dashboard', icon: 'ti-layout-dashboard', route: '/dashboard', operational: true },
-      { label: 'Tasks Canvas', icon: 'ti-checklist', route: '/tasks', operational: true, badge: 'New', badgeVariant: 'primary' }
+      { label: 'Dashboard', icon: 'ti-layout-dashboard', route: '/dashboard', operational: true, permission: 'reporting.dashboard.read' },
+      { label: 'Tasks Canvas', icon: 'ti-checklist', route: '/tasks', operational: true, badge: 'New', badgeVariant: 'primary', moduleSlug: 'tasks' }
+    ]
+  },
+  {
+    id: 'self-service',
+    label: 'My Workspace',
+    items: [
+      { label: 'My Profile', icon: 'ti-user-circle', route: '#', operational: false, permission: 'hrm.employee.read.self' },
+      { label: 'My Leaves', icon: 'ti-calendar-event', route: '/leaves', operational: true, permission: 'hrm.leave.read.self', moduleSlug: 'my-leaves' },
+      { label: 'My Payslips', icon: 'ti-cash', route: '#', operational: false, permission: 'hrm.payslip.read.self', moduleSlug: 'my-payslips' },
+      { label: 'My Appraisals', icon: 'ti-clipboard-list', route: '/appraisals', operational: true, permission: 'hrm.performance.read.self', moduleSlug: 'my-appraisals' }
     ]
   },
   {
@@ -509,6 +561,7 @@ const navGroups: NavGroup[] = [
       {
         label: 'Ecommerce',
         icon: 'ti-shopping-cart',
+        moduleSlug: 'ecommerce',
         children: [
           { label: 'Products', icon: 'ti-package', route: '/products', operational: true },
           { label: 'Orders', icon: 'ti-receipt', route: '#', operational: false },
@@ -516,40 +569,96 @@ const navGroups: NavGroup[] = [
           { label: 'Refunds', icon: 'ti-receipt-refund', route: '#', operational: false }
         ]
       },
-      { label: 'CRM (Sales)', icon: 'ti-address-book', route: '#', operational: false },
-      { label: 'Invoices (FMS)', icon: 'ti-file-invoice', route: '#', operational: false },
       {
-        label: 'HRM Workforce',
-        icon: 'ti-users',
+        label: 'Sales',
+        icon: 'ti-address-book',
+        moduleSlug: 'sales',
         children: [
-          { label: 'Employees', icon: 'ti-user-circle', route: '/employees', operational: true },
-          { label: 'Departments', icon: 'ti-building', route: '/departments', operational: true },
-          { label: 'Positions', icon: 'ti-briefcase', route: '/positions', operational: true },
-          { label: 'Leave Requests', icon: 'ti-calendar-event', route: '/leaves', operational: true },
-          { label: 'Leave Types', icon: 'ti-list', route: '/leave-types', operational: true },
-          { label: 'Payroll', icon: 'ti-cash', route: '/payroll', operational: true },
-          { label: 'Vacancies', icon: 'ti-briefcase-2', route: '/vacancies', operational: true },
-          { label: 'Applications', icon: 'ti-user-search', route: '/applications', operational: true },
-          { label: 'Candidates', icon: 'ti-layout-kanban', route: '/candidates', operational: true },
-          { label: 'Appraisals', icon: 'ti-clipboard-list', route: '/appraisals', operational: true }
+          { label: 'Customers',     icon: 'ti-users',         route: '/sales/customers',     operational: true, permission: ['sales.crm.read', 'sales.crm.write'] },
+          { label: 'Quotations',    icon: 'ti-file-text',     route: '/sales/quotations',    operational: true, permission: ['sales.crm.read', 'sales.crm.write'] },
+          { label: 'Sales Orders',  icon: 'ti-shopping-cart', route: '/sales/orders',        operational: true, permission: ['sales.orders.read', 'sales.orders.write'] },
+          { label: 'Invoices',      icon: 'ti-receipt',       route: '/sales/invoices',      operational: true, permission: ['sales.orders.read', 'sales.orders.write'] },
+          { label: 'Subscriptions', icon: 'ti-cloud',         route: '/sales/subscriptions', operational: true, permission: ['sales.orders.read', 'sales.orders.write'] }
         ]
       },
-      { label: 'Fleet Operations', icon: 'ti-truck', route: '#', operational: false },
-      { label: 'Project Spaces', icon: 'ti-presentation', route: '#', operational: false }
-    ]
-  },
-  {
-    id: 'admin',
-    label: 'Identity & Access',
-    items: [
-      { label: 'User Directory', icon: 'ti-users-group', route: '/users', operational: true },
-      { label: 'Roles Matrix', icon: 'ti-shield-lock', route: '/roles', operational: true },
-      { label: 'eApprovals', icon: 'ti-circle-check', route: '#', operational: false },
-      { label: 'eDocuments Policy', icon: 'ti-file-text', route: '#', operational: false },
-      { label: 'Reports & Analytics', icon: 'ti-chart-bar', route: '#', operational: false }
+      {
+        label: 'Human Resource',
+        icon: 'ti-users',
+        moduleSlug: 'hrm',
+        children: [
+          { label: 'Employees', icon: 'ti-user-circle', route: '/employees', operational: true, permission: 'hrm.employee.read' },
+          { label: 'Departments', icon: 'ti-building', route: '/departments', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] },
+          { label: 'Positions', icon: 'ti-briefcase', route: '/positions', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] },
+          { label: 'Leave Requests', icon: 'ti-calendar-event', route: '/leaves', operational: true, permission: 'hrm.leave.read' },
+          { label: 'Leave Types', icon: 'ti-list', route: '/leave-types', operational: true, permission: 'hrm.leave.read' },
+          { label: 'Shifts', icon: 'ti-clock-hour-8', route: '/shifts', operational: true, permission: ['hrm.shift.read', 'hrm.attendance.read', 'hrm.attendance.clock.self'] },
+          { label: 'Attendance', icon: 'ti-fingerprint', route: '/attendance', operational: true, permission: ['hrm.attendance.read', 'hrm.attendance.read.self', 'hrm.attendance.clock.self'] },
+          { label: 'Overtime', icon: 'ti-clock-up', route: '/overtime', operational: true, permission: ['hrm.overtime.read', 'hrm.overtime.read.self', 'hrm.overtime.write.self'] },
+          { label: 'Payroll', icon: 'ti-cash', route: '/payroll', operational: true, permission: 'hrm.payroll.read' },
+          { label: 'Vacancies', icon: 'ti-briefcase-2', route: '/vacancies', operational: true, permission: 'hrm.recruitment.read' },
+          { label: 'Applications', icon: 'ti-user-search', route: '/applications', operational: true, permission: 'hrm.recruitment.read' },
+          { label: 'Candidates', icon: 'ti-layout-kanban', route: '/candidates', operational: true, permission: 'hrm.recruitment.read' },
+          { label: 'Appraisals', icon: 'ti-clipboard-list', route: '/appraisals', operational: true, permission: 'hrm.performance.read' }
+        ]
+      },
+      { label: 'Fleets', icon: 'ti-truck', route: '#', operational: false, moduleSlug: 'fleets' },
+      { label: 'Project Management', icon: 'ti-presentation', route: '#', operational: false, moduleSlug: 'projects' },
+      { label: 'eApprovals', icon: 'ti-circle-check', route: '#', operational: false, moduleSlug: 'eapprovals' },
+      { label: 'eDocuments', icon: 'ti-file-text', route: '#', operational: false, moduleSlug: 'edocuments' },
+      { label: 'Reports & Analytics', icon: 'ti-chart-bar', route: '#', operational: false, moduleSlug: 'reporting' },
+      {
+        label: 'Settings',
+        icon: 'ti-shield-lock',
+        children: [
+          { label: 'User Directory',  icon: 'ti-users-group',  route: '/users',    operational: true, permission: 'iam.users.read' },
+          { label: 'Roles Matrix',    icon: 'ti-shield-check', route: '/roles',    operational: true, permission: 'iam.roles.read' },
+          { label: 'Configuration',   icon: 'ti-settings',     route: '/settings', operational: true }
+        ]
+      }
     ]
   }
 ]
+
+/**
+ * Returns true if the current user can see this nav item.
+ * - No `permission` field → always visible (legacy items + dashboard/tasks).
+ * - Array of slugs → OR semantics; any one match unlocks the entry. This is
+ *   how items like "Departments" surface for both admin and `.self` users.
+ * - Group with children → visible iff at least one child is visible. The
+ *   parent group inherits visibility from its descendants so we never
+ *   render an empty disclosure.
+ */
+const canSeeItem = (item: NavItem): boolean => {
+  if (item.moduleSlug && !hasModule(item.moduleSlug)) return false
+  if (item.children) {
+    return item.children.some(canSeeItem)
+  }
+  if (!item.permission) return true
+  const slugs = Array.isArray(item.permission) ? item.permission : [item.permission]
+  return slugs.some(slug => authStore.hasPermission(slug))
+}
+
+const visibleNavGroups = computed<NavGroup[]>(() => {
+  return navGroups
+    // Hide the self-service group for admins — they get the full module
+    // surface elsewhere on the sidebar and the `My …` shortcuts would just
+    // duplicate links (their hasPermission() short-circuits make every .self
+    // permission resolve true otherwise).
+    .filter(group => !(group.id === 'self-service' && authStore.isAdmin))
+    .map(group => ({
+      ...group,
+      items: group.items
+        .map(item => {
+          if (!item.children) return item
+          // Recurse into child links so a group only shows the children the
+          // user actually has access to.
+          const visibleChildren = item.children.filter(canSeeItem)
+          return visibleChildren.length ? { ...item, children: visibleChildren } : null
+        })
+        .filter((item): item is NavItem => item !== null && canSeeItem(item))
+    }))
+    .filter(group => group.items.length > 0)
+})
 
 const isRouteActive = (target?: string): boolean => {
   if (!target || target === '#') return false
@@ -651,31 +760,85 @@ const SLUG_LABELS: Record<string, string> = {
   appraisals: 'Appraisals',
   users: 'User Directory',
   roles: 'Roles Matrix',
-  new: 'Add Candidate'
+  new: 'New',
+  settings: 'Configuration',
+  sales: 'Sales',
+  customers: 'Customers',
+  quotations: 'Quotations',
+  orders: 'Sales Orders',
+  invoices: 'Invoices',
+  subscriptions: 'Subscriptions'
 }
 
 const titleize = (slug: string) =>
   slug.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
 
-interface Crumb { label: string; to: string }
+interface Crumb { label: string; to?: string }
+
+// Detail pages can override the final breadcrumb segment (e.g. swap a raw
+// UUID for the employee's name) via useBreadcrumbOverride().set(...).
+// Nested pages (e.g. /customers/:id/edit) can additionally call setEntityName()
+// to replace the UUID segment that sits before the final page segment.
+const { value: breadcrumbOverride, entityName: breadcrumbEntityName } = useBreadcrumbOverride()
 
 const breadcrumbItems = computed<Crumb[]>(() => {
   const path = router.currentRoute.value.path
   if (path === '/' || path === '') {
     return [{ label: 'Dashboard', to: '/dashboard' }]
   }
+  
   const segments = path.split('/').filter(Boolean)
   const crumbs: Crumb[] = []
+
+  // 1. Attempt to resolve the parent module category from navGroups
+  let parentLabel: string | null = null
+  for (const group of navGroups) {
+    for (const item of group.items) {
+      if (item.children) {
+        for (const child of item.children) {
+          if (child.route === `/${segments[0]}` || child.route === path) {
+            parentLabel = item.label
+            break
+          }
+        }
+      }
+      if (parentLabel) break
+    }
+    if (parentLabel) break
+  }
+
+  if (parentLabel) {
+    crumbs.push({ label: parentLabel })
+  }
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+  // 2. Build the breadcrumb trail based on URL segments
   let trail = ''
   segments.forEach((seg, i) => {
     trail += `/${seg}`
+    const segLabel = SLUG_LABELS[seg] || titleize(seg)
+
+    // Skip the first segment when its label duplicates the parent-module
+    // crumb we just pushed (e.g. /sales/customers — parent "Sales" already
+    // covers the "sales" segment, so we don't want "Sales > Sales > …").
+    if (i === 0 && parentLabel && segLabel === parentLabel) return
+
     const isLast = i === segments.length - 1
-    const metaTitle = isLast
-      ? (router.currentRoute.value.meta.breadcrumb as string | undefined)
+    // For the last segment use the page-level override (highest priority),
+    // then route meta, then the slug label.
+    const lastLabel = isLast
+      ? breadcrumbOverride.value
+        || (router.currentRoute.value.meta.breadcrumb as string | undefined)
         || (router.currentRoute.value.meta.title as string | undefined)
       : undefined
+    // For non-last UUID segments (e.g. /customers/:id/edit), replace with
+    // the entity name set by the active page via setEntityName().
+    const entityLabel = !isLast && UUID_RE.test(seg) && breadcrumbEntityName.value
+      ? breadcrumbEntityName.value
+      : undefined
     crumbs.push({
-      label: metaTitle || SLUG_LABELS[seg] || titleize(seg),
+      label: lastLabel || entityLabel || segLabel,
       to: trail
     })
   })
@@ -717,12 +880,13 @@ onMounted(() => {
 
   tenantStore.initializeTenant()
   authStore.initializeAuth()
+  loadModules()
 
   const saved = (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   themeMode.value = saved
   applyTheme(saved)
 
-  navGroups.forEach(g => g.items.forEach(i => {
+  visibleNavGroups.value.forEach(g => g.items.forEach(i => {
     if (i.children?.some(c => isRouteActive(c.route))) openGroups[i.label] = true
   }))
 
@@ -734,7 +898,7 @@ onMounted(() => {
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   padding: 0.55rem 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.8125rem;
@@ -748,7 +912,7 @@ onMounted(() => {
   color: var(--color-primary) !important;
   font-weight: 600;
 }
-.nav-link-sub { padding: 0.4rem 0.75rem; font-size: 0.75rem; }
+.nav-link-sub { padding: 0.4rem 0.5rem; font-size: 0.75rem; }
 .nav-link-disabled { opacity: 0.7; }
 .nav-link-disabled:hover { color: var(--text-heading); }
 .nav-icon {
@@ -804,4 +968,18 @@ onMounted(() => {
 
 .backdrop-enter-active, .backdrop-leave-active { transition: opacity 0.2s ease; }
 .backdrop-enter-from, .backdrop-leave-to { opacity: 0; }
+
+.nav-skeleton {
+  background: linear-gradient(90deg, var(--bg-muted) 25%, var(--border-color) 50%, var(--bg-muted) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+.nav-skeleton-row {
+  pointer-events: none;
+  opacity: 0.7;
+}
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 </style>
