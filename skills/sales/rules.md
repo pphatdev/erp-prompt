@@ -32,12 +32,29 @@ Permissions follow the standard `module.feature.action` pattern defined in [iam.
 | Quote | `App\Models\Tenant\Quotation` + `QuotationItem` | `quotations`, `quotation_items` | Status: `new` → `confirmed` → (Order); `new` → `cancelled` (terminal). |
 | Sales Order | `App\Models\Tenant\Order` + `OrderItem` | `orders`, `order_items` | 1:1 with Quotation via `orders.quotation_id` (unique). Items snapshot `product_type`. |
 | Invoice (AR) | `App\Models\Tenant\Invoice` + `InvoiceItem` | `invoices`, `invoice_items` | 1:1 with Order. `journal_entry_id` links to GL. |
-| Subscription | `App\Models\Tenant\Subscription` + `SubscriptionItem` | `subscriptions`, `subscription_items` | 1:1 with Order. Wraps only software-typed lines. `provisioned_tenant_id` set by provisioning listener. |
+| Subscription | `App\Models\Tenant\Subscription` + `SubscriptionItem` | `subscriptions`, `subscription_items` | 1:1 with Order. Wraps only software-typed lines. `provisioned_tenant_id` stores the tenant handle. |
 | Customer | `App\Models\Tenant\Customer` | `customers` | `customer_type` ∈ `individual`\|`business`\|`tenant`. `tenant_handle` must be unique (DB constraint + `Rule::unique` in validation). |
+
+### Central tenant model
+
+`App\Models\Central\Tenant` uses `handle` as its primary key:
+
+```php
+protected $primaryKey = 'handle';
+public $incrementing  = false;
+protected $keyType    = 'string';
+
+public function getTenantKeyName(): string { return 'handle'; }
+```
+
+`config/tenancy.php` sets `'id_generator' => null` — the handle must always be provided explicitly on `CentralTenant::create()`. The physical tenant database is named `tenant_{handle}`.
+
+**Never use `$tenant->id`** (no such column). Use `$tenant->getKey()` or `$tenant->handle`.
 
 ### Services
 
 All under `App\Tenants\Modules\Sales\Services\`:
+- `TenantProvisioningService` — **single source of truth** for tenant provisioning. `provisionForCustomer(Customer $customer, ?object $sub = null)` is called by both `CustomerController::store()` and `ProvisionSubscriptionTenant` listener. Idempotent.
 - `QuotationService` — create, addItem, confirm, cancel. Locks edits once status leaves `new`.
 - `OrderService` — `createOrder` (ad-hoc), `createFromQuotation`, `confirmOrder` (triggers fulfillment), `cancelOrder`.
 - `InvoiceService` — `createFromOrder` (auto by orchestrator), `confirm` (posts AR journal **then auto-confirms linked subscription**), `cancel`.
@@ -62,7 +79,7 @@ Invoice:       new  --confirm-->  confirmed  (AR posted to GL)
                confirmed  --cancel-->  ❌ rejected — issue credit note via FMS first
 
 Subscription:  new  --confirm-->  confirmed  (dispatches SubscriptionConfirmed)
-               confirmed  --provisioned-->  active   (set by listener after tenant DB + domain ready)
+               confirmed  --provisioned-->  active   (set by TenantProvisioningService)
                any  --cancel-->   cancelled
 ```
 
@@ -72,29 +89,82 @@ Subscription:  new  --confirm-->  confirmed  (dispatches SubscriptionConfirmed)
 1. Loads `invoice → order → subscription`.
 2. If the subscription is still `new`, calls `SubscriptionService::confirm()`.
 3. `confirm()` commits the status update in its own transaction, then dispatches `SubscriptionConfirmed` **outside** any open transaction so the listener sees committed data.
-4. `ProvisionSubscriptionTenant` listener creates the `Central\Tenant`, registers the subdomain, and migrates/seeds the tenant DB.
+4. `ProvisionSubscriptionTenant` listener delegates to `TenantProvisioningService`. If the customer was already provisioned on create, the service is idempotent and returns immediately.
 
 Provisioning failures are caught, logged, and do **not** roll back the committed invoice. The subscription can be manually re-confirmed from the UI if provisioning fails.
 
 ### Atomicity (P0)
 
-`OrderService::confirmOrder` runs inside `DB::transaction`. The orchestrator's downstream calls (`InvoiceService::createFromOrder`, `SubscriptionService::createFromOrder`, `StockService::recordMovement`) all run in the SAME transaction. Any failure — insufficient stock, missing CoA account, etc. — rolls the order back to `new`. Partial fulfillment is impossible.
+`OrderService::confirmOrder` runs inside `DB::transaction`. The orchestrator's downstream calls (`InvoiceService::createFromOrder`, `SubscriptionService::createFromOrder`, `StockService::recordMovement`) all run in the SAME transaction. Any failure rolls the order back to `new`. Partial fulfillment is impossible.
 
 `SubscriptionService::confirm` wraps its own `UPDATE` in a `DB::transaction` before dispatching the event so the provisioning listener always sees committed state.
 
-### Tenant provisioning (ProvisionSubscriptionTenant listener)
+### Tenant provisioning triggers
 
-Registered: `Event::listen(SubscriptionConfirmed::class, ProvisionSubscriptionTenant::class)` in `TenantServiceProvider`.
+Provisioning runs in **two places**, both delegating to `TenantProvisioningService`:
 
-Flow when triggered:
-1. Skip if `customer_type !== 'tenant'` or customer is already provisioned (idempotent).
-2. Create `App\Models\Central\Tenant` (central DB connection) with `handle` + `name`.
-3. Call `$centralTenant->domains()->create(['domain' => "{$handle}.{$systemDomain}"])`. Requires `domains` table to exist — see **Central migrations** below.
-4. Commit seller's tenant DB: update `Customer.provisioned_tenant_id / provisioned_at` and `Subscription.provisioned_tenant_id / status=active`.
-5. Call `$centralTenant->run(fn)` to migrate + seed the new tenant's own database.
-6. Seed branding settings (`branding.primary_color`, `branding.logo_url`) from customer record.
+| Trigger | Code path | When |
+|---|---|---|
+| Customer created with `customer_type = tenant` | `CustomerController::store()` → `TenantProvisioningService::provisionForCustomer($customer)` | Immediately on `POST /customers` — tenant is live before response returns |
+| Software subscription confirmed | `SubscriptionConfirmed` → `ProvisionSubscriptionTenant` → `TenantProvisioningService::provisionForCustomer($customer, $sub)` | After invoice → subscription chain |
+
+The subscription path additionally marks the subscription `active` and sets `subscription.provisioned_tenant_id`. On customer create there is no subscription to update.
+
+The **customer-create path swallows provisioning exceptions** (logs and continues) so the customer record is always saved. The **subscription path re-throws** so a failed provisioning is visible to the caller.
+
+### TenantProvisioningService — provision flow
+
+`provisionForCustomer(Customer $customer, ?object $sub = null)`:
+
+1. Skip if `customer_type !== 'tenant'` (guard).
+2. If already provisioned: mirror `provisioned_tenant_id` onto `$sub` (if given); if `$sub` has items, find existing `CentralTenant` and run `seedSubscriptionProducts()` inside it; return (idempotent).
+3. Derive handle: use `customer.tenant_handle` or call `deriveHandle()` (slug + 4-char suffix).
+4. Create `App\Models\Central\Tenant` with `handle` as PK.
+5. Register subdomain: `$centralTenant->domains()->create(['domain' => "{$handle}.{$systemDomain}"])`.
+6. Pre-load `$sub->loadMissing('items')->items` in the **seller's** DB context (before `run()`).
+7. `DB::transaction`: update `customer.provisioned_tenant_id = handle`, `customer.provisioned_at`, optionally update subscription status → `active`.
+8. `$centralTenant->run()`: migrate, seed (`TenantDatabaseSeeder`), create customer admin user (`customer.email`, password `'password'`, admin role), seed branding, call `seedSubscriptionProducts($subItems)`.
+
+### Subscription product seeding
+
+`seedSubscriptionProducts(Collection $items)` runs **inside** `$centralTenant->run()` (customer's DB context):
+
+- Iterates each `SubscriptionItem`; uses `variant_sku` as SKU, falls back to `Str::slug($product_name)`.
+- `Product::updateOrCreate(['sku' => $sku], ['name' => ..., 'product_type' => 'software', 'unit_price' => ..., 'is_active' => true])`.
+- `BelongsToTenant` global scope ensures `tenant_id` is auto-set from the active tenancy context.
+- This means a tenant customer's `products` table contains **only the software products from their subscription**. `GET /api/v1/products` therefore returns only those products — no frontend filtering required.
 
 System domain is read from `config('platform.system_domain')` → `.env` key `APP_SYSTEM_DOMAIN`.
+
+System domain is read from `config('platform.system_domain')` → `.env` key `APP_SYSTEM_DOMAIN`.
+
+### Default tenant credentials
+
+Every provisioned tenant gets one admin user created automatically:
+
+| Field | Value |
+|---|---|
+| Email | Customer's `email` field |
+| Password | `password` (plaintext passed; `hashed` cast hashes once) |
+| Role | `admin` |
+
+Additional seeded users (from `TenantDatabaseSeeder`):
+
+| Email | Password | Role |
+|---|---|---|
+| `admin@example.com` | `password` | admin |
+| `role.base@tanent.com` | `password` | employee |
+
+### Repairing credentials on existing tenants
+
+For tenants provisioned before the double-hash fix:
+
+```bash
+php artisan tenants:repair-credentials --tenant={handle}
+# Omit --tenant to repair all tenants
+```
+
+This: (1) self-heals any double-hashed password via `Hash::check` + `forceFill`, (2) creates the customer admin user if missing.
 
 ### Customer → Tenant handle rules
 
@@ -148,6 +218,10 @@ All routes are tenant-scoped under `/api/v1`, gated by `auth:api`:
 
 > **Route ordering (P0):** `GET /customers/check-handle` must be registered **before** `Route::apiResource('customers', ...)`. If reversed, Laravel's router matches `check-handle` as the `show({id})` segment.
 
+### IAM — password reset
+
+`POST /users/{user}/reset-password` — resets a user's password. Requires `iam.users.write`. Validates `password` (min:8, `confirmed`). Delegates to `UserService::resetPassword(User $user, string $password)` which calls `$user->forceFill(['password' => $password])->save()`. Plaintext is passed; the `hashed` cast hashes once.
+
 ### Controller response pattern (P0)
 
 **Never** use `response()->json(['data' => (new XxxResource(...))->toArray(...)])` in action methods. This bypasses Laravel's resource serialization pipeline — `whenLoaded()` sentinel objects (`MissingValue`) survive `toArray()` and become `{}` in JSON, which JavaScript stringifies as `[object Object]`.
@@ -182,4 +256,5 @@ Key frontend patterns:
 - Handle uniqueness: debounced `GET /customers/check-handle` (450ms), live status icon in input.
 - Breadcrumb for nested UUID routes: `useBreadcrumbOverride().setEntityName(name)` in detail/edit pages; `clear()` in `onBeforeUnmount`.
 - Logo display: check `brandLogoUrl` first (`<img>`), fall back to initial letter avatar.
-- `provisionedSubdomain` field on `Customer` type: assembled by `CustomerResource` as `{handle}.{platform.system_domain}`.
+- `provisionedSubdomain` field on `Customer` type: assembled by `CustomerResource` as `{handle}.{platform.system_domain}`. Populated immediately after `POST /customers` if provisioning succeeds.
+- User password reset: "Password" button on each user card opens a dedicated modal (`POST /users/{id}/reset-password`).
