@@ -170,23 +170,23 @@ onMounted(() => {
 </script>
 
 <style scoped>
-    .fade-enter-active,
-    .fade-leave-active {
-        transition: opacity 0.2s ease;
-    }
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.2s ease;
+}
 
-    .fade-enter-from,
-    .fade-leave-to {
-        opacity: 0;
-    }
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
 
-    .slide-enter-active,
-    .slide-leave-active {
-        transition: transform 0.25s ease;
-    }
+.slide-enter-active,
+.slide-leave-active {
+    transition: transform 0.25s ease;
+}
 
-    .slide-enter-from,
-    .slide-leave-to {
-        transform: translateX(100%);
-    }
+.slide-enter-from,
+.slide-leave-to {
+    transform: translateX(100%);
+}
 </style>

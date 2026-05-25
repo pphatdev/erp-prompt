@@ -33,7 +33,8 @@
                     class="px-3 py-1.5 text-xxs font-bold uppercase tracking-widest rounded-lg transition-colors whitespace-nowrap"
                     :class="activeTab === tab.key
                         ? 'bg-(--color-primary)/15 text-(--color-primary)'
-                        : 'text-(--text-muted) hover:text-(--text-heading) hover:bg-(--bg-muted)'" @click="activeTab = tab.key">
+                        : 'text-(--text-muted) hover:text-(--text-heading) hover:bg-(--bg-muted)'"
+                    @click="activeTab = tab.key">
                     <i :class="`ti ${tab.icon} mr-1`" />{{ tab.label }}
                 </button>
             </nav>
@@ -104,27 +105,36 @@
                                     </span>
                                 </label>
                                 <div class="relative">
-                                    <i class="ti ti-at absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm"></i>
+                                    <i
+                                        class="ti ti-at absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm"></i>
                                     <input v-model="form.tenant_handle" type="text" maxlength="60"
-                                        class="form-control pl-7 pr-8 font-mono lowercase"
-                                        :class="{
+                                        class="form-control pl-7 pr-8 font-mono lowercase" :class="{
                                             'ring-1 ring-(--color-danger)': (showErrors && !form.tenant_handle) || handleStatus === 'taken' || handleStatus === 'invalid',
                                             'ring-1 ring-(--color-success)': handleStatus === 'available',
-                                        }"
-                                        placeholder="acme-corp"
+                                        }" placeholder="acme-corp"
                                         @input="form.tenant_handle = (($event.target as HTMLInputElement).value).toLowerCase().replace(/[^a-z0-9-]/g, '')" />
                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
-                                        <i v-if="handleStatus === 'checking'" class="ti ti-loader-2 animate-spin text-(--text-muted)" />
-                                        <i v-else-if="handleStatus === 'available'" class="ti ti-circle-check-filled text-(--color-success)" />
-                                        <i v-else-if="handleStatus === 'taken'" class="ti ti-circle-x-filled text-(--color-danger)" />
-                                        <i v-else-if="handleStatus === 'invalid'" class="ti ti-alert-triangle text-(--color-warning)" />
+                                        <i v-if="handleStatus === 'checking'"
+                                            class="ti ti-loader-2 animate-spin text-(--text-muted)" />
+                                        <i v-else-if="handleStatus === 'available'"
+                                            class="ti ti-circle-check-filled text-(--color-success)" />
+                                        <i v-else-if="handleStatus === 'taken'"
+                                            class="ti ti-circle-x-filled text-(--color-danger)" />
+                                        <i v-else-if="handleStatus === 'invalid'"
+                                            class="ti ti-alert-triangle text-(--color-warning)" />
                                     </span>
                                 </div>
-                                <p v-if="showErrors && !form.tenant_handle" class="form-error">Handle is required for tenant customers.</p>
-                                <p v-else-if="handleStatus === 'taken'" class="form-error">This handle is already taken.</p>
-                                <p v-else-if="handleStatus === 'invalid'" class="text-xxs text-(--color-warning) mt-1">Use lowercase letters, digits, and hyphens only.</p>
-                                <p v-else-if="handleStatus === 'available'" class="text-xxs text-(--color-success) mt-1"><i class="ti ti-check" /> Handle is available.</p>
-                                <p v-else class="text-xxs text-(--text-muted) mt-1">Lowercase letters, digits, and hyphens only. E.g. <code class="font-mono">acme-corp</code></p>
+                                <p v-if="showErrors && !form.tenant_handle" class="form-error">Handle is required for
+                                    tenant customers.</p>
+                                <p v-else-if="handleStatus === 'taken'" class="form-error">This handle is already taken.
+                                </p>
+                                <p v-else-if="handleStatus === 'invalid'" class="text-xxs text-(--color-warning) mt-1">
+                                    Use lowercase letters, digits, and hyphens only.</p>
+                                <p v-else-if="handleStatus === 'available'"
+                                    class="text-xxs text-(--color-success) mt-1"><i class="ti ti-check" /> Handle is
+                                    available.</p>
+                                <p v-else class="text-xxs text-(--text-muted) mt-1">Lowercase letters, digits, and
+                                    hyphens only. E.g. <code class="font-mono">acme-corp</code></p>
                             </div>
                             <div>
                                 <label class="form-label">Tier</label>
@@ -252,7 +262,7 @@
                                         :class="['ti', uploadingLogo ? 'ti-loader-2 animate-spin' : 'ti-cloud-upload', 'text-2xl text-(--color-primary)']" />
                                     <span class="text-xs text-(--text-heading) font-semibold">
                                         {{ uploadingLogo ? 'Processing…' : (form.brand_logo_url ? 'Replace logo' :
-                                        'Click to upload logo') }}
+                                            'Click to upload logo') }}
                                     </span>
                                     <span class="text-xxs text-(--text-muted)">PNG / JPG / SVG / WebP — max 200KB</span>
                                     <input ref="logoInputEl" type="file"
@@ -298,27 +308,33 @@
                         <div>
                             <label class="form-label">Tenant handle *</label>
                             <div class="relative">
-                                <i class="ti ti-at absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm"></i>
+                                <i
+                                    class="ti ti-at absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm"></i>
                                 <input v-model="form.tenant_handle" type="text" maxlength="60"
-                                    class="form-control pl-7 pr-8 font-mono lowercase"
-                                    :class="{
+                                    class="form-control pl-7 pr-8 font-mono lowercase" :class="{
                                         'ring-1 ring-(--color-danger)': (showErrors && !form.tenant_handle) || handleStatus === 'taken' || handleStatus === 'invalid',
                                         'ring-1 ring-(--color-success)': handleStatus === 'available',
-                                    }"
-                                    placeholder="acme-corp"
+                                    }" placeholder="acme-corp"
                                     @input="form.tenant_handle = (($event.target as HTMLInputElement).value).toLowerCase().replace(/[^a-z0-9-]/g, '')" />
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
-                                    <i v-if="handleStatus === 'checking'" class="ti ti-loader-2 animate-spin text-(--text-muted)" />
-                                    <i v-else-if="handleStatus === 'available'" class="ti ti-circle-check-filled text-(--color-success)" />
-                                    <i v-else-if="handleStatus === 'taken'" class="ti ti-circle-x-filled text-(--color-danger)" />
-                                    <i v-else-if="handleStatus === 'invalid'" class="ti ti-alert-triangle text-(--color-warning)" />
+                                    <i v-if="handleStatus === 'checking'"
+                                        class="ti ti-loader-2 animate-spin text-(--text-muted)" />
+                                    <i v-else-if="handleStatus === 'available'"
+                                        class="ti ti-circle-check-filled text-(--color-success)" />
+                                    <i v-else-if="handleStatus === 'taken'"
+                                        class="ti ti-circle-x-filled text-(--color-danger)" />
+                                    <i v-else-if="handleStatus === 'invalid'"
+                                        class="ti ti-alert-triangle text-(--color-warning)" />
                                 </span>
                             </div>
                             <p v-if="showErrors && !form.tenant_handle" class="form-error">Handle is required.</p>
                             <p v-else-if="handleStatus === 'taken'" class="form-error">This handle is already taken.</p>
-                            <p v-else-if="handleStatus === 'invalid'" class="text-xxs text-(--color-warning) mt-1">Use lowercase letters, digits, and hyphens only.</p>
-                            <p v-else-if="handleStatus === 'available'" class="text-xxs text-(--color-success) mt-1"><i class="ti ti-check" /> Handle is available.</p>
-                            <p v-else class="text-xxs text-(--text-muted) mt-1">Lowercase letters, digits, hyphens. Used as login subdomain.</p>
+                            <p v-else-if="handleStatus === 'invalid'" class="text-xxs text-(--color-warning) mt-1">Use
+                                lowercase letters, digits, and hyphens only.</p>
+                            <p v-else-if="handleStatus === 'available'" class="text-xxs text-(--color-success) mt-1"><i
+                                    class="ti ti-check" /> Handle is available.</p>
+                            <p v-else class="text-xxs text-(--text-muted) mt-1">Lowercase letters, digits, hyphens. Used
+                                as login subdomain.</p>
                         </div>
                     </div>
                 </section>

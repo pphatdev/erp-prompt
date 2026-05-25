@@ -4,7 +4,8 @@
             <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                     <h1 class="text-xl font-semibold">Overtime requests</h1>
-                    <p class="text-xs text-(--text-muted) mt-1">Submit overtime hours and track approval. Approved hours feed into the next payroll period.</p>
+                    <p class="text-xs text-(--text-muted) mt-1">Submit overtime hours and track approval. Approved hours
+                        feed into the next payroll period.</p>
                 </div>
                 <button v-if="canSubmit" class="btn btn-primary text-xs" @click="openSubmitModal">
                     <i class="ti ti-plus" />New request
@@ -16,17 +17,17 @@
                     <div v-if="isAdmin" class="md:col-span-4">
                         <select v-model="filters.employeeId" class="form-control">
                             <option :value="''">All employees</option>
-                            <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{ e.employeeId }})</option>
+                            <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{ e.employeeId
+                                }})</option>
                         </select>
                     </div>
-                    <div class="md:col-span-4 flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
-                        <button
-                            v-for="s in (['', 'pending', 'approved', 'rejected', 'cancelled'] as const)"
+                    <div
+                        class="md:col-span-4 flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
+                        <button v-for="s in (['', 'pending', 'approved', 'rejected', 'cancelled'] as const)"
                             :key="s || 'all'"
                             class="flex-1 px-3 py-1 rounded text-xxs uppercase tracking-widest font-bold transition-colors"
                             :class="filters.status === s ? 'bg-(--bg-card) text-(--color-primary) shadow-(--shadow-sm)' : 'text-(--text-muted) hover:text-(--text-heading)'"
-                            @click="filters.status = s"
-                        >
+                            @click="filters.status = s">
                             {{ s || 'all' }}
                         </button>
                     </div>
@@ -40,7 +41,8 @@
             </section>
 
             <div v-if="loading" class="py-24 flex flex-col items-center justify-center gap-3">
-                <span class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
+                <span
+                    class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
                 <span class="text-xs text-(--text-muted) font-medium">Loading overtime requests...</span>
             </div>
 
@@ -54,7 +56,8 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
-                            <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                            <tr
+                                class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
                                 <th class="px-4 py-3 font-semibold font-mono">Date</th>
                                 <th v-if="isAdmin" class="px-4 py-3 font-semibold">Employee</th>
                                 <th class="px-4 py-3 font-semibold font-mono text-right">Hours</th>
@@ -68,12 +71,16 @@
                             <tr v-for="r in requests" :key="r.id" class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-4 py-3 font-mono text-xs">{{ r.date }}</td>
                                 <td v-if="isAdmin" class="px-4 py-3 text-xs">
-                                    <div class="font-semibold text-(--text-heading)">{{ r.employee?.fullName || '—' }}</div>
-                                    <div class="text-xxs text-(--text-muted) font-mono">{{ r.employee?.employeeId || '' }}</div>
+                                    <div class="font-semibold text-(--text-heading)">{{ r.employee?.fullName || '—' }}
+                                    </div>
+                                    <div class="text-xxs text-(--text-muted) font-mono">{{ r.employee?.employeeId || ''
+                                        }}</div>
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs text-right">{{ r.hours.toFixed(2) }}</td>
-                                <td class="px-4 py-3 font-mono text-xs text-right">{{ r.rateMultiplier.toFixed(1) }}x</td>
-                                <td class="px-4 py-3 text-xs text-(--text-body) max-w-[260px] truncate" :title="r.reason || ''">
+                                <td class="px-4 py-3 font-mono text-xs text-right">{{ r.rateMultiplier.toFixed(1) }}x
+                                </td>
+                                <td class="px-4 py-3 text-xs text-(--text-body) max-w-[260px] truncate"
+                                    :title="r.reason || ''">
                                     {{ r.reason || '—' }}
                                 </td>
                                 <td class="px-4 py-3">
@@ -82,12 +89,9 @@
                                 <td class="px-4 py-3 text-center">
                                     <button
                                         v-if="canProcess && r.status === 'pending' || (canSubmit && r.status === 'pending')"
-                                        type="button"
-                                        class="action-trigger"
+                                        type="button" class="action-trigger"
                                         :class="{ 'action-trigger-open': actionMenu.open && actionMenu.request?.id === r.id }"
-                                        title="Actions"
-                                        @click.stop="openActionMenu(r, $event)"
-                                    >
+                                        title="Actions" @click.stop="openActionMenu(r, $event)">
                                         <i class="ti ti-dots-vertical" />
                                     </button>
                                     <span v-else class="text-xxs text-(--text-muted)">—</span>
@@ -97,18 +101,14 @@
                     </table>
                 </div>
 
-                <Pagination
-                    :page="pagination.page"
-                    :limit="pagination.limit"
-                    :total="pagination.total"
-                    :total-pages="pagination.totalPages"
-                    @update:page="(p) => { pagination.page = p; loadRequests() }"
-                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadRequests() }"
-                />
+                <Pagination :page="pagination.page" :limit="pagination.limit" :total="pagination.total"
+                    :total-pages="pagination.totalPages" @update:page="(p) => { pagination.page = p; loadRequests() }"
+                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadRequests() }" />
             </section>
 
             <!-- Submit modal -->
-            <div v-if="showSubmitModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div v-if="showSubmitModal"
+                class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div class="glass-card rounded-2xl w-full max-w-lg p-6 shadow-(--shadow-lg) bg-(--bg-card)">
                     <header class="flex items-center justify-between mb-5">
                         <h3 class="text-base font-semibold text-(--text-heading)">New overtime request</h3>
@@ -120,7 +120,8 @@
                             <label class="form-label form-label-required">Employee</label>
                             <select v-model="form.employee_id" required class="form-control">
                                 <option value="" disabled>Select employee...</option>
-                                <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{ e.employeeId }})</option>
+                                <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{
+                                    e.employeeId }})</option>
                             </select>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
@@ -130,7 +131,8 @@
                             </div>
                             <div>
                                 <label class="form-label form-label-required">Hours</label>
-                                <input v-model.number="form.hours" type="number" step="0.25" min="0.25" max="16" required class="form-control font-mono" />
+                                <input v-model.number="form.hours" type="number" step="0.25" min="0.25" max="16"
+                                    required class="form-control font-mono" />
                             </div>
                         </div>
                         <div>
@@ -140,17 +142,20 @@
                                 <option :value="2.0">2.0x (weekend)</option>
                                 <option :value="3.0">3.0x (holiday)</option>
                             </select>
-                            <p class="text-xxs text-(--text-muted) mt-1">Weekend dates are auto-promoted to 2.0x server-side.</p>
+                            <p class="text-xxs text-(--text-muted) mt-1">Weekend dates are auto-promoted to 2.0x
+                                server-side.</p>
                         </div>
                         <div>
                             <label class="form-label">Reason</label>
-                            <textarea v-model="form.reason" rows="3" class="form-control" placeholder="Production support, release window, etc." />
+                            <textarea v-model="form.reason" rows="3" class="form-control"
+                                placeholder="Production support, release window, etc." />
                         </div>
 
                         <div v-if="formError" class="form-error">{{ formError }}</div>
 
                         <footer class="pt-4 border-t border-(--border-color) flex justify-end gap-2">
-                            <button type="button" class="btn btn-ghost text-xs" @click="showSubmitModal = false">Cancel</button>
+                            <button type="button" class="btn btn-ghost text-xs"
+                                @click="showSubmitModal = false">Cancel</button>
                             <button type="submit" class="btn btn-primary text-xs" :disabled="saving">
                                 <i class="ti ti-send" />{{ saving ? 'Submitting...' : 'Submit' }}
                             </button>
@@ -160,12 +165,9 @@
             </div>
 
             <!-- Action dropdown -->
-            <div
-                v-if="actionMenu.open && actionMenu.request"
+            <div v-if="actionMenu.open && actionMenu.request"
                 class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
-                :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
-                @click.stop
-            >
+                :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }" @click.stop>
                 <template v-if="canProcess && actionMenu.request.status === 'pending'">
                     <button class="action-item action-item-success" @click="actionApprove">
                         <i class="ti ti-check" /> Approve
@@ -175,11 +177,8 @@
                     </button>
                     <hr v-if="canSubmit" class="my-1 border-(--border-color)" />
                 </template>
-                <button
-                    v-if="canSubmit && actionMenu.request.status === 'pending'"
-                    class="action-item action-item-danger"
-                    @click="actionCancel"
-                >
+                <button v-if="canSubmit && actionMenu.request.status === 'pending'"
+                    class="action-item action-item-danger" @click="actionCancel">
                     <i class="ti ti-trash" /> Cancel
                 </button>
             </div>
@@ -391,7 +390,11 @@ onMounted(async () => {
     color: var(--text-muted);
     cursor: pointer;
 }
-.topbar-btn:hover { background: var(--bg-muted); color: var(--text-heading); }
+
+.topbar-btn:hover {
+    background: var(--bg-muted);
+    color: var(--text-heading);
+}
 
 .action-trigger {
     display: inline-flex;
@@ -404,8 +407,16 @@ onMounted(async () => {
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease;
 }
-.action-trigger:hover { background: var(--bg-muted); color: var(--text-heading); }
-.action-trigger-open { background: var(--bg-muted); color: var(--color-primary); }
+
+.action-trigger:hover {
+    background: var(--bg-muted);
+    color: var(--text-heading);
+}
+
+.action-trigger-open {
+    background: var(--bg-muted);
+    color: var(--color-primary);
+}
 
 .action-item {
     width: 100%;
@@ -419,11 +430,32 @@ onMounted(async () => {
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease;
 }
-.action-item:hover { background: var(--bg-muted); }
-.action-item-success { color: var(--color-success); }
-.action-item-success:hover { background: var(--color-success-subtle, rgb(var(--color-success-rgb, 16 185 129) / 0.1)); }
-.action-item-warning { color: var(--color-warning); }
-.action-item-warning:hover { background: var(--color-warning-subtle, rgb(var(--color-warning-rgb, 250 173 20) / 0.1)); }
-.action-item-danger { color: var(--color-danger); }
-.action-item-danger:hover { background: var(--color-danger-subtle); }
+
+.action-item:hover {
+    background: var(--bg-muted);
+}
+
+.action-item-success {
+    color: var(--color-success);
+}
+
+.action-item-success:hover {
+    background: var(--color-success-subtle, rgb(var(--color-success-rgb, 16 185 129) / 0.1));
+}
+
+.action-item-warning {
+    color: var(--color-warning);
+}
+
+.action-item-warning:hover {
+    background: var(--color-warning-subtle, rgb(var(--color-warning-rgb, 250 173 20) / 0.1));
+}
+
+.action-item-danger {
+    color: var(--color-danger);
+}
+
+.action-item-danger:hover {
+    background: var(--color-danger-subtle);
+}
 </style>

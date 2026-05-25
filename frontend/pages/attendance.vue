@@ -7,29 +7,15 @@
                     <p class="text-xs text-(--text-muted) mt-1">Clock-in / clock-out and daily attendance ledger.</p>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
-                    <button
-                        v-if="canClock"
-                        class="btn btn-primary text-xs"
-                        :disabled="clocking"
-                        @click="clockIn"
-                    >
+                    <button v-if="canClock" class="btn btn-primary text-xs" :disabled="clocking" @click="clockIn">
                         <i :class="['ti', clocking ? 'ti-loader animate-spin' : 'ti-login-2']" />
                         {{ clocking ? 'Stamping...' : 'Clock in' }}
                     </button>
-                    <button
-                        v-if="canClock"
-                        class="btn btn-ghost text-xs"
-                        :disabled="clocking"
-                        @click="clockOut"
-                    >
+                    <button v-if="canClock" class="btn btn-ghost text-xs" :disabled="clocking" @click="clockOut">
                         <i :class="['ti', clocking ? 'ti-loader animate-spin' : 'ti-logout-2']" />Clock out
                     </button>
-                    <button
-                        v-if="canReconcile"
-                        class="btn btn-ghost text-xs"
-                        :disabled="reconciling"
-                        @click="reconcile"
-                    >
+                    <button v-if="canReconcile" class="btn btn-ghost text-xs" :disabled="reconciling"
+                        @click="reconcile">
                         <i :class="['ti', reconciling ? 'ti-loader animate-spin' : 'ti-refresh']" />Reconcile yesterday
                     </button>
                 </div>
@@ -41,7 +27,8 @@
                     <div v-if="isAdmin" class="md:col-span-4">
                         <select v-model="filters.employeeId" class="form-control">
                             <option :value="''">All employees</option>
-                            <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{ e.employeeId }})</option>
+                            <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{ e.employeeId
+                                }})</option>
                         </select>
                     </div>
                     <div class="md:col-span-3">
@@ -65,21 +52,24 @@
             </section>
 
             <div v-if="loading" class="py-24 flex flex-col items-center justify-center gap-3">
-                <span class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
+                <span
+                    class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
                 <span class="text-xs text-(--text-muted) font-medium">Loading attendance logs...</span>
             </div>
 
             <div v-else-if="logs.length === 0" class="glass-card rounded-2xl py-20 text-center">
                 <i class="ti ti-fingerprint text-4xl text-(--text-muted)" />
                 <h4 class="text-sm font-semibold text-(--text-heading) mt-3">No attendance records</h4>
-                <p class="text-xs text-(--text-muted) mt-1">Clock in to create your first log entry, or adjust the filters.</p>
+                <p class="text-xs text-(--text-muted) mt-1">Clock in to create your first log entry, or adjust the
+                    filters.</p>
             </div>
 
             <section v-else class="glass-card rounded-2xl overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
-                            <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                            <tr
+                                class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
                                 <th class="px-4 py-3 font-semibold font-mono">Date</th>
                                 <th v-if="isAdmin" class="px-4 py-3 font-semibold">Employee</th>
                                 <th class="px-4 py-3 font-semibold font-mono">In</th>
@@ -92,28 +82,29 @@
                             <tr v-for="l in logs" :key="l.id" class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-4 py-3 font-mono text-xs">{{ l.date }}</td>
                                 <td v-if="isAdmin" class="px-4 py-3 text-xs">
-                                    <div class="font-semibold text-(--text-heading)">{{ l.employee?.fullName || '—' }}</div>
-                                    <div class="text-xxs text-(--text-muted) font-mono">{{ l.employee?.employeeId || '' }}</div>
+                                    <div class="font-semibold text-(--text-heading)">{{ l.employee?.fullName || '—' }}
+                                    </div>
+                                    <div class="text-xxs text-(--text-muted) font-mono">{{ l.employee?.employeeId || ''
+                                        }}</div>
                                 </td>
-                                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatTime(l.checkIn) }}</td>
-                                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatTime(l.checkOut) }}</td>
+                                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatTime(l.checkIn) }}
+                                </td>
+                                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatTime(l.checkOut)
+                                    }}</td>
                                 <td class="px-4 py-3">
-                                    <Badge :variant="statusVariant(l.status)" :dot="true">{{ statusLabel(l.status) }}</Badge>
+                                    <Badge :variant="statusVariant(l.status)" :dot="true">{{ statusLabel(l.status) }}
+                                    </Badge>
                                 </td>
-                                <td v-if="isAdmin" class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ l.checkInIp || '—' }}</td>
+                                <td v-if="isAdmin" class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{
+                                    l.checkInIp || '—' }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <Pagination
-                    :page="pagination.page"
-                    :limit="pagination.limit"
-                    :total="pagination.total"
-                    :total-pages="pagination.totalPages"
-                    @update:page="(p) => { pagination.page = p; loadLogs() }"
-                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadLogs() }"
-                />
+                <Pagination :page="pagination.page" :limit="pagination.limit" :total="pagination.total"
+                    :total-pages="pagination.totalPages" @update:page="(p) => { pagination.page = p; loadLogs() }"
+                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadLogs() }" />
             </section>
         </div>
     </NuxtLayout>

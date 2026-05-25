@@ -1,9 +1,9 @@
 <template>
-  <div class="antialiased min-h-screen font-sans text-(--text-body)">
-    <NuxtPage />
-    <ToastViewport />
-    <ConfirmDialog />
-  </div>
+    <div class="antialiased min-h-screen font-sans text-(--text-body)">
+        <NuxtPage />
+        <ToastViewport />
+        <ConfirmDialog />
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -17,33 +17,33 @@ const authStore = useAuthStore()
 const tenantStore = useTenantStore()
 
 const applyTheme = (mode: string) => {
-  if (typeof document === 'undefined') return
-  const root = document.documentElement
-  if (mode === 'dark') {
-    root.setAttribute('data-bs-theme', 'dark')
-  } else {
-    root.removeAttribute('data-bs-theme')
-  }
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    if (mode === 'dark') {
+        root.setAttribute('data-bs-theme', 'dark')
+    } else {
+        root.removeAttribute('data-bs-theme')
+    }
 }
 
 onMounted(() => {
-  tenantStore.initializeTenant()
-  authStore.initializeAuth()
+    tenantStore.initializeTenant()
+    authStore.initializeAuth()
 
-  const saved = localStorage.getItem('theme')
-  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
-  applyTheme(saved || (prefersDark ? 'dark' : 'light'))
+    const saved = localStorage.getItem('theme')
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+    applyTheme(saved || (prefersDark ? 'dark' : 'light'))
 
-  // Pull tenant branding from backend (best-effort, public endpoint).
-  tenantStore.syncBranding()
+    // Pull tenant branding from backend (best-effort, public endpoint).
+    tenantStore.syncBranding()
 
-  setTimeout(() => {
-    const path = router.currentRoute.value.path
-    if (!authStore.isAuthenticated && path !== '/login') {
-      router.push('/login')
-    } else if (authStore.isAuthenticated && (path === '/login' || path === '/')) {
-      router.push('/dashboard')
-    }
-  }, 100)
+    setTimeout(() => {
+        const path = router.currentRoute.value.path
+        if (!authStore.isAuthenticated && path !== '/login') {
+            router.push('/login')
+        } else if (authStore.isAuthenticated && (path === '/login' || path === '/')) {
+            router.push('/dashboard')
+        }
+    }, 100)
 })
 </script>

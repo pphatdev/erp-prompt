@@ -4,7 +4,8 @@
             <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                     <h1 class="text-xl font-semibold">Shifts</h1>
-                    <p class="text-xs text-(--text-muted) mt-1">Define working windows. Grace and half-day boundaries drive attendance status resolution.</p>
+                    <p class="text-xs text-(--text-muted) mt-1">Define working windows. Grace and half-day boundaries
+                        drive attendance status resolution.</p>
                 </div>
                 <button v-if="canWrite" class="btn btn-primary text-xs" @click="openCreateModal">
                     <i class="ti ti-plus" />New shift
@@ -14,12 +15,14 @@
             <section class="glass-card rounded-xl p-4">
                 <div class="relative w-full md:w-96">
                     <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm" />
-                    <input v-model="search" type="search" placeholder="Search shift name..." class="form-control pl-9" />
+                    <input v-model="search" type="search" placeholder="Search shift name..."
+                        class="form-control pl-9" />
                 </div>
             </section>
 
             <div v-if="loading" class="py-24 flex flex-col items-center justify-center gap-3">
-                <span class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
+                <span
+                    class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
                 <span class="text-xs text-(--text-muted) font-medium">Loading shifts...</span>
             </div>
 
@@ -33,7 +36,8 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
-                            <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                            <tr
+                                class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
                                 <th class="px-4 py-3 font-semibold">Name</th>
                                 <th class="px-4 py-3 font-semibold font-mono">Hours</th>
                                 <th class="px-4 py-3 font-semibold font-mono text-right">Grace (min)</th>
@@ -46,26 +50,24 @@
                             <tr v-for="s in shifts" :key="s.id" class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        <span class="w-8 h-8 rounded-lg bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center">
+                                        <span
+                                            class="w-8 h-8 rounded-lg bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center">
                                             <i class="ti ti-clock-hour-8 text-sm" />
                                         </span>
                                         <span class="text-xs font-semibold text-(--text-heading)">{{ s.name }}</span>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 font-mono text-xs">{{ shortTime(s.startTime) }} – {{ shortTime(s.endTime) }}</td>
+                                <td class="px-4 py-3 font-mono text-xs">{{ shortTime(s.startTime) }} – {{
+                                    shortTime(s.endTime) }}</td>
                                 <td class="px-4 py-3 font-mono text-xs text-right">{{ s.gracePeriodMinutes }}</td>
                                 <td class="px-4 py-3 font-mono text-xs text-right">
                                     {{ s.halfDayThresholdMinutes ?? '—' }}
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs text-right">{{ s.assignmentCount ?? 0 }}</td>
                                 <td class="px-4 py-3 text-center">
-                                    <button
-                                        type="button"
-                                        class="action-trigger"
+                                    <button type="button" class="action-trigger"
                                         :class="{ 'action-trigger-open': actionMenu.open && actionMenu.shift?.id === s.id }"
-                                        title="Actions"
-                                        @click.stop="openActionMenu(s, $event)"
-                                    >
+                                        title="Actions" @click.stop="openActionMenu(s, $event)">
                                         <i class="ti ti-dots-vertical" />
                                     </button>
                                 </td>
@@ -74,18 +76,14 @@
                     </table>
                 </div>
 
-                <Pagination
-                    :page="pagination.page"
-                    :limit="pagination.limit"
-                    :total="pagination.total"
-                    :total-pages="pagination.totalPages"
-                    @update:page="(p) => { pagination.page = p; loadShifts() }"
-                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadShifts() }"
-                />
+                <Pagination :page="pagination.page" :limit="pagination.limit" :total="pagination.total"
+                    :total-pages="pagination.totalPages" @update:page="(p) => { pagination.page = p; loadShifts() }"
+                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadShifts() }" />
             </section>
 
             <!-- Create / edit modal -->
-            <div v-if="showModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div v-if="showModal"
+                class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div class="glass-card rounded-2xl w-full max-w-lg p-6 shadow-(--shadow-lg) bg-(--bg-card)">
                     <header class="flex items-center justify-between mb-5">
                         <h3 class="text-base font-semibold text-(--text-heading)">{{ editing ? 'Edit shift' : 'New shift' }}</h3>
@@ -95,28 +93,35 @@
                     <form class="space-y-4" @submit.prevent="saveShift">
                         <div>
                             <label class="form-label form-label-required">Name</label>
-                            <input v-model="form.name" type="text" required class="form-control" placeholder="Day Shift" />
+                            <input v-model="form.name" type="text" required class="form-control"
+                                placeholder="Day Shift" />
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="form-label form-label-required">Start time</label>
-                                <input v-model="form.start_time" type="time" required class="form-control font-mono" step="60" />
+                                <input v-model="form.start_time" type="time" required class="form-control font-mono"
+                                    step="60" />
                             </div>
                             <div>
                                 <label class="form-label form-label-required">End time</label>
-                                <input v-model="form.end_time" type="time" required class="form-control font-mono" step="60" />
+                                <input v-model="form.end_time" type="time" required class="form-control font-mono"
+                                    step="60" />
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="form-label">Grace period (min)</label>
-                                <input v-model.number="form.grace_period_minutes" type="number" min="0" max="240" class="form-control font-mono" />
-                                <p class="text-xxs text-(--text-muted) mt-1">Up to this many minutes late is still "present".</p>
+                                <input v-model.number="form.grace_period_minutes" type="number" min="0" max="240"
+                                    class="form-control font-mono" />
+                                <p class="text-xxs text-(--text-muted) mt-1">Up to this many minutes late is still
+                                    "present".</p>
                             </div>
                             <div>
                                 <label class="form-label">Half-day threshold (min)</label>
-                                <input v-model.number="form.half_day_threshold_minutes" type="number" min="0" max="480" class="form-control font-mono" />
-                                <p class="text-xxs text-(--text-muted) mt-1">Beyond this, the day is recorded as half-day absent.</p>
+                                <input v-model.number="form.half_day_threshold_minutes" type="number" min="0" max="480"
+                                    class="form-control font-mono" />
+                                <p class="text-xxs text-(--text-muted) mt-1">Beyond this, the day is recorded as
+                                    half-day absent.</p>
                             </div>
                         </div>
 
@@ -133,12 +138,9 @@
             </div>
 
             <!-- Action dropdown -->
-            <div
-                v-if="actionMenu.open && actionMenu.shift"
+            <div v-if="actionMenu.open && actionMenu.shift"
                 class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
-                :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }"
-                @click.stop
-            >
+                :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }" @click.stop>
                 <button class="action-item" @click="actionEdit">
                     <i class="ti ti-pencil" /> Edit
                 </button>
@@ -341,7 +343,11 @@ onMounted(() => {
     color: var(--text-muted);
     cursor: pointer;
 }
-.topbar-btn:hover { background: var(--bg-muted); color: var(--text-heading); }
+
+.topbar-btn:hover {
+    background: var(--bg-muted);
+    color: var(--text-heading);
+}
 
 .action-trigger {
     display: inline-flex;
@@ -354,8 +360,16 @@ onMounted(() => {
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease;
 }
-.action-trigger:hover { background: var(--bg-muted); color: var(--text-heading); }
-.action-trigger-open { background: var(--bg-muted); color: var(--color-primary); }
+
+.action-trigger:hover {
+    background: var(--bg-muted);
+    color: var(--text-heading);
+}
+
+.action-trigger-open {
+    background: var(--bg-muted);
+    color: var(--color-primary);
+}
 
 .action-item {
     width: 100%;
@@ -369,7 +383,16 @@ onMounted(() => {
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease;
 }
-.action-item:hover { background: var(--bg-muted); }
-.action-item-danger { color: var(--color-danger); }
-.action-item-danger:hover { background: var(--color-danger-subtle); }
+
+.action-item:hover {
+    background: var(--bg-muted);
+}
+
+.action-item-danger {
+    color: var(--color-danger);
+}
+
+.action-item-danger:hover {
+    background: var(--color-danger-subtle);
+}
 </style>
