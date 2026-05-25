@@ -50,15 +50,25 @@
 - [x] Customer dashboard: module-gated sections (hrm / sales)
 - [x] Shimmer skeletons + error state + refresh button
 
-## Sales / CRM
+## Sales (O2C Billing)
 - [x] Customers CRUD + handle check
-- [x] Leads CRUD + win action
 - [x] Quotations (index, store, show, destroy + items)
 - [x] Orders (CRUD + fulfillment flow)
 - [x] Invoices (CRUD + confirm/cancel)
 - [x] Subscriptions (CRUD + activate/cancel)
 - [x] `TenantProvisioningService` — provision DB on subscription creation
 - [x] Software products linked to system modules (modal picker, badge display)
+
+## CRM (Customer Relationship Management)
+- [ ] Decouple Lead models and CrmService to dedicated namespace
+- [ ] Migrate Opportunities table & models (stages FSM)
+- [ ] Migrate Contacts table & models (encrypted phone/email)
+- [ ] Migrate Polymorphic Activities table & models (interaction logging)
+- [ ] Lead Qualification & Conversion transactional engine
+- [ ] API Surface (slim controllers, direct resource returns)
+- [x] PrimeVue Opportunity Kanban Board UI (drag-and-drop, loss reason guard)
+- [x] Polymorphic Interaction Timeline UI component
+- [ ] Pest PHP Integration test suite (Tenancy isolation, transaction boundaries)
 
 ## HRM
 - [x] Employees CRUD
