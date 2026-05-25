@@ -26,3 +26,11 @@ Consistent data validation is critical for the ERP system to maintain data integ
 - **Strings**: Always define `maxLength` to match the database column limits (e.g., `maxLength(255)`).
 - **Dates**: End dates must explicitly validate that they are `>=` the Start date.
 - **Money/Currency**: Must be validated as numeric types and ideally input via `<InputNumber mode="currency">`.
+- **Phone Numbers (Cambodian Standard)**: Must be formatted and normalized to E.164-like standards before saving/submitting:
+  1. **Leading Zero**: If the number starts with `0`, remove the leading `0` and prepend `+855` (e.g., `092 123 456` becomes `+85592123456`).
+  2. **Raw country code or generic digits (not 0)**: If the number starts with `855` or generic digits (e.g., `92123456`), add `+` before the number (e.g., `85592123456` becomes `+85592123456`).
+  3. **Already prefixed (`+`)**: If the number already starts with `+855` or `+` with generic digits, save it as is.
+- **Emails (RFC 5322 Standard)**: Must be validated and normalized before saving/submitting to maintain clean, searchable records:
+  1. **Whitespace Trimming**: Strip all leading and trailing whitespace characters (e.g., `" user@domain.com "` becomes `"user@domain.com"`).
+  2. **Case Normalization**: Convert the entire email address to lowercase (e.g., `"User@Domain.COM"` becomes `"user@domain.com"`).
+  3. **Format Verification**: Use Vuelidate's native `email` validator or standard library validators. Do not write custom complex regular expressions that are vulnerable to ReDoS (Regular Expression Denial of Service).

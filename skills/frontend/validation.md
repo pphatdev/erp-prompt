@@ -93,6 +93,53 @@ const submitForm = async () => {
 };
 ```
 
+## Cambodian Phone Number Validation & Normalization
+
+To ensure consistent E.164-like formatting for Cambodian phone numbers before persisting or submitting, implement the following helper/method:
+
+```typescript
+/**
+ * @description Normalizes Cambodian phone numbers to E.164 format before saving.
+ * @param { String } phone Input phone number string
+ * @returns { String } The normalized phone number in E.164 format (+855...)
+ */
+export const normalizePhoneNumber = (phone: string): string => {
+    if (!phone) return '';
+    
+    // Remove all whitespace and formatting characters (non-digits and non-plus)
+    const clean = phone.replace(/[^\d+]/g, '');
+
+    // Rule 1: Starts with '0'
+    if (clean.startsWith('0')) {
+        return '+855' + clean.slice(1);
+    }
+    
+    // Rule 3: Already starts with '+' (e.g., +855 or +NNN)
+    if (clean.startsWith('+')) {
+        return clean;
+    }
+
+    // Rule 2: Starts with country code or digits without '+'
+    return '+' + clean;
+};
+```
+
+## Email Validation & Normalization
+
+To maintain consistent lowercase and whitespace-trimmed email entries across all forms, implement the following helper:
+
+```typescript
+/**
+ * @description Normalizes email addresses before saving or submitting by trimming and converting to lowercase.
+ * @param { String } email Input email string
+ * @returns { String } The trimmed and lowercase email address
+ */
+export const normalizeEmail = (email: string): string => {
+    if (!email) return '';
+    return email.trim().toLowerCase();
+};
+```
+
 ## Checklist for Reviewers
 - [ ] Are required fields marked with a red `*`?
 - [ ] Does validation trigger on `blur` via `$touch()`?

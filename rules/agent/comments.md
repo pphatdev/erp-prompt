@@ -46,6 +46,11 @@ export async function submitContactForm(request: Request, env: Env) {
 - **Types**: Always specify the data type in the `@param` tag.
 - **Optionality**: Use square brackets `[parameter]` for optional inputs.
 - **Language**: Always use English for comments and documentation.
+- **Forbidden Patterns**: Do NOT use section divider/separator comments with decorative horizontal lines, such as:
+  ```typescript
+  // ───── Example Comment ──────────────────────────────────────────
+  ```
+  Instead, rely strictly on clear, standard JSDoc header blocks and minimal, clean single-line comments.
 
 ## Troubleshooting
 - **Missing @method**: Ensure HTTP methods are specified for routes.
