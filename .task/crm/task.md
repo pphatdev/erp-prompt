@@ -20,7 +20,7 @@
 
 ### Phase 4 — Polymorphic Activities
 - [x] `App\Tenants\Modules\Crm\Services\ActivityService` — `logActivity` and `completeActivity`.
-- [ ] Enforce cross-tenant polymorphic activity blocks (tenant scope on trackable queries).
+- [x] Enforce cross-tenant polymorphic activity blocks (tenant scope on trackable queries).
 
 ### Phase 5 — API Surface & Controllers
 - [x] Routes registered in `routes/tenant.php`: leads qualify, opportunities stage, crm-contacts CRUD, crm-activities CRUD + complete.
