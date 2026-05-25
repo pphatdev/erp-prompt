@@ -9,7 +9,7 @@
 
 ## 2. Sales
 - **[Detailed Specification: Sales](./sales/overview.md)**
-- Customer Relationship Management (CRM)
+- **[Customer Relationship Management (CRM)](./crm/overview.md)**: Lead intake, Opportunity pipeline (Kanban), B2B Contacts & Accounts, and Interaction Timelines.
 - Sales Operations & Order-to-Cash (O2C)
 - Invoicing & Revenue Recognition
 
