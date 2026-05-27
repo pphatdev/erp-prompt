@@ -82,6 +82,19 @@ All HRM lifecycle statuses are stored in the central `workflow_statuses` table a
 | `hrm.payroll_period` | `draft` | `closed` | `PayrollService::processPeriod` / `closePeriod` |
 | `hrm.quiz_attempt` | `invited` | `completed`, `expired` | `QuizService::startAttempt` / `submitAttempt` |
 
+---
+
+## 9. Code Numbering (Tenant-Configurable)
+
+Auto-generated identifiers read their prefix from per-tenant settings. Admins edit them under **Settings → Numbering**. Stored values include any separator (e.g. `TT-`), so the generator concatenates directly: `{prefix}{rest}`. If the per-tenant setting is missing, null, or empty, the generator MUST fall back to its conventional default (e.g. `'TT-'` or `'CAN-'`) to guarantee business continuity. Changes only affect new records — historical codes are not rewritten.
+
+| Entity | Setting key | Default | Format | Generator |
+|---|---|---|---|---|
+| Employee | `numbering.employee_id_prefix` | `TT-` | `{prefix}0001` (zero-padded, grows) | `RecruitmentService::generateNextEmployeeId` |
+| Candidate / Application | `numbering.candidate_code_prefix` | `CAN-` | `{prefix}YYYYMM-NNN` (resets monthly) | `Application::generateCandidateCode` |
+
+The Employee generator is sequential (DB `MAX+1` including soft-deleted) so terminated employees never free their numbers for reuse. The Candidate generator is month-bucketed for at-a-glance vintage.
+
 Service contracts:
 - `$statuses->initialFor($module): string` — bootstrap status when creating a record. Inject `WorkflowStatusService` into the constructor instead of hardcoding.
 - `$statuses->validateTransition($module, $from, $to): void` — throws `DomainException` on invalid moves; the controller catches and returns 422.

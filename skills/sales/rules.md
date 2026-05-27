@@ -1,5 +1,7 @@
 # Sales Module Workflow Rules
 
+> Sections marked **(Planned)** describe the target state per [`rules/hybrid_sales_business_flow.md`](../../rules/hybrid_sales_business_flow.md). Sections marked **(Shipped)** match current code today.
+
 ## 1. Permissions (IAM Integration)
 Permissions follow the standard `module.feature.action` pattern defined in [iam.md](../iam.md).
 
@@ -10,34 +12,227 @@ Permissions follow the standard `module.feature.action` pattern defined in [iam.
 ### Feature Matrix:
 | Feature | Read | Write | Delete | Export |
 |---------|------|-------|--------|--------|
-| `crm` | `sales.crm.read` | `sales.crm.write` | `sales.crm.delete` | `sales.crm.export` |
-| `leads` | `sales.leads.read` | `sales.leads.write` | `sales.leads.delete` | `sales.leads.export` |
-| `quotations` | `sales.crm.read` | `sales.crm.write` | `sales.crm.delete` | `sales.crm.export` |
+| `quotations` | `sales.quotations.read` | `sales.quotations.write` | `sales.quotations.delete` | `sales.quotations.export` |
 | `orders` | `sales.orders.read` | `sales.orders.write` | `sales.orders.delete` | `sales.orders.export` |
-| `invoices` | `sales.orders.read` | `sales.orders.write` | `sales.orders.delete` | `sales.orders.export` |
-| `subscriptions` | `sales.orders.read` | `sales.orders.write` | `sales.orders.delete` | `sales.orders.export` |
+| `invoices` | `sales.invoices.read` | `sales.invoices.write` | `sales.invoices.delete` | `sales.invoices.export` |
+| `subscriptions` | `sales.subscriptions.read` | `sales.subscriptions.write` | `sales.subscriptions.delete` | `sales.subscriptions.export` |
+| `customers` | `sales.customers.read` | `sales.customers.write` | `sales.customers.delete` | `sales.customers.export` |
 
-> Note: Quotation/Invoice/Subscription Form Requests currently delegate to `sales.crm.write` / `sales.orders.write`. Split into dedicated permission slugs (`sales.quotations.write`, `sales.invoices.confirm`, etc.) if separation of duties is needed.
+**Shipped today:** the matrix above is partially implemented. Quotation/Invoice/Subscription Form Requests currently delegate to `sales.crm.write` / `sales.orders.write`. The **planned** split lands with the status refactor — separation of duties (finance vs ops) becomes enforceable.
 
 ---
 
-## 2. Hybrid Sales — Implementation (Shipped)
+## 2. Hybrid Sales — TARGET status flow (Planned)
 
-### Models & tables (tenant DB)
+```
+Quotation:     draft  --win-->     won   (terminal — converts Lead → Customer, auto-creates draft Sale Order)
+               draft  --lose-->    lost  (terminal — loss_reason required)
+
+Sale Order:    draft  --confirm--> confirm  → triggers Fulfillment + Tenant Provisioning
+               draft  --cancel-->  cancel   (terminal)
+               confirm --cancel--> cancel   (reverse downstream individually)
+
+Subscription:  active --renew-->   active   (extends end_date + new Invoice)
+               active --upgrade--> active   (variant swap + delta Invoice)
+               active --downgrade--> active (variant swap + credit on next Invoice)
+               active --cancel-->  cancelled (terminal)
+               active --expire-->  expired  (auto, when end_date < today)
+               expired --renew-->  active   (creates a new subscription record)
+```
+
+### Planned status enum constants
+
+```php
+// Quotation
+public const STATUS_DRAFT = 'draft';
+public const STATUS_WON   = 'won';
+public const STATUS_LOST  = 'lost';
+
+// Order
+public const STATUS_DRAFT   = 'draft';
+public const STATUS_CONFIRM = 'confirm';
+public const STATUS_CANCEL  = 'cancel';
+
+// Subscription
+public const STATUS_ACTIVE    = 'active';
+public const STATUS_EXPIRED   = 'expired';
+public const STATUS_CANCELLED = 'cancelled';
+```
+
+### Planned migration: status remap (map-in-place + drop legacy)
+
+```php
+// 2024_01_01_0000XX_remap_sales_status_columns.php — per-tenant migration
+
+DB::transaction(function () {
+    // Quotation
+    DB::table('quotations')->where('status', 'new')->update(['status' => 'draft']);
+    DB::table('quotations')->where('status', 'confirmed')->update(['status' => 'won']);
+    DB::table('quotations')
+        ->where('status', 'cancelled')
+        ->update(['status' => 'lost', 'cancel_reason' => DB::raw("COALESCE(cancel_reason, 'Legacy cancellation')")]);
+
+    // Order
+    DB::table('orders')->where('status', 'new')->update(['status' => 'draft']);
+    DB::table('orders')->where('status', 'confirmed')->update(['status' => 'confirm']);
+    DB::table('orders')->where('status', 'cancelled')->update(['status' => 'cancel']);
+
+    // Subscription
+    DB::table('subscriptions')->whereIn('status', ['new', 'confirmed'])->update(['status' => 'active']);
+    // 'active' / 'expired' / 'cancelled' rows unchanged
+});
+```
+
+Run via `php artisan tenants:migrate`. After deploy, drop the legacy `STATUS_NEW` / `STATUS_CONFIRMED` / `STATUS_CANCELLED` constants on `Quotation`, `Order`, `Invoice` (where applicable) and remove the legacy code paths.
+
+---
+
+## 3. Models & tables (Tenant DB)
+
+Schema is **mostly unchanged**; the migration above only rewrites enum string values and the planned column additions below.
 
 | Concept | Model | Table | Notes |
 |---|---|---|---|
-| Catalogue product | `App\Models\Tenant\Product` | `products` | Adds `product_type` (`hardware`\|`software`), `is_active`, `description_long`. |
-| Variant axes | `App\Models\Tenant\ProductVariant` | `product_variants` | `attributes` jsonb holds `{color, size, plan_tier, term, seat_count, …}` — no schema churn per new axis. |
-| Quote | `App\Models\Tenant\Quotation` + `QuotationItem` | `quotations`, `quotation_items` | Status: `new` → `confirmed` → (Order); `new` → `cancelled` (terminal). |
-| Sales Order | `App\Models\Tenant\Order` + `OrderItem` | `orders`, `order_items` | 1:1 with Quotation via `orders.quotation_id` (unique). Items snapshot `product_type`. |
-| Invoice (AR) | `App\Models\Tenant\Invoice` + `InvoiceItem` | `invoices`, `invoice_items` | 1:1 with Order. `journal_entry_id` links to GL. |
-| Subscription | `App\Models\Tenant\Subscription` + `SubscriptionItem` | `subscriptions`, `subscription_items` | 1:1 with Order. Wraps only software-typed lines. `provisioned_tenant_id` stores the tenant handle. |
-| Customer | `App\Models\Tenant\Customer` | `customers` | `customer_type` ∈ `individual`\|`business`\|`tenant`. `tenant_handle` must be unique (DB constraint + `Rule::unique` in validation). |
+| Catalogue product | `App\Models\Tenant\Product` | `products` | `product_type` (`hardware`\|`software`), `is_active`, `description_long`. |
+| Variant axes | `App\Models\Tenant\ProductVariant` | `product_variants` | `attributes` jsonb. |
+| Quote | `App\Models\Tenant\Quotation` + `QuotationItem` | `quotations`, `quotation_items` | **Planned status:** `draft`/`won`/`lost`. **Planned new column:** `from_opportunity_id` UUID nullable, FK → `opportunities.id`. |
+| Sale Order | `App\Models\Tenant\Order` + `OrderItem` | `orders`, `order_items` | **Planned status:** `draft`/`confirm`/`cancel`. 1:1 with Quotation via `orders.quotation_id`. |
+| Invoice (AR) | `App\Models\Tenant\Invoice` + `InvoiceItem` | `invoices`, `invoice_items` | 1:1 with Order. `journal_entry_id` links to GL. Status unchanged (`new/confirmed/cancelled/paid` for now — separate finance concern). |
+| Subscription | `App\Models\Tenant\Subscription` + `SubscriptionItem` | `subscriptions`, `subscription_items` | **Planned status:** `active`/`expired`/`cancelled` only. **Planned new columns:** none — `start_date`/`end_date` already exist. |
+| Customer | `App\Models\Tenant\Customer` | `customers` | `customer_type` ∈ `individual`\|`business`\|`tenant`. `tenant_handle` unique. |
 
-### Central tenant model
+### Central tenant model (unchanged)
 
-`App\Models\Central\Tenant` uses `handle` as its primary key:
+`App\Models\Central\Tenant` uses `handle` as PK. See current section below for full rules.
+
+---
+
+## 4. Services architecture (Planned target)
+
+All under `App\Tenants\Modules\Sales\Services\`:
+
+### `QuotationService`
+- `create(array $data): Quotation` — `status=draft`. If `from_opportunity_id` set, snapshots `OpportunityProductSchedule` lines into `quotation_items`.
+- `addItem(Quotation, array): QuotationItem` — only when `draft`.
+- `removeItem` / `updateItem` — only when `draft`.
+- **`win(Quotation): Quotation`** *(new)* — atomic: convert Lead → Customer if Lead has none; create primary `CrmContact` if needed; mark quotation `won`; auto-create draft Sale Order from snapshot. Returns quotation with `order` relation loaded.
+- **`lose(Quotation, string $lossReason): Quotation`** *(new)* — requires non-empty reason; marks `lost`; closes linked Lead as `unqualified`.
+
+### `OrderService`
+- `createFromQuotation(Quotation): Order` — `status=draft`.
+- `confirmOrder(Order): Order` — runs fulfillment orchestrator + **provisioning** in one logical flow (orchestrator inside transaction; provisioning after commit).
+- `cancelOrder(Order, ?string $reason): Order` — `draft → cancel` always; `confirm → cancel` requires downstream artifacts reversed first.
+
+### `InvoiceService`
+- `createFromOrder` — auto by orchestrator. **Planned change:** Invoice is now created at Order `confirm` (not on a separate user click); the AR journal still posts via a subsequent `confirm()` to give finance separation-of-duties control.
+- `confirm` — posts AR journal. **Planned:** no longer auto-confirms the subscription (subscription is `active` from creation already).
+- `cancel` — only while `new`. Once posted to GL, requires credit note.
+
+### `SubscriptionService` (re-shaped)
+- `createFromOrder(Order): Subscription` — `status=active` from the start, `start_date=today`, `end_date=start_date + billing_cycle`.
+- **`renew(Subscription, ?string $cycle = null): Subscription`** *(new)* — extends `end_date` by one cycle; issues a renewal Invoice via `InvoiceService::createForRenewal`. Same transaction.
+- **`changePlan(Subscription, array $data, string $action): Subscription`** *(new)* — `action ∈ {upgrade, downgrade}`. Updates `subscription_items` (swap variant) and bills the delta on next cycle (downgrade → credit; upgrade → immediate delta Invoice). Same transaction.
+- `cancel(Subscription, ?string $reason): Subscription` — sets `status=cancelled`.
+- **Daily scheduled job** *(new)* — `expireSubscriptions` command: `Subscription::where('status', 'active')->where('end_date', '<', today())->update(['status' => 'expired'])`.
+
+### `TenantProvisioningService` (trigger moved)
+- Same `provisionForCustomer(Customer $customer, ?object $sub = null)` signature.
+- **Planned trigger change:** invoked from `OrderService::confirmOrder` **after commit** when the customer is new AND the order has any software line. Replaces the shipped `SubscriptionConfirmed` listener.
+- Idempotent (returns immediately if already provisioned).
+
+### `Fulfillment\OrderFulfillmentService`
+- Unchanged orchestration: always Invoice; software → Subscription (now `active`); hardware → StockMovement out.
+
+---
+
+## 5. Cross-module handoffs
+
+### CRM → Sales (Planned)
+
+Sales listens for `App\Tenants\Modules\Crm\Events\LeadQualified` via `App\Tenants\Modules\Sales\Listeners\HandleLeadQualified`:
+- Creates a sales-rep task / notification: "Create Quotation from `{lead.title}`".
+- Does **not** auto-create a Quotation. The rep clicks the task → opens the Quotation builder pre-filled with the `OpportunityProductSchedule` snapshot.
+
+This replaces the shipped `OpportunityWon → CreateDraftQuotationOnOpportunityWon` listener (which silently creates an empty draft today). Delete that listener as part of the refactor.
+
+### Sales → IAM / Tenant Provisioning (Planned)
+
+`OrderService::confirmOrder` invokes `TenantProvisioningService::provisionForCustomer($customer, $primarySubscription)` once the order transaction commits and the customer has no `provisioned_tenant_id`. Same provisioning service, new caller. The legacy `SubscriptionConfirmed → ProvisionSubscriptionTenant` listener is removed.
+
+### Sales → FMS
+
+Unchanged: `InvoiceService::confirm` posts AR via `AccountingService::postEntry`. Account codes from `SettingService` (`fms.ar_account_code` etc.).
+
+### Sales → Inventory
+
+Unchanged: hardware lines → `StockMovement(type=out)` on the resolved default warehouse.
+
+---
+
+## 6. Customer Account dashboard (Planned)
+
+New page at `pages/sales/customers/[id]/account.vue` (admin-side view of a customer-tenant). Mirrors what the tenant customer sees on their own login, but rendered in the seller's UI.
+
+| Block | Source | Notes |
+|---|---|---|
+| Access URL chip | `provisionedSubdomain` (assembled by `CustomerResource`) | Copy + open-in-tab |
+| Active subscriptions | `customer.subscriptions.where('status', 'active')` | One PrimeVue Card per subscription |
+| Countdown badge | `subscription.end_date - now()` | Days remaining, color-coded |
+| Action buttons | Per subscription card | Renew / Upgrade / Downgrade / Cancel |
+
+API surface additions:
+
+| Method | Path | Action |
+|---|---|---|
+| POST | `/subscriptions/{subscription}/renew` | Extend end_date + issue Invoice |
+| POST | `/subscriptions/{subscription}/change-plan` | `{product_id, variant_id, action:'upgrade'\|'downgrade'}` |
+
+`POST /subscriptions/{subscription}/cancel` already exists.
+
+---
+
+## 7. Atomicity boundaries (Planned)
+
+| Boundary | Scope |
+|---|---|
+| `QuotationService::win` | Single `DB::transaction`: customer create-if-needed + CrmContact create-if-needed + lead.customer_id update + quotation.status=won + draft Order create |
+| `OrderService::confirmOrder` | Single `DB::transaction`: Invoice create + Subscription create (active from start) + StockMovement out + AR journal post + order.status=confirm. Provisioning runs **after** commit. |
+| `SubscriptionService::renew` / `changePlan` | Own `DB::transaction`: subscription update + Invoice create + (changePlan) item swap. |
+| `TenantProvisioningService::provision` | Seller-DB `DB::transaction` for `customer` + `subscription` updates; `$centralTenant->run()` is separate (a different DB connection). |
+
+---
+
+## 8. Tenant provisioning — Planned single trigger
+
+| Trigger | Code path | When |
+|---|---|---|
+| **Order `confirm`** | `OrderService::confirmOrder` → after commit → `TenantProvisioningService::provisionForCustomer($customer, $sub)` | Customer must be `customer_type=tenant` AND not yet provisioned AND order has at least one software line |
+
+The shipped two-trigger setup (immediate on customer create + on `SubscriptionConfirmed`) collapses to this single trigger. Provisioning failures are caught and logged; the order stays `confirm` and a "Retry provisioning" action is exposed on the order detail page.
+
+Removed (Planned):
+- `CustomerController::store` no longer calls `TenantProvisioningService`.
+- `SubscriptionConfirmed` event + `ProvisionSubscriptionTenant` listener — both deleted.
+
+---
+
+## 9. Shipped — current behaviour (still active until the refactor lands)
+
+### Hybrid Sales — Implementation (Shipped)
+
+#### Models & tables (tenant DB)
+
+| Concept | Model | Table | Notes (Shipped) |
+|---|---|---|---|
+| Quote | `Quotation` + `QuotationItem` | `quotations`, `quotation_items` | Status: `new` → `confirmed` → (Order); `new` → `cancelled` (terminal). |
+| Sales Order | `Order` + `OrderItem` | `orders`, `order_items` | 1:1 with Quotation via `orders.quotation_id` (unique). |
+| Invoice (AR) | `Invoice` + `InvoiceItem` | `invoices`, `invoice_items` | 1:1 with Order. `journal_entry_id` links to GL. |
+| Subscription | `Subscription` + `SubscriptionItem` | `subscriptions`, `subscription_items` | 1:1 with Order. Software-typed lines only. `provisioned_tenant_id` stores the tenant handle. |
+| Customer | `Customer` | `customers` | `customer_type` ∈ `individual`\|`business`\|`tenant`. |
+
+#### Central tenant model (Shipped)
+
+`App\Models\Central\Tenant` uses `handle` as primary key:
 
 ```php
 protected $primaryKey = 'handle';
@@ -51,17 +246,17 @@ public function getTenantKeyName(): string { return 'handle'; }
 
 **Never use `$tenant->id`** (no such column). Use `$tenant->getKey()` or `$tenant->handle`.
 
-### Services
+#### Services (Shipped)
 
 All under `App\Tenants\Modules\Sales\Services\`:
-- `TenantProvisioningService` — **single source of truth** for tenant provisioning. `provisionForCustomer(Customer $customer, ?object $sub = null)` is called by both `CustomerController::store()` and `ProvisionSubscriptionTenant` listener. Idempotent.
+- `TenantProvisioningService` — **single source of truth** for tenant provisioning. Called by `CustomerController::store()` and `ProvisionSubscriptionTenant` listener. Idempotent.
 - `QuotationService` — create, addItem, confirm, cancel. Locks edits once status leaves `new`.
-- `OrderService` — `createOrder` (ad-hoc), `createFromQuotation`, `confirmOrder` (triggers fulfillment), `cancelOrder`.
-- `InvoiceService` — `createFromOrder` (auto by orchestrator), `confirm` (posts AR journal **then auto-confirms linked subscription**), `cancel`.
-- `SubscriptionService` — `createFromOrder` (only when software lines present), `confirm` (commits row in own transaction, then dispatches `SubscriptionConfirmed`), `cancel`.
-- `Fulfillment\OrderFulfillmentService` — orchestrator called by `OrderService::confirmOrder`. Always creates Invoice; software lines → Subscription; hardware lines → `out` StockMovement, all in the same DB transaction.
+- `OrderService` — `createFromQuotation`, `confirmOrder` (triggers fulfillment), `cancelOrder`.
+- `InvoiceService` — `createFromOrder`, `confirm` (posts AR journal **then auto-confirms linked subscription**), `cancel`.
+- `SubscriptionService` — `createFromOrder`, `confirm` (commits in own transaction, then dispatches `SubscriptionConfirmed`), `cancel`.
+- `Fulfillment\OrderFulfillmentService` — orchestrator called by `OrderService::confirmOrder`.
 
-### Status flow (enforced in services)
+#### Status flow — Shipped
 
 ```
 Quotation:     new  --confirm-->  confirmed  --convert-->  Sales Order
@@ -83,64 +278,66 @@ Subscription:  new  --confirm-->  confirmed  (dispatches SubscriptionConfirmed)
                any  --cancel-->   cancelled
 ```
 
-### Invoice → Subscription auto-activation (P1)
+#### Invoice → Subscription auto-activation (Shipped, P1)
 
 `InvoiceService::confirm()` is the payment trigger. After the accounting transaction commits it calls `activateLinkedSubscription()`, which:
 1. Loads `invoice → order → subscription`.
 2. If the subscription is still `new`, calls `SubscriptionService::confirm()`.
 3. `confirm()` commits the status update in its own transaction, then dispatches `SubscriptionConfirmed` **outside** any open transaction so the listener sees committed data.
-4. `ProvisionSubscriptionTenant` listener delegates to `TenantProvisioningService`. If the customer was already provisioned on create, the service is idempotent and returns immediately.
+4. `ProvisionSubscriptionTenant` listener delegates to `TenantProvisioningService`.
 
-Provisioning failures are caught, logged, and do **not** roll back the committed invoice. The subscription can be manually re-confirmed from the UI if provisioning fails.
+Provisioning failures are caught, logged, and do **not** roll back the committed invoice.
 
-### Atomicity (P0)
-
-`OrderService::confirmOrder` runs inside `DB::transaction`. The orchestrator's downstream calls (`InvoiceService::createFromOrder`, `SubscriptionService::createFromOrder`, `StockService::recordMovement`) all run in the SAME transaction. Any failure rolls the order back to `new`. Partial fulfillment is impossible.
-
-`SubscriptionService::confirm` wraps its own `UPDATE` in a `DB::transaction` before dispatching the event so the provisioning listener always sees committed state.
-
-### Tenant provisioning triggers
-
-Provisioning runs in **two places**, both delegating to `TenantProvisioningService`:
+#### Tenant provisioning triggers (Shipped)
 
 | Trigger | Code path | When |
 |---|---|---|
-| Customer created with `customer_type = tenant` | `CustomerController::store()` → `TenantProvisioningService::provisionForCustomer($customer)` | Immediately on `POST /customers` — tenant is live before response returns |
+| Customer created with `customer_type = tenant` | `CustomerController::store()` → `TenantProvisioningService::provisionForCustomer($customer)` | Immediately on `POST /customers` |
 | Software subscription confirmed | `SubscriptionConfirmed` → `ProvisionSubscriptionTenant` → `TenantProvisioningService::provisionForCustomer($customer, $sub)` | After invoice → subscription chain |
 
-The subscription path additionally marks the subscription `active` and sets `subscription.provisioned_tenant_id`. On customer create there is no subscription to update.
+**Planned:** collapse to a single trigger on Order `confirm`. See § 8.
 
-The **customer-create path swallows provisioning exceptions** (logs and continues) so the customer record is always saved. The **subscription path re-throws** so a failed provisioning is visible to the caller.
-
-### TenantProvisioningService — provision flow
+#### TenantProvisioningService — provision flow (Shipped)
 
 `provisionForCustomer(Customer $customer, ?object $sub = null)`:
 
-1. Skip if `customer_type !== 'tenant'` (guard).
-2. If already provisioned: mirror `provisioned_tenant_id` onto `$sub` (if given); if `$sub` has items, find existing `CentralTenant` and run `seedSubscriptionProducts()` inside it; return (idempotent).
-3. Derive handle: use `customer.tenant_handle` or call `deriveHandle()` (slug + 4-char suffix).
+1. Skip if `customer_type !== 'tenant'`.
+2. If already provisioned: mirror `provisioned_tenant_id` onto `$sub` (if given); seed subscription products inside existing tenant; return.
+3. Derive handle: `customer.tenant_handle` or call `deriveHandle()` (slug + 4-char suffix).
 4. Create `App\Models\Central\Tenant` with `handle` as PK.
-5. Register subdomain: `$centralTenant->domains()->create(['domain' => "{$handle}.{$systemDomain}"])`.
-6. Pre-load `$sub->loadMissing('items')->items` in the **seller's** DB context (before `run()`).
-7. `DB::transaction`: update `customer.provisioned_tenant_id = handle`, `customer.provisioned_at`, optionally update subscription status → `active`.
-8. `$centralTenant->run()`: migrate, seed (`TenantDatabaseSeeder`), create customer admin user (`customer.email`, password `'password'`, admin role), seed branding, call `seedSubscriptionProducts($subItems)`.
+5. Register subdomain.
+6. Pre-load `$sub->loadMissing('items')->items` in the **seller's** DB context.
 
-### Subscription product seeding
+---
 
-`seedSubscriptionProducts(Collection $items)` runs **inside** `$centralTenant->run()` (customer's DB context):
+## Code Numbering (Tenant-Configurable)
+
+Document numbers (`quote_number`, `order_number`, `invoice_number`, `subscription_number`) read their prefix from per-tenant settings. Admins edit them under **Settings → Numbering**. Stored values include any separator (e.g. `INV-`), so the generator concatenates: `{prefix}YYYYMMDD-XXXXXX`. If the per-tenant setting is missing, null, or empty, the generator MUST fall back to its conventional default to guarantee business continuity. Changes only affect new records.
+
+| Entity | Setting key | Default | Format | Generator |
+|---|---|---|---|---|
+| Quotation | `numbering.quotation_prefix` | `QT-` | `{prefix}YYYYMMDD-{6×random}` | `QuotationService::generateQuoteNumber` |
+| Sales Order | `numbering.order_prefix` | `SO-` | `{prefix}YYYYMMDD-{6×random}` | `OrderService::generateOrderNumber` |
+| Invoice | `numbering.invoice_prefix` | `INV-` | `{prefix}YYYYMMDD-{6×random}` | `InvoiceService::generateInvoiceNumber` (also used by `SubscriptionService` renewals) |
+| Subscription | `numbering.subscription_prefix` | `SUB-` | `{prefix}YYYYMMDD-{6×random}` | `SubscriptionService::generateSubscriptionNumber` |
+
+The random suffix (6 uppercase alphanumeric) is collision-safe enough at expected scale; uniqueness is also enforced at the DB level via per-tenant composite indexes.
+
+7. `DB::transaction`: update `customer.provisioned_tenant_id`, `customer.provisioned_at`, optionally update subscription status → `active`.
+8. `$centralTenant->run()`: migrate, seed (`TenantDatabaseSeeder`), create customer admin user (`customer.email`, password `'password'`, admin role), seed branding, call `seedSubscriptionProducts($subItems)`, restrict module visibility to entitled modules + core.
+
+#### Subscription product seeding (Shipped)
+
+`seedSubscriptionProducts(Collection $items)` runs **inside** `$centralTenant->run()`:
 
 - Iterates each `SubscriptionItem`; uses `variant_sku` as SKU, falls back to `Str::slug($product_name)`.
 - `Product::updateOrCreate(['sku' => $sku], ['name' => ..., 'product_type' => 'software', 'unit_price' => ..., 'is_active' => true])`.
-- `BelongsToTenant` global scope ensures `tenant_id` is auto-set from the active tenancy context.
-- This means a tenant customer's `products` table contains **only the software products from their subscription**. `GET /api/v1/products` therefore returns only those products — no frontend filtering required.
 
-System domain is read from `config('platform.system_domain')` → `.env` key `APP_SYSTEM_DOMAIN`.
+System domain is read from `config('platform.system_domain')` → `.env` `APP_SYSTEM_DOMAIN`.
 
-System domain is read from `config('platform.system_domain')` → `.env` key `APP_SYSTEM_DOMAIN`.
+#### Default tenant credentials (Shipped)
 
-### Default tenant credentials
-
-Every provisioned tenant gets one admin user created automatically:
+Every provisioned tenant gets one admin user automatically:
 
 | Field | Value |
 |---|---|
@@ -155,25 +352,21 @@ Additional seeded users (from `TenantDatabaseSeeder`):
 | `admin@example.com` | `password` | admin |
 | `role.base@tanent.com` | `password` | employee |
 
-### Repairing credentials on existing tenants
-
-For tenants provisioned before the double-hash fix:
+#### Repairing credentials on existing tenants
 
 ```bash
 php artisan tenants:repair-credentials --tenant={handle}
 # Omit --tenant to repair all tenants
 ```
 
-This: (1) self-heals any double-hashed password via `Hash::check` + `forceFill`, (2) creates the customer admin user if missing.
+#### Customer → Tenant handle rules (Shipped)
 
-### Customer → Tenant handle rules
+- `tenant_handle` required when `customer_type = 'tenant'`.
+- Format: `^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])?$`.
+- Uniqueness enforced at DB and validation level.
+- Frontend debounce-checks via `GET /customers/check-handle` (450ms).
 
-- `tenant_handle` field is **required** when `customer_type = 'tenant'`.
-- Format: `^[a-z0-9](?:[a-z0-9-]{1,58}[a-z0-9])?$` (lowercase, digits, hyphens, no leading/trailing hyphen, max 60 chars).
-- Uniqueness enforced at both DB level (`customers_tenant_handle_unique` index) and validation level (`Rule::unique(...)->whereNull('deleted_at')`).
-- The frontend debounce-checks availability via `GET /customers/check-handle?handle=&[ignore_id=]` (450ms debounce) and shows a live status indicator.
-
-### Account resolution for AR journal
+#### Account resolution for AR journal (Shipped)
 
 `InvoiceService::confirm` posts:
 ```
@@ -182,51 +375,43 @@ DR  Accounts Receivable    total_amount
   CR  Sales Tax Payable    tax_amount   (only when > 0)
 ```
 
-Account codes resolve via `SettingService`:
+Account codes via `SettingService`:
 - `fms.ar_account_code`      — default `1200`
 - `fms.revenue_account_code` — default `4000`
 - `fms.tax_account_code`     — default `2150`
 
-The CoA must contain a row matching each code or the confirm throws `DomainException`. **`TenantDatabaseSeeder::seedChartOfAccounts()`** seeds all three (plus 16 others) idempotently using `Account::updateOrCreate(['code' => ...])`.
-
-### Warehouse resolution for hardware
+#### Warehouse resolution for hardware (Shipped)
 
 `OrderFulfillmentService::resolveDefaultWarehouse()` reads:
 1. `Setting('inventory.default_warehouse_code')`.
 2. The sole Warehouse row when only one exists.
 3. Otherwise throws — tenant must configure.
 
-### API surface
-
-All routes are tenant-scoped under `/api/v1`, gated by `auth:api`:
+#### API surface (Shipped — to evolve per § 6 + § 4)
 
 | Method | Path | Action |
 |---|---|---|
 | GET | `/customers/check-handle?handle=&[ignore_id=]` | Real-time handle availability check |
-| GET/POST/PUT/DELETE | `/customers` | Full CRUD (apiResource) |
+| GET/POST/PUT/DELETE | `/customers` | Full CRUD |
 | POST | `/quotations` | Create new draft quote with line items |
 | POST | `/quotations/{quotation}/items` | Append a line to a `new` quote |
-| POST | `/quotations/{quotation}/confirm` | Lock quote, eligible for SO conversion |
-| POST | `/quotations/{quotation}/cancel` | Terminal cancel |
-| POST | `/quotations/{quotation}/convert-to-order` | Snapshot confirmed quote into a Sales Order |
-| POST | `/orders/{order}/confirm` | Confirm + auto-fulfill (Invoice + Subscription + Stock) |
+| POST | `/quotations/{quotation}/confirm` | Lock quote *(planned rename: `/win`)* |
+| POST | `/quotations/{quotation}/cancel` | Terminal cancel *(planned rename: `/lose` + require loss_reason)* |
+| POST | `/quotations/{quotation}/convert-to-order` | Snapshot confirmed quote into a Sales Order *(planned: merged into `/win`)* |
+| POST | `/orders/{order}/confirm` | Confirm + auto-fulfill *(Planned: also triggers provisioning)* |
 | POST | `/orders/{order}/cancel` | Cancel only while `new` |
-| POST | `/invoices/{invoice}/confirm` | Post AR journal → auto-confirm subscription → provision domain |
+| POST | `/invoices/{invoice}/confirm` | Post AR journal |
 | POST | `/invoices/{invoice}/cancel` | Allowed only while `new` |
-| POST | `/subscriptions/{subscription}/confirm` | Fire `SubscriptionConfirmed` (manual override) |
+| POST | `/subscriptions/{subscription}/confirm` | Fire `SubscriptionConfirmed` *(planned removal — subscriptions start `active`)* |
 | POST | `/subscriptions/{subscription}/cancel` | At any status |
+| POST | `/subscriptions/{subscription}/renew` *(planned)* | Extend end_date + Invoice |
+| POST | `/subscriptions/{subscription}/change-plan` *(planned)* | Upgrade / downgrade |
 
-> **Route ordering (P0):** `GET /customers/check-handle` must be registered **before** `Route::apiResource('customers', ...)`. If reversed, Laravel's router matches `check-handle` as the `show({id})` segment.
-
-### IAM — password reset
-
-`POST /users/{user}/reset-password` — resets a user's password. Requires `iam.users.write`. Validates `password` (min:8, `confirmed`). Delegates to `UserService::resetPassword(User $user, string $password)` which calls `$user->forceFill(['password' => $password])->save()`. Plaintext is passed; the `hashed` cast hashes once.
+> **Route ordering (P0):** `GET /customers/check-handle` must be registered **before** `Route::apiResource('customers', ...)`.
 
 ### Controller response pattern (P0)
 
-**Never** use `response()->json(['data' => (new XxxResource(...))->toArray(...)])` in action methods. This bypasses Laravel's resource serialization pipeline — `whenLoaded()` sentinel objects (`MissingValue`) survive `toArray()` and become `{}` in JSON, which JavaScript stringifies as `[object Object]`.
-
-**Always** `return new XxxResource(...)` directly (or `.response()->setStatusCode(201)` for 201 responses). The pipeline filters `MissingValue` automatically.
+**Never** use `response()->json(['data' => (new XxxResource(...))->toArray(...)])` in action methods. Always `return new XxxResource(...)` directly (or `.response()->setStatusCode(201)`).
 
 ```php
 // ❌ Wrong — MissingValue leaks as {} in JSON
@@ -234,27 +419,24 @@ return response()->json([
     'data' => (new OrderResource($order->load(['customer', 'items'])))->toArray(request()),
 ]);
 
-// ✅ Correct — full serialization pipeline, MissingValue filtered
+// ✅ Correct
 return new OrderResource($order->load(['customer', 'items', 'invoice', 'subscription']));
 
 // ✅ Correct for 201
 return (new OrderResource($order->load(['customer', 'items'])))->response()->setStatusCode(201);
 ```
 
-This rule applies to all `confirm`, `cancel`, and `storeFromQuotation` actions in `QuotationController`, `OrderController`, `InvoiceController`, and `SubscriptionController`.
-
 ### Frontend integration (Nuxt — shipped)
 
 Pages under `frontend/pages/sales/`:
-- `customers/` — index (card grid), `new.vue`, `[id]/index.vue`, `[id]/edit.vue`
-- `quotations/` — index, `new.vue`, `[id].vue`
-- `orders/` — index, `[id].vue`
-- `invoices/` — index, `[id].vue`
-- `subscriptions/` — index, `[id].vue`
+- `customers/` — index, `new.vue`, `[id]/index.vue`, `[id]/edit.vue`. **Planned addition:** `[id]/account.vue` (Customer Account dashboard).
+- `quotations/` — index, `new.vue`, `[id].vue`. **Planned:** Quotation detail surfaces `Mark Won` / `Mark Lost` buttons instead of `Confirm` / `Cancel`.
+- `orders/` — index, `[id].vue`. **Planned:** Order confirm modal warns about Tenant provisioning side effect.
+- `invoices/` — index, `[id].vue`.
+- `subscriptions/` — index, `[id].vue`. **Planned:** detail page exposes Renew / Upgrade / Downgrade buttons.
 
-Key frontend patterns:
-- Handle uniqueness: debounced `GET /customers/check-handle` (450ms), live status icon in input.
-- Breadcrumb for nested UUID routes: `useBreadcrumbOverride().setEntityName(name)` in detail/edit pages; `clear()` in `onBeforeUnmount`.
-- Logo display: check `brandLogoUrl` first (`<img>`), fall back to initial letter avatar.
-- `provisionedSubdomain` field on `Customer` type: assembled by `CustomerResource` as `{handle}.{platform.system_domain}`. Populated immediately after `POST /customers` if provisioning succeeds.
-- User password reset: "Password" button on each user card opens a dedicated modal (`POST /users/{id}/reset-password`).
+Key frontend patterns (Shipped):
+- Handle uniqueness: debounced `GET /customers/check-handle` (450ms), live status icon.
+- Breadcrumb override: `useBreadcrumbOverride().setEntityName(name)`; `clear()` in `onBeforeUnmount`.
+- `provisionedSubdomain` field on `Customer`: assembled by `CustomerResource` as `{handle}.{platform.system_domain}`.
+- User password reset modal: `POST /users/{id}/reset-password`.

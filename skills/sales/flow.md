@@ -1,63 +1,93 @@
 # Sales Workflow Flow (O2C — Hybrid Sales)
 
-## Tenant provisioning — fast path (customer create)
+> Status legend: **Shipped** = matches current code today. **Planned** = target state per [`rules/hybrid_sales_business_flow.md`](../../rules/hybrid_sales_business_flow.md). Three planned shifts are documented here:
+> 1. Quotation status renamed `new/confirmed/cancelled` → `draft/won/lost`. `won` performs Lead → Customer conversion.
+> 2. Tenant provisioning trigger moves from `SubscriptionConfirmed` → `OrderConfirmed` (Sale Order `confirm`).
+> 3. New Customer Account dashboard surface (access URL + subscription countdown + renew/upgrade/downgrade/cancel).
+
+## Target end-to-end O2C funnel (Planned)
 
 ```mermaid
 graph TD
-    A[POST /customers customer_type=tenant] --> B[Customer::create]
-    B --> C{isTenantCustomer?}
-    C -- no --> Z[Return CustomerResource]
-    C -- yes --> D[TenantProvisioningService::provisionForCustomer]
-    D --> E[CentralTenant::create handle=PK]
-    E --> F[domains create subdomain]
-    F --> G[DB::transaction: customer.provisioned_tenant_id + handle]
-    G --> H[centralTenant->run: migrate + seed + create admin user]
-    H --> I[customer.refresh]
-    I --> Z
+    %% ── Inbound from CRM ──
+    Hand[(CRM: LeadQualified event)] --> N[New Quotation<br/>status=draft<br/>seeded from B2B Product Schedule]
+
+    N --> N1[Edit lines: products, variants, qty, price, due]
+    N1 --> NS{Quotation status}
+
+    %% Quotation transitions
+    NS -- draft → lost --> QL[status=lost<br/>loss_reason required]
+    QL --> End1((Closed Lost))
+
+    NS -- draft → won --> QW[status=won<br/>1. Convert Lead → Customer if new<br/>2. Auto-create draft Sale Order]
+
+    %% Sales Order transitions
+    QW --> SO[Sale Order<br/>status=draft]
+    SO --> SOS{Order status}
+    SOS -- draft → cancel --> End2((Cancelled))
+    SOS -- draft → confirm --> SOC[status=confirm<br/>Generate Invoice]
+
+    %% Fulfillment orchestrator
+    SOC --> FAN{Fulfillment orchestrator<br/>single DB transaction}
+    FAN -- always --> INV[Invoice — AR posted to GL]
+    FAN -- any software line --> SUB[Subscription — status=active<br/>start_date / end_date set]
+    FAN -- any hardware line --> STK[StockMovement out<br/>+ ship hardware]
+
+    %% Tenant provisioning hook
+    SOC --> PR{Customer new<br/>AND order has software?}
+    PR -- yes --> TP[TenantProvisioningService::<br/>provisionForCustomer]
+    PR -- no --> Skip[Skip provisioning]
+    TP --> ACC
+    Skip --> ACC
+
+    %% Customer Account dashboard
+    ACC[Customer Account dashboard]
+    ACC --> ACC1[Access URL:<br/>customer-handle.example.com]
+    ACC --> ACC2[Tenant Product Schedule:<br/>one card per active Subscription]
+    ACC2 --> ACC3[Countdown to end_date]
+    ACC2 --> ACC4[Renew]
+    ACC2 --> ACC5[Upgrade]
+    ACC2 --> ACC6[Downgrade]
+    ACC2 --> ACC7[Cancel]
+
+    INV --> Final((Payment & Complete))
+    SUB --> Final
+    STK --> Final
 ```
 
-## Canonical O2C funnel
+## Target status rules
 
-```mermaid
-graph TD
-    Start((Start)) --> A[Create Customer]
-    A --> B[Create Quotation]
+### Quotation (Planned)
 
-    B --> B1[Add line: product + variant + qty + price + due_date]
-    B1 --> C{Quote status}
+| Status | Editable | Transitions out | Side effects |
+|---|---|---|---|
+| `draft` | Yes | → `won`, → `lost` | Editable line items, prices, discounts, validity dates. |
+| `won` | No | (terminal) | Single `DB::transaction`: convert Lead → Customer if new; create primary `CrmContact` if needed; auto-create `draft` Sale Order from snapshot. |
+| `lost` | No | (terminal) | Requires non-empty `loss_reason`. Closes the originating Lead as `unqualified` (if linked). |
 
-    C -- new --cancel--> End1((Closed Lost))
-    C -- new --confirm--> CC[Quote confirmed]
-    CC -- convert --> D[Sales Order from Quote]
+### Sale Order (Planned)
 
-    D --> D1{Order status}
-    D1 -- new --cancel--> End2((Cancelled))
-    D1 -- new --confirm--> Split{{Fulfillment orchestrator — one DB txn}}
+| Status | Editable | Allowed actions | Side effects |
+|---|---|---|---|
+| `draft` | Yes | confirm, cancel | Editable header/lines. |
+| `confirm` | No | cancel | `OrderFulfillmentService::fulfill()` runs in the same transaction: Invoice (always), Subscription (software lines), StockMovement out (hardware lines). **Provisions tenant** if customer is new and order has software. |
+| `cancel` | No | (terminal) | Reversal of a confirmed order requires credit-note (FMS) and restock (Inventory). |
 
-    Split -- always --> E[Invoice 1:1]
-    Split -- if any software line --> F[Subscription 1:1]
-    Split -- if any hardware line --> G[StockMovement out per line]
+### Subscription (Planned)
 
-    E --> E1[invoice.confirm posts AR journal:<br/>DR AR  CR Revenue + CR Tax]
-    E1 --> E2[auto-confirms linked Subscription if new]
-    E2 --> F1
-    F --> F1[subscription.confirm dispatches<br/>SubscriptionConfirmed event]
-    F1 --> F2[ProvisionSubscriptionTenant→TenantProvisioningService:<br/>idempotent — skips if already provisioned on customer create]
-    F2 --> F3[Customer can access domain]
-    G --> G1[Ship hardware — external process]
+| Status | Editable | Allowed actions | Side effects |
+|---|---|---|---|
+| `active` | Header only | Renew, Upgrade, Downgrade, Cancel | Countdown to `end_date`. Renew extends `end_date` and bills a new Invoice. Upgrade/Downgrade swaps variant + bills a delta. |
+| `expired` | No | Renew (creates a new subscription) | Tenant kept; module visibility reduces per policy. Reached automatically by a daily job when `end_date < today` and not renewed. |
+| `cancelled` | No | (terminal) | Tenant kept; deprovisioning is a separate policy decision. |
 
-    E1 --> Final((Payment & Complete))
-    F3 --> Final
-    G1 --> Final
-```
-
-## Backend call graph
+## Backend call graph — target (Planned)
 
 ```mermaid
 sequenceDiagram
     participant FE as Frontend (Nuxt)
-    participant CC as CustomerController
-    participant TPS as TenantProvisioningService
+    participant EV as Event Bus
+    participant SL as HandleLeadQualified
     participant QC as QuotationController
     participant QS as QuotationService
     participant OC as OrderController
@@ -67,94 +97,95 @@ sequenceDiagram
     participant SS as SubscriptionService
     participant StockS as StockService
     participant AS as AccountingService
-    participant PST as ProvisionSubscriptionTenant
+    participant TPS as TenantProvisioningService
     participant DB as Tenant DB
     participant CDB as Central DB
 
-    Note over FE,CDB: ── Fast path: tenant provisioned on customer create ──
-    FE->>CC: POST /customers {customer_type: tenant, tenant_handle, email, ...}
-    CC->>DB: INSERT customers
-    CC->>TPS: provisionForCustomer(customer)
-    TPS->>CDB: INSERT tenants (handle=PK) + domains
-    TPS->>DB: UPDATE customer.provisioned_tenant_id = handle
-    TPS->>DB: migrate + seed + create admin user (customer email)
-    CC-->>FE: 201 CustomerResource (provisionedSubdomain filled)
+    Note over EV,SL: ── CRM handoff ──
+    EV->>SL: LeadQualified(lead, opportunity)
+    SL->>DB: insert sales_task "Create Quotation from {lead.title}"
 
-    Note over FE,CDB: ── O2C path (subscription billing) ──
-    FE->>QC: POST /quotations {customer_id, items[]}
-    QC->>QS: create()
-    QS->>DB: INSERT quotations + quotation_items
+    Note over FE,DB: ── Quotation lifecycle ──
+    FE->>QC: POST /quotations {from_opportunity_id, items[]}
+    QC->>QS: create()  [snapshot schedule lines]
+    QS->>DB: INSERT quotations (status=draft) + quotation_items
     QC-->>FE: 201 QuotationResource
 
-    FE->>QC: POST /quotations/{id}/confirm
-    QC->>QS: confirm()
-    QS->>DB: UPDATE status=confirmed
-    QC-->>FE: 200 QuotationResource
+    FE->>QC: POST /quotations/{id}/win
+    QC->>QS: win()  [BEGIN TXN]
+    alt lead has no Customer
+        QS->>DB: INSERT customers
+        QS->>DB: INSERT crm_contacts (primary)
+        QS->>DB: UPDATE leads SET customer_id = ...
+    end
+    QS->>DB: UPDATE quotations SET status='won'
+    QS->>OS: createFromQuotation()
+    OS->>DB: INSERT orders (status=draft) + order_items
+    Note over QS: COMMIT
+    QC-->>FE: 200 QuotationResource (with order loaded)
 
-    FE->>OC: POST /quotations/{id}/convert-to-order
-    OC->>OS: createFromQuotation()
-    OS->>DB: INSERT orders + order_items (snapshotted)
-    OC-->>FE: 201 OrderResource (status=new)
-
+    Note over FE,DB: ── Sale Order confirm = fulfillment + provisioning ──
     FE->>OC: POST /orders/{id}/confirm
-    OC->>OS: confirmOrder() [BEGIN TXN]
+    OC->>OS: confirmOrder()  [BEGIN TXN]
     OS->>OFS: fulfill()
     OFS->>IS: createFromOrder()
     IS->>DB: INSERT invoices + invoice_items
-    OFS->>SS: createFromOrder() (if software lines)
-    SS->>DB: INSERT subscriptions + subscription_items
-    OFS->>StockS: recordMovement(type=out) per hardware line
-    StockS->>DB: INSERT stock_movements
-    OS->>DB: UPDATE orders SET status=confirmed [COMMIT]
-    OC-->>FE: 200 OrderResource
-
-    FE->>IS: POST /invoices/{id}/confirm (via InvoiceController)
-    Note over IS: BEGIN TXN
     IS->>AS: postEntry({DR AR, CR Revenue, CR Tax})
     AS->>DB: INSERT journal_entries + ledger_entries
-    IS->>DB: UPDATE invoices SET status=confirmed
-    Note over IS: COMMIT
-    IS->>SS: confirm(subscription) [auto-activate]
-    Note over SS: BEGIN TXN
-    SS->>DB: UPDATE subscriptions SET status=confirmed
-    Note over SS: COMMIT
-    SS->>PST: dispatch SubscriptionConfirmed (outside txn)
-    PST->>TPS: provisionForCustomer(customer, sub)
-    Note over TPS: idempotent — returns immediately if already provisioned
-    TPS->>CDB: INSERT tenants + domains (if not provisioned yet)
-    TPS->>DB: UPDATE customer.provisioned_tenant_id, subscription.status=active
-    IS-->>FE: 200 InvoiceResource
+    OFS->>SS: createFromOrder() (if software lines)
+    SS->>DB: INSERT subscriptions (status=active) + subscription_items
+    OFS->>StockS: recordMovement(out) per hardware line
+    StockS->>DB: INSERT stock_movements
+    OS->>DB: UPDATE orders SET status='confirm'
+    Note over OS: COMMIT
+    OS->>TPS: provisionForCustomer(customer, subscription)  [outside txn]
+    TPS->>CDB: INSERT tenants + domains (if customer.is_new)
+    TPS->>DB: customer.provisioned_tenant_id, subscription.provisioned_tenant_id
+    TPS->>CDB: $centralTenant->run(migrate + seed + admin user + module entitlement)
+    OC-->>FE: 200 OrderResource (with invoice + subscription + provisioned subdomain)
 ```
 
-## Cancellation guards
+## Customer Account dashboard (Planned)
 
-- **Quotation**: cancellable at `new` or `confirmed` if no Sales Order exists. Once an Order exists, cancel the Order instead.
-- **Order**: cancellable only while `new`. A confirmed Order has downstream artifacts — reverse individually.
-- **Invoice**: cancellable only while `new`. Confirmed → posted to GL; reversal requires a credit note via FMS.
-- **Subscription**: cancellable at any status; deprovisioning the customer tenant is a future concern.
+After provisioning, Sales surfaces a customer account page at `pages/sales/customers/[id]/account.vue`. Sections:
 
-## Atomicity boundaries
+| Block | Data source | Actions |
+|---|---|---|
+| Access URL | `customer.tenant_handle` + `platform.system_domain` | Copy-to-clipboard, "Open in new tab" |
+| Tenant Product Schedule | Customer's active `subscriptions` with eager-loaded `items` | One card per Subscription |
+| Subscription countdown | `subscription.end_date - now()` | Live countdown badge (days remaining); colors: green > 30d, amber 7–30d, red < 7d |
+| Renew | `POST /subscriptions/{id}/renew { cycle? }` | Extends `end_date`; bills a new Invoice |
+| Upgrade | `POST /subscriptions/{id}/change-plan { product_id, variant_id, action:'upgrade' }` | Swaps variant; bills delta on next cycle or immediate |
+| Downgrade | `POST /subscriptions/{id}/change-plan { product_id, variant_id, action:'downgrade' }` | Swaps variant; applies credit on next invoice |
+| Cancel | `POST /subscriptions/{id}/cancel { reason }` | Sets status=`cancelled`; tenant kept per retention policy |
+
+Buttons are disabled when the subscription is `expired` or `cancelled` (`Renew` remains enabled on `expired`).
+
+## Atomicity boundaries (Planned)
 
 | Boundary | Scope |
 |---|---|
-| `CustomerController::store` (tenant type) | No wrapping transaction — customer saved first, provisioning runs after. Provisioning failure is logged; customer record is kept. |
-| `OrderService::confirmOrder` | Single `DB::transaction` wrapping Invoice create + Subscription create + StockMovement create |
-| `InvoiceService::confirm` | Inner `DB::transaction` for journal + invoice status update; subscription confirm runs after commit |
-| `SubscriptionService::confirm` | Own `DB::transaction` for status update; `SubscriptionConfirmed` dispatched after commit |
-| `TenantProvisioningService::provision` | Seller-DB `DB::transaction` for `customer` + `subscription` updates; `$centralTenant->run()` is separate |
+| `QuotationService::win` | Single `DB::transaction` for Customer-create-if-needed + CrmContact-create + Lead.customer_id update + Quotation status update + draft Order creation |
+| `OrderService::confirmOrder` | Single `DB::transaction` wrapping Invoice create + Subscription create + StockMovement create + AR journal posting + order.status update |
+| `TenantProvisioningService::provisionForCustomer` | Runs **after** `confirmOrder` commits. Catches exceptions → logs → surfaces on UI as "Provisioning pending — retry". Order stays `confirm`; idempotent retry available. |
+| `SubscriptionService::renew` / `changePlan` / `cancel` | Each wraps its own `DB::transaction`. Renew + changePlan emit a new `Invoice` inside the same transaction. |
 
-## Central migrations (required before provisioning)
+## Cancellation guards (Planned)
 
-Three migrations in `database/migrations/central/` (auto-loaded by `CentralServiceProvider`):
+- **Quotation `draft`**: cancel becomes `lost` (loss_reason required). No `cancelled` state any more.
+- **Sale Order `confirm`**: cancel sets status=`cancel`. Downstream Invoice/Subscription must be reversed individually (credit note for invoice, cancel for subscription). Hardware stock movement is not auto-reversed — operator issues a return.
+- **Subscription `active`**: cancel allowed at any time. Renew/Upgrade/Downgrade pause if a cancellation is in flight.
+
+## Central migrations (still required — unchanged)
+
+The three central migrations for tenant provisioning remain unchanged:
 
 | File | Purpose |
 |---|---|
-| `2024_01_01_000001_create_tenants_table.php` | Creates `tenants` table with `handle` as PK (no UUID `id`) |
-| `2024_01_01_000002_create_domains_table.php` | Creates `domains` table, FK → `tenants.handle` |
-| `2024_01_01_000003_use_handle_as_tenant_pk.php` | Transitions existing DBs with UUID `id` to handle-PK. No-op on fresh installs. `down()` is intentionally empty. |
+| `2024_01_01_000001_create_tenants_table.php` | `tenants` with `handle` as PK |
+| `2024_01_01_000002_create_domains_table.php` | `domains` FK → `tenants.handle` |
+| `2024_01_01_000003_use_handle_as_tenant_pk.php` | Transitions UUID-PK installs to handle-PK |
 
-Run `php artisan migrate` to apply. If the `domains` table is missing:
-```
-SQLSTATE[42P01]: Undefined table: relation "domains" does not exist
-```
-Run `php artisan migrate --path=database/migrations/central --force` to recover.
+## Current shipped flow (for reference)
+
+The implementation as of this writing differs from the target above. See [`skills/sales/rules.md` § "Shipped — current behaviour"](./rules.md) for the still-active call graph: Customer-create-on-`POST /customers`, auto-Quotation-on-`OpportunityWon`, provisioning on `SubscriptionConfirmed`.

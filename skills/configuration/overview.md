@@ -16,8 +16,9 @@ The Configuration module is a dedicated administrative space allowing each tenan
 | Logo file upload (storage + signed URL) | ⏳ Planned | Current implementation stores only `branding.logo_url` string |
 | Module toggle middleware (`CheckModuleEnabled`) | ⏳ Planned | Keys reserved as `modules.{slug}.enabled` |
 | Redis cross-request cache | ⏳ Planned | Currently per-request in-memory only |
+| **Numbering Prefixes** (`numbering.*` group) | ✅ Shipped | 7 configurable prefixes; see [`numbering.md`](./numbering.md) for full spec |
 
-See `rules.md` for the storage contract and key conventions, `flow.md` for sequence diagrams.
+See `rules.md` for the storage contract and key conventions, `flow.md` for sequence diagrams, `numbering.md` for the prefix code system.
 
 ## 1. Core Modules
 
@@ -41,3 +42,8 @@ See `rules.md` for the storage contract and key conventions, `flow.md` for seque
 ### Security & Compliance
 - **Session Policies**: Configuring idle timeouts and MFA requirements.
 - **Audit Retention**: Defining how long specific audit logs are retained before archival (subject to system hard limits).
+
+### Document Numbering Prefixes
+- **Per-module prefix codes**: Each auto-generated business code (Employee ID, Candidate, Quotation, Order, Invoice, Subscription, PO) reads its prefix from the `numbering.*` settings group.
+- **Tenant-configurable**: Admins change prefixes via Settings → Numbering tab. Changes apply to new records only; existing codes are immutable.
+- **Full specification**: See [`numbering.md`](./numbering.md) for setting keys, format patterns, sequence rules, and implementation checklist for adding new prefix-bearing features.

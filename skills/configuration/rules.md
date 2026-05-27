@@ -69,6 +69,30 @@ This module is implemented as a **key/value store** in the tenant database, not 
 - The in-memory cache in `SettingService` is per-request (Pinia-style — fresh on every HTTP request). Cross-request Redis caching is not yet enabled. When added: key with `tenant:{id}:settings`, invalidate inside `set()`/`bulkSet()` (already calls `flushCache()`).
 
 ### UI/UX Guidelines
-- **Form Layout**: Settings UI uses tabbed groups (Branding / Locale / Notifications / Security) in `pages/settings.vue`. Add new groups by extending the `tabs` array AND `SettingService::defaults()`.
+- **Form Layout**: Settings UI uses tabbed groups (Branding / Locale / Notifications / Security / **Numbering**) in `pages/settings/index.vue`. Add new groups by extending the `tabs` array AND `SettingService::defaults()`.
 - **Immediate Feedback**: Changes to branding (colors/logos) provide a live preview within the panel before the user clicks Save. The settings page tracks a `pristine` server snapshot vs. `draft` working copy and only sends changed keys.
 - **Audit Logs**: Every `Setting` row mutation logs via the `Auditable` trait (captures old/new values, actor, timestamp).
+
+## 3. Document Numbering Prefixes
+
+> **Full specification**: [`numbering.md`](./numbering.md) — mandatory reading before implementing any feature that auto-generates a business code.
+
+Every feature that produces a human-readable business code (Employee ID, Candidate Code, Quotation, Order, Invoice, Subscription, Purchase Order) MUST:
+
+1. **Read its prefix from `SettingService::get('numbering.{key}')`** — never from hardcoded constants or class properties.
+2. **Guard with `empty()`**: `if (empty($prefix)) { $prefix = 'DEFAULT-'; }` — allows the setting to be `null` or `""` without breaking generation.
+3. **Store the separator inside the prefix**: the value `"TT-"` includes the dash, so generators concatenate directly: `"{prefix}{sequence}"`.
+4. **Never rewrite existing codes** when the prefix changes — existing records are immutable identifiers; only newly created records use the new prefix.
+5. **Register the key** in `SettingService::defaults()` and expose it in the frontend Numbering tab.
+
+### All Registered Prefix Keys
+
+| Key | Default | Feature |
+|---|---|---|
+| `numbering.employee_id_prefix` | `TT-` | HRM → Employee ID |
+| `numbering.candidate_code_prefix` | `CAN-` | HRM → Candidate Code |
+| `numbering.quotation_prefix` | `QT-` | Sales → Quotation |
+| `numbering.order_prefix` | `SO-` | Sales → Sales Order |
+| `numbering.invoice_prefix` | `INV-` | Sales → Invoice / Subscription Invoice |
+| `numbering.subscription_prefix` | `SUB-` | Sales → Subscription |
+| `numbering.po_prefix` | `PO-` | Inventory → Purchase Order |

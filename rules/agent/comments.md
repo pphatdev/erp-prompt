@@ -50,6 +50,10 @@ export async function submitContactForm(request: Request, env: Env) {
   ```typescript
   // ───── Example Comment ──────────────────────────────────────────
   ```
+or
+  ```typescript
+  // ── Apps: standalone ──────────────────────────────────────────────────
+  ```
   Instead, rely strictly on clear, standard JSDoc header blocks and minimal, clean single-line comments.
 
 ## Troubleshooting
