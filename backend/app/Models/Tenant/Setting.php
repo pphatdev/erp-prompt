@@ -37,13 +37,13 @@ class Setting extends Model
     ];
 
     protected $casts = [
-        'value' => 'array',
+        'value' => 'json',
         'is_public' => 'boolean',
     ];
 
     public const TYPES = ['string', 'json', 'boolean', 'integer', 'color', 'url'];
 
-    public const GROUPS = ['branding', 'locale', 'notifications', 'security', 'general'];
+    public const GROUPS = ['branding', 'locale', 'notifications', 'security', 'numbering', 'platform', 'general'];
 
     protected static function boot(): void
     {

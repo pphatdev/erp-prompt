@@ -46,6 +46,10 @@ class EmployeeService
     {
         $data['status'] ??= $this->statuses->initialFor('hrm.employee');
 
+        if (empty($data['employee_id'])) {
+            $data['employee_id'] = app(\App\Tenants\Modules\HRM\Services\RecruitmentService::class)->generateNextEmployeeId();
+        }
+
         return DB::transaction(function () use ($data) {
             return Employee::create($data);
         });

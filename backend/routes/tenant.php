@@ -14,6 +14,7 @@ use App\Tenants\Modules\Fleet\Controllers\FuelLogController;
 use App\Tenants\Modules\Fleet\Controllers\MaintenanceLogController;
 use App\Tenants\Modules\Fleet\Controllers\VehicleController;
 use App\Tenants\Modules\FMS\Controllers\AccountController;
+use App\Tenants\Modules\FMS\Controllers\ExchangeRateController;
 use App\Tenants\Modules\FMS\Controllers\LedgerController;
 use App\Tenants\Modules\HRM\Controllers\ApplicationController;
 use App\Tenants\Modules\HRM\Controllers\AppraisalController;
@@ -93,6 +94,13 @@ Route::middleware([
     // Public branding (logo, primary color) — used by login & public surfaces.
     Route::get('/settings/public', [SettingController::class, 'public']);
 
+    // Public Catalog — unauthenticated storefront / partner integration surface.
+    // Tenant resolved by X-Tenant-Handle header (same as the public careers
+    // endpoints above). Returns only sellable fields; no cost/WAC leaks.
+    Route::get('/public/catalog', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'index']);
+    Route::get('/public/catalog/{product}', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'show']);
+    Route::get('/public/catalog/{product}/availability', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'availability']);
+
     Route::middleware('auth:api')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -115,24 +123,53 @@ Route::middleware([
         Route::get('/modules', [ModuleController::class, 'index']);
         Route::get('/modules/slugs', [ModuleController::class, 'slugs']);
         Route::get('/modules/all', [ModuleController::class, 'allForManagement']);
+        Route::put('/modules/bulk', [ModuleController::class, 'bulkUpdate']);
         Route::patch('/modules/{module}/toggle', [ModuleController::class, 'toggle']);
         Route::post('/modules/{module}/sync-product', [ModuleController::class, 'syncProduct']);
 
-        // Sales & CRM Module
+        // Sales — Customers
         Route::get('/customers/check-handle', [CustomerController::class, 'checkHandle']);
         Route::apiResource('customers', CustomerController::class);
-        Route::apiResource('leads', LeadController::class);
-        Route::post('/leads/{lead}/win', [LeadController::class, 'win']);
 
-        // Hybrid Sales — Quotations (top of the funnel after Customer)
+        // CRM — Leads
+        Route::apiResource('leads', \App\Tenants\Modules\Crm\Controllers\LeadController::class);
+        Route::post('/leads/{lead}/qualify', [\App\Tenants\Modules\Crm\Controllers\LeadController::class, 'qualify']);
+
+        // CRM — Opportunities
+        Route::apiResource('opportunities', \App\Tenants\Modules\Crm\Controllers\OpportunityController::class);
+        Route::patch('/opportunities/{opportunity}/stage', [\App\Tenants\Modules\Crm\Controllers\OpportunityController::class, 'updateStage']);
+
+        // CRM — B2B Product Schedule (nested under Opportunity)
+        Route::get('/opportunities/{opportunity}/product-schedule', [\App\Tenants\Modules\Crm\Controllers\OpportunityProductScheduleController::class, 'index']);
+        Route::post('/opportunities/{opportunity}/product-schedule', [\App\Tenants\Modules\Crm\Controllers\OpportunityProductScheduleController::class, 'store']);
+        Route::patch('/opportunities/{opportunity}/product-schedule/{line}', [\App\Tenants\Modules\Crm\Controllers\OpportunityProductScheduleController::class, 'update']);
+        Route::delete('/opportunities/{opportunity}/product-schedule/{line}', [\App\Tenants\Modules\Crm\Controllers\OpportunityProductScheduleController::class, 'destroy']);
+
+        // CRM — Contacts
+        Route::apiResource('crm-contacts', \App\Tenants\Modules\Crm\Controllers\CrmContactController::class)
+            ->parameters(['crm-contacts' => 'crmContact']);
+
+        // CRM — Activities
+        Route::apiResource('crm-activities', \App\Tenants\Modules\Crm\Controllers\CrmActivityController::class)
+            ->parameters(['crm-activities' => 'crmActivity']);
+        Route::post('/crm-activities/{crmActivity}/complete', [\App\Tenants\Modules\Crm\Controllers\CrmActivityController::class, 'complete']);
+
+        // CRM — Appointments (calendar / timeline of meetings, demos, follow-ups)
+        Route::apiResource('crm-appointments', \App\Tenants\Modules\Crm\Controllers\CrmAppointmentController::class)
+            ->parameters(['crm-appointments' => 'crmAppointment']);
+        Route::post('/crm-appointments/{crmAppointment}/complete',  [\App\Tenants\Modules\Crm\Controllers\CrmAppointmentController::class, 'complete']);
+        Route::post('/crm-appointments/{crmAppointment}/cancel',    [\App\Tenants\Modules\Crm\Controllers\CrmAppointmentController::class, 'cancel']);
+        Route::post('/crm-appointments/{crmAppointment}/no-show',   [\App\Tenants\Modules\Crm\Controllers\CrmAppointmentController::class, 'markNoShow']);
+
+        // Hybrid Sales — Quotations (draft → won/lost)
         Route::apiResource('quotations', QuotationController::class)
             ->only(['index', 'store', 'show', 'destroy']);
         Route::post('/quotations/{quotation}/items', [QuotationController::class, 'addItem']);
-        Route::post('/quotations/{quotation}/confirm', [QuotationController::class, 'confirm']);
-        Route::post('/quotations/{quotation}/cancel', [QuotationController::class, 'cancel']);
-        Route::post('/quotations/{quotation}/convert-to-order', [OrderController::class, 'storeFromQuotation']);
+        Route::post('/quotations/{quotation}/win', [QuotationController::class, 'win']);
+        Route::post('/quotations/{quotation}/lose', [QuotationController::class, 'lose']);
 
-        // Hybrid Sales — Orders
+        // Hybrid Sales — Sale Orders (draft → confirm/cancel)
+        // No /convert-to-order — the SO is auto-created on Quotation::win.
         Route::apiResource('orders', OrderController::class)
             ->only(['index', 'store', 'show']);
         Route::post('/orders/{order}/confirm', [OrderController::class, 'confirm']);
@@ -144,15 +181,21 @@ Route::middleware([
         Route::post('/invoices/{invoice}/confirm', [InvoiceController::class, 'confirm']);
         Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel']);
 
-        // Hybrid Sales — Subscriptions (software fulfillment)
+        // Hybrid Sales — Subscriptions (software fulfillment; start as `active`)
         Route::get('/subscriptions', [SubscriptionController::class, 'index']);
         Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show']);
-        Route::post('/subscriptions/{subscription}/confirm', [SubscriptionController::class, 'confirm']);
+        Route::post('/subscriptions/{subscription}/renew', [SubscriptionController::class, 'renew']);
+        Route::post('/subscriptions/{subscription}/change-plan', [SubscriptionController::class, 'changePlan']);
         Route::post('/subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel']);
 
         // FMS Module
         Route::apiResource('accounts', AccountController::class);
         Route::apiResource('ledger', LedgerController::class);
+
+        Route::get('/exchange-rates/latest',  [ExchangeRateController::class, 'latest']);
+        Route::get('/exchange-rates/convert', [ExchangeRateController::class, 'convert']);
+        Route::apiResource('exchange-rates', ExchangeRateController::class)
+            ->parameters(['exchange-rates' => 'exchangeRate']);
 
         // HRM Module — Phase 1: Workforce
         // Self-service profile lookup/edit. Listed before the apiResource so
@@ -160,6 +203,8 @@ Route::middleware([
         // parameter binding.
         Route::get('/employees/me', [EmployeeController::class, 'me']);
         Route::patch('/employees/me', [EmployeeController::class, 'updateSelf']);
+        Route::post('/employees/{employee}/avatar', [EmployeeController::class, 'uploadAvatar']);
+        Route::delete('/employees/{employee}/avatar', [EmployeeController::class, 'deleteAvatar']);
         Route::apiResource('employees', EmployeeController::class);
         Route::apiResource('departments', DepartmentController::class);
         Route::apiResource('positions', PositionController::class);
@@ -252,6 +297,46 @@ Route::middleware([
         // Inventory Module
         Route::apiResource('products', ProductController::class);
         Route::apiResource('stock-movements', StockMovementController::class);
+        Route::apiResource('warehouses', \App\Tenants\Modules\Inventory\Controllers\WarehouseController::class);
+        Route::apiResource('suppliers', \App\Tenants\Modules\Inventory\Controllers\SupplierController::class);
+        Route::apiResource('categories', \App\Tenants\Modules\Inventory\Controllers\CategoryController::class);
+        Route::apiResource('products.variants', \App\Tenants\Modules\Inventory\Controllers\ProductVariantController::class)
+            ->parameters(['variants' => 'variant'])
+            ->shallow();
+
+        // Inventory — Stock Reservations (POS / eCommerce soft-holds, 15-min TTL by default)
+        // Availability route declared BEFORE the apiResource so its literal
+        // segment isn't captured as a {stockReservation} parameter.
+        Route::get('/stock-reservations/availability', [\App\Tenants\Modules\Inventory\Controllers\StockReservationController::class, 'availability']);
+        Route::apiResource('stock-reservations', \App\Tenants\Modules\Inventory\Controllers\StockReservationController::class)
+            ->only(['index', 'store', 'show'])
+            ->parameters(['stock-reservations' => 'stockReservation']);
+        Route::post('/stock-reservations/{stockReservation}/commit', [\App\Tenants\Modules\Inventory\Controllers\StockReservationController::class, 'commit']);
+        Route::post('/stock-reservations/{stockReservation}/cancel', [\App\Tenants\Modules\Inventory\Controllers\StockReservationController::class, 'cancel']);
+
+        // Inventory — Inter-warehouse Stock Transfers (draft → dispatch → receive | cancel)
+        Route::apiResource('stock-transfers', \App\Tenants\Modules\Inventory\Controllers\StockTransferController::class)
+            ->only(['index', 'store', 'show'])
+            ->parameters(['stock-transfers' => 'stockTransfer']);
+        Route::post('/stock-transfers/{stockTransfer}/dispatch', [\App\Tenants\Modules\Inventory\Controllers\StockTransferController::class, 'dispatch_']);
+        Route::post('/stock-transfers/{stockTransfer}/receive',  [\App\Tenants\Modules\Inventory\Controllers\StockTransferController::class, 'receive']);
+        Route::post('/stock-transfers/{stockTransfer}/cancel',   [\App\Tenants\Modules\Inventory\Controllers\StockTransferController::class, 'cancel']);
+
+        // Inventory — Low-stock Alerts (read-only ledger; manage = ack/resolve)
+        Route::apiResource('low-stock-alerts', \App\Tenants\Modules\Inventory\Controllers\LowStockAlertController::class)
+            ->only(['index', 'show'])
+            ->parameters(['low-stock-alerts' => 'lowStockAlert']);
+        Route::post('/low-stock-alerts/{lowStockAlert}/acknowledge', [\App\Tenants\Modules\Inventory\Controllers\LowStockAlertController::class, 'acknowledge']);
+        Route::post('/low-stock-alerts/{lowStockAlert}/resolve',     [\App\Tenants\Modules\Inventory\Controllers\LowStockAlertController::class, 'resolve']);
+
+        // Inventory — Purchase Orders (P2P: draft → submit → approve → receive)
+        Route::apiResource('purchase-orders', \App\Tenants\Modules\Inventory\Controllers\PurchaseOrderController::class)
+            ->only(['index', 'store', 'show', 'destroy'])
+            ->parameters(['purchase-orders' => 'purchaseOrder']);
+        Route::post('/purchase-orders/{purchaseOrder}/submit',  [\App\Tenants\Modules\Inventory\Controllers\PurchaseOrderController::class, 'submit']);
+        Route::post('/purchase-orders/{purchaseOrder}/approve', [\App\Tenants\Modules\Inventory\Controllers\PurchaseOrderController::class, 'approve']);
+        Route::post('/purchase-orders/{purchaseOrder}/receive', [\App\Tenants\Modules\Inventory\Controllers\PurchaseOrderController::class, 'receive']);
+        Route::post('/purchase-orders/{purchaseOrder}/cancel',  [\App\Tenants\Modules\Inventory\Controllers\PurchaseOrderController::class, 'cancel']);
 
         // Projects Module
         Route::apiResource('projects', ProjectController::class);

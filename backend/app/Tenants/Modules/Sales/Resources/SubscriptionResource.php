@@ -11,9 +11,15 @@ class SubscriptionResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.subscription_prefix') ?: 'SUB-';
+        $subscriptionNumber = $this->subscription_number;
+        if ($subscriptionNumber && preg_match('/(\d+)$/', $subscriptionNumber, $matches)) {
+            $subscriptionNumber = $prefix . $matches[1];
+        }
+
         return [
             'id' => $this->id,
-            'subscriptionNumber' => $this->subscription_number,
+            'subscriptionNumber' => $subscriptionNumber,
             'orderId' => $this->order_id,
             'customerId' => $this->customer_id,
             'customer' => new CustomerResource($this->whenLoaded('customer')),
@@ -24,6 +30,13 @@ class SubscriptionResource extends JsonResource
             'totalAmount' => (float) $this->total_amount,
             'provisionedTenantId' => $this->provisioned_tenant_id,
             'provisionedAt' => optional($this->provisioned_at)->toIso8601String(),
+            // Live access URL the customer can click — composed off the
+            // owning Customer's tenant handle. Null until provisioning has
+            // completed (typically right after Order::confirm). Lazy-loads
+            // the customer relation when not already eager-loaded so this
+            // never N+1s a list call but always works for show().
+            'liveAccessUrl' => $this->loadMissing('customer')->customer?->liveAccessUrl(),
+            'tenantHandle'  => $this->loadMissing('customer')->customer?->tenant_handle,
             'confirmedAt' => optional($this->confirmed_at)->toIso8601String(),
             'cancelledAt' => optional($this->cancelled_at)->toIso8601String(),
             'cancelReason' => $this->cancel_reason,

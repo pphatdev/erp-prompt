@@ -26,13 +26,26 @@ class TenantDatabaseSeeder extends Seeder
             ['name' => 'Delete Roles', 'slug' => 'iam.roles.delete', 'module' => 'iam', 'feature' => 'roles', 'action' => 'delete'],
             ['name' => 'Read Audit', 'slug' => 'iam.audit.read', 'module' => 'iam', 'feature' => 'audit', 'action' => 'read'],
 
-            // Sales & CRM
-            ['name' => 'Read CRM', 'slug' => 'sales.crm.read', 'module' => 'sales', 'feature' => 'crm', 'action' => 'read'],
-            ['name' => 'Write CRM', 'slug' => 'sales.crm.write', 'module' => 'sales', 'feature' => 'crm', 'action' => 'write'],
-            ['name' => 'Read Leads', 'slug' => 'sales.leads.read', 'module' => 'sales', 'feature' => 'leads', 'action' => 'read'],
-            ['name' => 'Write Leads', 'slug' => 'sales.leads.write', 'module' => 'sales', 'feature' => 'leads', 'action' => 'write'],
+            // Sales
             ['name' => 'Read Orders', 'slug' => 'sales.orders.read', 'module' => 'sales', 'feature' => 'orders', 'action' => 'read'],
             ['name' => 'Write Orders', 'slug' => 'sales.orders.write', 'module' => 'sales', 'feature' => 'orders', 'action' => 'write'],
+
+            // CRM — Leads, Opportunities, Contacts, Activities
+            ['name' => 'Read Leads',          'slug' => 'crm.leads.read',          'module' => 'crm', 'feature' => 'leads',         'action' => 'read'],
+            ['name' => 'Write Leads',         'slug' => 'crm.leads.write',         'module' => 'crm', 'feature' => 'leads',         'action' => 'write'],
+            ['name' => 'Delete Leads',        'slug' => 'crm.leads.delete',        'module' => 'crm', 'feature' => 'leads',         'action' => 'delete'],
+            ['name' => 'Read Opportunities',  'slug' => 'crm.opportunities.read',  'module' => 'crm', 'feature' => 'opportunities', 'action' => 'read'],
+            ['name' => 'Write Opportunities', 'slug' => 'crm.opportunities.write', 'module' => 'crm', 'feature' => 'opportunities', 'action' => 'write'],
+            ['name' => 'Delete Opportunities','slug' => 'crm.opportunities.delete','module' => 'crm', 'feature' => 'opportunities', 'action' => 'delete'],
+            ['name' => 'Read CRM Contacts',   'slug' => 'crm.contacts.read',       'module' => 'crm', 'feature' => 'contacts',      'action' => 'read'],
+            ['name' => 'Write CRM Contacts',  'slug' => 'crm.contacts.write',      'module' => 'crm', 'feature' => 'contacts',      'action' => 'write'],
+            ['name' => 'Delete CRM Contacts', 'slug' => 'crm.contacts.delete',     'module' => 'crm', 'feature' => 'contacts',      'action' => 'delete'],
+            ['name' => 'Read CRM Activities', 'slug' => 'crm.activities.read',     'module' => 'crm', 'feature' => 'activities',    'action' => 'read'],
+            ['name' => 'Write CRM Activities','slug' => 'crm.activities.write',    'module' => 'crm', 'feature' => 'activities',    'action' => 'write'],
+            ['name' => 'Delete CRM Activities','slug'=> 'crm.activities.delete',   'module' => 'crm', 'feature' => 'activities',    'action' => 'delete'],
+            ['name' => 'Read CRM Appointments', 'slug' => 'crm.appointments.read',  'module' => 'crm', 'feature' => 'appointments', 'action' => 'read'],
+            ['name' => 'Write CRM Appointments','slug' => 'crm.appointments.write', 'module' => 'crm', 'feature' => 'appointments', 'action' => 'write'],
+            ['name' => 'Delete CRM Appointments','slug'=> 'crm.appointments.delete','module' => 'crm', 'feature' => 'appointments', 'action' => 'delete'],
 
             // HRM — Employees / Workforce (admin scope)
             ['name' => 'Read Employees',   'slug' => 'hrm.employee.read',   'module' => 'hrm', 'feature' => 'employee',   'action' => 'read'],
@@ -82,6 +95,42 @@ class TenantDatabaseSeeder extends Seeder
             ['name' => 'Read Own Payslips',           'slug' => 'hrm.payslip.read.self',      'module' => 'hrm', 'feature' => 'payslip',     'action' => 'read.self'],
             ['name' => 'Read Own Appraisals',         'slug' => 'hrm.performance.read.self',  'module' => 'hrm', 'feature' => 'performance', 'action' => 'read.self'],
             ['name' => 'Submit Own Self-Assessment',  'slug' => 'hrm.performance.submit.self','module' => 'hrm', 'feature' => 'performance', 'action' => 'submit.self'],
+
+            // Inventory & SCM
+            ['name' => 'Read Warehouses',    'slug' => 'inventory.warehouse.read',   'module' => 'inventory', 'feature' => 'warehouse',   'action' => 'read'],
+            ['name' => 'Write Warehouses',   'slug' => 'inventory.warehouse.write',  'module' => 'inventory', 'feature' => 'warehouse',   'action' => 'write'],
+            ['name' => 'Delete Warehouses',  'slug' => 'inventory.warehouse.delete', 'module' => 'inventory', 'feature' => 'warehouse',   'action' => 'delete'],
+            ['name' => 'Read Catalog',       'slug' => 'inventory.product.read',     'module' => 'inventory', 'feature' => 'product',     'action' => 'read'],
+            ['name' => 'Write Catalog',      'slug' => 'inventory.product.write',    'module' => 'inventory', 'feature' => 'product',     'action' => 'write'],
+            ['name' => 'Delete Catalog',     'slug' => 'inventory.product.delete',   'module' => 'inventory', 'feature' => 'product',     'action' => 'delete'],
+            ['name' => 'Export Catalog',     'slug' => 'inventory.product.export',   'module' => 'inventory', 'feature' => 'product',     'action' => 'export'],
+            ['name' => 'Read Stock Ledger',  'slug' => 'inventory.stock.read',       'module' => 'inventory', 'feature' => 'stock',       'action' => 'read'],
+            ['name' => 'Write Stock Ledger', 'slug' => 'inventory.stock.write',      'module' => 'inventory', 'feature' => 'stock',       'action' => 'write'],
+            ['name' => 'Adjust Stock Ledger','slug' => 'inventory.stock.adjust',     'module' => 'inventory', 'feature' => 'stock',       'action' => 'adjust'],
+            ['name' => 'Read Suppliers',     'slug' => 'inventory.suppliers.read',   'module' => 'inventory', 'feature' => 'suppliers',   'action' => 'read'],
+            ['name' => 'Write Suppliers',    'slug' => 'inventory.suppliers.write',  'module' => 'inventory', 'feature' => 'suppliers',   'action' => 'write'],
+            ['name' => 'Delete Suppliers',   'slug' => 'inventory.suppliers.delete', 'module' => 'inventory', 'feature' => 'suppliers',   'action' => 'delete'],
+            ['name' => 'Read Procurement',   'slug' => 'inventory.procurement.read', 'module' => 'inventory', 'feature' => 'procurement', 'action' => 'read'],
+            ['name' => 'Write Procurement',  'slug' => 'inventory.procurement.write','module' => 'inventory', 'feature' => 'procurement', 'action' => 'write'],
+            ['name' => 'Delete Procurement', 'slug' => 'inventory.procurement.delete','module' => 'inventory', 'feature' => 'procurement', 'action' => 'delete'],
+            ['name' => 'Approve Procurement','slug' => 'inventory.procurement.approve','module' => 'inventory', 'feature' => 'procurement', 'action' => 'approve'],
+            ['name' => 'Read Reservations',  'slug' => 'inventory.reservations.read',  'module' => 'inventory', 'feature' => 'reservations','action' => 'read'],
+            ['name' => 'Write Reservations', 'slug' => 'inventory.reservations.write', 'module' => 'inventory', 'feature' => 'reservations','action' => 'write'],
+            ['name' => 'Commit Reservations','slug' => 'inventory.reservations.commit','module' => 'inventory', 'feature' => 'reservations','action' => 'commit'],
+            ['name' => 'Read eCom Sync',     'slug' => 'inventory.ecommerce.read',   'module' => 'inventory', 'feature' => 'ecommerce',   'action' => 'read'],
+            ['name' => 'Write eCom Sync',    'slug' => 'inventory.ecommerce.write',  'module' => 'inventory', 'feature' => 'ecommerce',   'action' => 'write'],
+            ['name' => 'Reserve eCom Stock', 'slug' => 'inventory.ecommerce.reserve','module' => 'inventory', 'feature' => 'ecommerce',   'action' => 'reserve'],
+            ['name' => 'View Low-stock Alerts',   'slug' => 'inventory.alerts.view',   'module' => 'inventory', 'feature' => 'alerts', 'action' => 'view'],
+            ['name' => 'Manage Low-stock Alerts', 'slug' => 'inventory.alerts.manage', 'module' => 'inventory', 'feature' => 'alerts', 'action' => 'manage'],
+            ['name' => 'Read Stock Transfers',  'slug' => 'inventory.transfer.read',  'module' => 'inventory', 'feature' => 'transfer', 'action' => 'read'],
+            ['name' => 'Write Stock Transfers', 'slug' => 'inventory.transfer.write', 'module' => 'inventory', 'feature' => 'transfer', 'action' => 'write'],
+            ['name' => 'Read Categories',   'slug' => 'inventory.category.read',   'module' => 'inventory', 'feature' => 'category', 'action' => 'read'],
+            ['name' => 'Write Categories',  'slug' => 'inventory.category.write',  'module' => 'inventory', 'feature' => 'category', 'action' => 'write'],
+            ['name' => 'Delete Categories', 'slug' => 'inventory.category.delete', 'module' => 'inventory', 'feature' => 'category', 'action' => 'delete'],
+
+            ['name' => 'Read Exchange Rates',   'slug' => 'fms.exchange_rate.read',   'module' => 'fms', 'feature' => 'exchange_rate', 'action' => 'read'],
+            ['name' => 'Write Exchange Rates',  'slug' => 'fms.exchange_rate.write',  'module' => 'fms', 'feature' => 'exchange_rate', 'action' => 'write'],
+            ['name' => 'Delete Exchange Rates', 'slug' => 'fms.exchange_rate.delete', 'module' => 'fms', 'feature' => 'exchange_rate', 'action' => 'delete'],
         ];
 
         foreach ($permissions as $permission) {
@@ -96,15 +145,20 @@ class TenantDatabaseSeeder extends Seeder
 
         $adminRole->permissions()->sync(Permission::all());
 
-        // Create Admin User — pass plaintext; the User model's 'hashed' cast hashes exactly once
-        $adminUser = \App\Models\Tenant\User::firstOrCreate(
-            ['email' => 'admin@example.com'],
-            [
-                'name' => 'System Administrator',
-                'password' => 'password',
+        // Tenant key is `handle`, not `id` — `tenant('id')` would return null.
+        $tenantKey = tenant()->getTenantKey();
+
+        $adminUser = \App\Models\Tenant\User::where('email', 'admin@example.com')
+            ->first();
+
+        if (!$adminUser) {
+            $adminUser = \App\Models\Tenant\User::create([
+                'email'     => 'admin@example.com',
+                'name'      => 'System Administrator',
+                'password'  => 'password',
                 'is_active' => true,
-            ]
-        );
+            ]);
+        }
 
         // Self-heal rows that were double-hashed by a previous run of this seeder
         if (!Hash::check('password', $adminUser->getAuthPassword())) {
@@ -155,15 +209,19 @@ class TenantDatabaseSeeder extends Seeder
             ])->get()
         );
 
-        // Create Employee User — pass plaintext; the User model's 'hashed' cast hashes exactly once
-        $employeeUser = \App\Models\Tenant\User::firstOrCreate(
-            ['email' => 'role.base@tanent.com'],
-            [
-                'name' => 'Base Employee User',
-                'password' => 'password',
+        // Same lookup pattern as the admin user — bypass the tenant scope for
+        // the email check so a stale-tenant_id row doesn't trip the unique index.
+        $employeeUser = \App\Models\Tenant\User::where('email', 'role.base@tanent.com')
+            ->first();
+
+        if (!$employeeUser) {
+            $employeeUser = \App\Models\Tenant\User::create([
+                'email'     => 'role.base@tanent.com',
+                'name'      => 'Base Employee User',
+                'password'  => 'password',
                 'is_active' => true,
-            ]
-        );
+            ]);
+        }
 
         // Self-heal rows that were double-hashed by a previous run of this seeder
         if (!Hash::check('password', $employeeUser->getAuthPassword())) {
@@ -175,19 +233,29 @@ class TenantDatabaseSeeder extends Seeder
             $employeeUser->roles()->attach($employeeRole->id);
         }
 
-        // Create Employee Record linked to the User
+        // Seed default tenant configuration settings (including numbering prefixes)
+        // Must run BEFORE creating the base employee so generateNextEmployeeId() reads the right prefix.
+        app(\App\Tenants\Modules\Settings\Services\SettingService::class)->ensureDefaults();
+
         if (\Illuminate\Support\Facades\Schema::hasTable('employees')) {
-            \App\Models\Tenant\Employee::firstOrCreate(
-                ['email' => 'role.base@tanent.com'],
-                [
-                    'employee_id' => 'TT-0001',
-                    'first_name' => 'Base',
-                    'last_name' => 'Employee',
-                    'user_id' => $employeeUser->id,
-                    'status' => 'active',
-                    'hired_at' => now()->toDateString(),
-                ]
-            );
+            $employee = \App\Models\Tenant\Employee::where('email', 'role.base@tanent.com')
+                ->first();
+
+            if (!$employee) {
+                // Use the configured prefix from settings rather than a hardcoded value.
+                $employeeId = app(\App\Tenants\Modules\HRM\Services\RecruitmentService::class)
+                    ->generateNextEmployeeId();
+
+                \App\Models\Tenant\Employee::create([
+                    'email'       => 'role.base@tanent.com',
+                    'employee_id' => $employeeId,
+                    'first_name'  => 'Base',
+                    'last_name'   => 'Employee',
+                    'user_id'     => $employeeUser->id,
+                    'status'      => 'active',
+                    'hired_at'    => now()->toDateString(),
+                ]);
+            }
         }
 
         // Seed default workflow statuses for every HRM module

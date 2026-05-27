@@ -13,13 +13,13 @@ use Illuminate\Http\Request;
 class ModuleController extends Controller
 {
     /**
-     * List all active top-level modules with their children.
-     * In the seller's tenant all modules are active; in a provisioned customer
-     * tenant only the entitled modules (plus core) are active.
+     * @description List all active top-level modules with their children. In the seller's tenant all modules are active; in a provisioned customer tenant only the entitled modules (plus core) are active.
+     * @method GET
+     * @returns { JsonResponse } JSON response containing the active modules
      */
     public function index(): JsonResponse
     {
-        $modules = Module::with('children')
+        $modules = Module::with(['children' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')])
             ->whereNull('parent_id')
             ->where('is_active', true)
             ->orderBy('group')
@@ -30,7 +30,9 @@ class ModuleController extends Controller
     }
 
     /**
-     * Flat list of accessible module slugs — for quick frontend access checks.
+     * @description Flat list of accessible module slugs — for quick frontend access checks.
+     * @method GET
+     * @returns { JsonResponse } JSON response containing module slugs
      */
     public function slugs(): JsonResponse
     {
@@ -40,8 +42,9 @@ class ModuleController extends Controller
     }
 
     /**
-     * All modules (active + inactive) with children and linked products — for
-     * the settings management UI. Unlike index(), this is not filtered by is_active.
+     * @description All modules (active + inactive) with children and linked products — for the settings management UI. Unlike index(), this is not filtered by is_active.
+     * @method GET
+     * @returns { JsonResponse } JSON response containing all modules for management
      */
     public function allForManagement(): JsonResponse
     {
@@ -59,7 +62,10 @@ class ModuleController extends Controller
     }
 
     /**
-     * Toggle is_active on a single module. Core modules are protected.
+     * @description Toggle is_active on a single module. Core modules are protected.
+     * @method PUT
+     * @param { Module } module The module to toggle
+     * @returns { JsonResponse } JSON response containing the updated module
      */
     public function toggle(Module $module): JsonResponse
     {
@@ -71,9 +77,42 @@ class ModuleController extends Controller
 
         return response()->json(['data' => new ModuleResource($module)]);
     }
-
     /**
-     * Sync which modules a product unlocks (seller catalog management).
+     * @description Bulk update modules visibility and sort order.
+     * @method PUT
+     * @param { Request } request The incoming request containing modules array
+     * @returns { JsonResponse } JSON response indicating success
+     */
+    public function bulkUpdate(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'modules'              => 'required|array',
+            'modules.*.id'         => 'required|uuid|exists:modules,id',
+            'modules.*.is_active'  => 'required|boolean',
+            'modules.*.sort_order' => 'required|integer',
+        ]);
+
+        \DB::transaction(function () use ($data) {
+            foreach ($data['modules'] as $modData) {
+                $module = Module::find($modData['id']);
+                // Core modules cannot be deactivated, force true if core
+                $isActive = $module->is_core ? true : $modData['is_active'];
+                
+                $module->update([
+                    'is_active'  => $isActive,
+                    'sort_order' => $modData['sort_order'],
+                ]);
+            }
+        });
+
+        return response()->json(['message' => 'Modules updated successfully.']);
+    }
+    /**
+     * @description Sync which modules a product unlocks (seller catalog management).
+     * @method POST
+     * @param { Request } request The incoming request containing product_ids
+     * @param { Module } module The module to sync products for
+     * @returns { JsonResponse } JSON response indicating success
      */
     public function syncProduct(Request $request, Module $module): JsonResponse
     {

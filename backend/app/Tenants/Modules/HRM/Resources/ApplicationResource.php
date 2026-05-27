@@ -13,9 +13,15 @@ class ApplicationResource extends JsonResource
     {
         $canSeeSalary = $request->user()?->can('hrm.recruitment.read') ?? false;
 
+        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.candidate_code_prefix') ?: 'CAN-';
+        $candidateCode = $this->candidate_code;
+        if ($candidateCode && preg_match('/(\d+)$/', $candidateCode, $matches)) {
+            $candidateCode = $prefix . $matches[1];
+        }
+
         return [
             'id' => $this->id,
-            'candidateCode' => $this->candidate_code,
+            'candidateCode' => $candidateCode,
             'jobVacancyId' => $this->job_vacancy_id,
             'employeeId' => $this->employee_id,
             'applicantName' => $this->applicant_name,

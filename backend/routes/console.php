@@ -25,3 +25,17 @@ Schedule::job(new ReconcileAttendanceJob())
     ->dailyAt('01:00')
     ->name('hrm-attendance-reconcile')
     ->withoutOverlapping();
+
+// Sales — daily subscription expiry. Flips `active` rows whose end_date is
+// in the past to `expired` across every tenant DB.
+Schedule::command('subscriptions:expire')
+    ->dailyAt('02:00')
+    ->name('sales-subscription-expire')
+    ->withoutOverlapping();
+
+// Inventory — stock reservation expiry. Runs every 2 minutes so abandoned
+// POS / eCommerce carts release their soft-holds within (TTL + ~2min).
+Schedule::command('inventory:expire-reservations')
+    ->everyTwoMinutes()
+    ->name('inventory-reservation-expire')
+    ->withoutOverlapping();

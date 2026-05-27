@@ -91,9 +91,9 @@ class DashboardSummaryService
 
         // Sales
         $revMtd  = $this->safely(fn () => (float) Invoice::where('status', 'paid')
-            ->whereDate('created_at', '>=', $monthStart)->sum('total_amount'), 0.0);
+            ->whereDate('invoice_date', '>=', $monthStart)->sum('total_amount'), 0.0);
         $revPrev = $this->safely(fn () => (float) Invoice::where('status', 'paid')
-            ->whereBetween('created_at', [$prevStart, $prevEnd])->sum('total_amount'), 0.0);
+            ->whereBetween('invoice_date', [$prevStart, $prevEnd])->sum('total_amount'), 0.0);
 
         $kpis['sales'] = $this->safely(fn () => [
             'revenue_mtd'       => $revMtd,
@@ -141,7 +141,7 @@ class DashboardSummaryService
         $revenueTrend = collect(range(6, 0))->map(fn ($d) => [
             'label'  => $now->copy()->subDays($d)->format('M j'),
             'amount' => $this->safely(fn () => (float) Invoice::where('status', 'paid')
-                ->whereDate('created_at', $now->copy()->subDays($d)->toDateString())
+                ->whereDate('invoice_date', $now->copy()->subDays($d)->toDateString())
                 ->sum('total_amount'), 0.0),
         ])->values()->all();
 

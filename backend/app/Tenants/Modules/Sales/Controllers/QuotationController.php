@@ -59,7 +59,7 @@ class QuotationController extends Controller
         return response()->json(['message' => 'Quotation archived.']);
     }
 
-    public function addItem(AddQuotationItemRequest $request, Quotation $quotation): JsonResponse
+    public function addItem(AddQuotationItemRequest $request, Quotation $quotation): QuotationItemResource|JsonResponse
     {
         try {
             $item = $this->quotes->addItem($quotation, $request->validated());
@@ -67,13 +67,13 @@ class QuotationController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['data' => (new QuotationItemResource($item))->toArray($request)], 201);
+        return (new QuotationItemResource($item))->response()->setStatusCode(201);
     }
 
-    public function confirm(Quotation $quotation): QuotationResource|JsonResponse
+    public function win(Quotation $quotation): QuotationResource|JsonResponse
     {
         try {
-            $this->quotes->confirm($quotation);
+            $this->quotes->win($quotation);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -81,16 +81,16 @@ class QuotationController extends Controller
         return new QuotationResource($quotation->fresh()->load(['customer', 'items', 'order']));
     }
 
-    public function cancel(Request $request, Quotation $quotation): QuotationResource|JsonResponse
+    public function lose(Request $request, Quotation $quotation): QuotationResource|JsonResponse
     {
-        $data = $request->validate(['reason' => 'sometimes|nullable|string|max:500']);
+        $data = $request->validate(['loss_reason' => 'required|string|max:1000']);
 
         try {
-            $this->quotes->cancel($quotation, $data['reason'] ?? null);
+            $this->quotes->lose($quotation, $data['loss_reason']);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return new QuotationResource($quotation->fresh()->load(['customer', 'items', 'order']));
+        return new QuotationResource($quotation->fresh()->load(['customer', 'items']));
     }
 }

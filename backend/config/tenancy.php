@@ -34,6 +34,13 @@ return [
         ],
     ],
 
+    'filesystem' => [
+        'suffix_base' => 'tenant',
+        'disks' => ['local'],   // public disk is NOT scoped — files stay in storage/app/public
+        'root_override' => [],
+        'url_override' => [],
+    ],
+
     'migration_parameters' => [
         '--force' => true,
         '--path' => [database_path('migrations/tenant')],

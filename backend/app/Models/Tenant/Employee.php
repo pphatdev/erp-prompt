@@ -27,6 +27,7 @@ class Employee extends Model
         'last_name',
         'email',
         'phone',
+        'image_path',
         'hired_at',
         'base_salary',
         'bank_name',

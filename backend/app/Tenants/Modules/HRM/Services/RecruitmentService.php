@@ -385,7 +385,7 @@ class RecruitmentService
      * conversion. Kept as a class constant so a future "tenant-configurable
      * prefix" feature can swap the source without touching every call site.
      */
-    public const EMPLOYEE_ID_PREFIX = 'TT';
+    public const EMPLOYEE_ID_PREFIX = 'T2T';
 
     /**
      * Minimum width of the numeric component (zero-padded). The format grows
@@ -415,20 +415,22 @@ class RecruitmentService
      */
     public function generateNextEmployeeId(): string
     {
-        $prefix = self::EMPLOYEE_ID_PREFIX;
-        $pad    = self::EMPLOYEE_ID_PAD;
+        // Prefix is tenant-configurable via Settings → Numbering. Stored WITH
+        // separator (default "TT-") so the generator concatenates directly.
+        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)
+            ->get('numbering.employee_id_prefix');
+        if (empty($prefix)) {
+            $prefix = self::EMPLOYEE_ID_PREFIX . '-';
+        }
+        $pad = self::EMPLOYEE_ID_PAD;
 
-        // Scan all matching rows (incl. soft-deleted, so terminated employees
-        // don't free their numbers for reuse). We track whether we found ANY
-        // matching id so a fresh tenant can start at 0 — otherwise we'd skip
-        // straight to 1 because max stays at 0.
         $rows = \App\Models\Tenant\Employee::withTrashed()
-            ->where('employee_id', 'like', $prefix . '-%')
+            ->where('employee_id', 'like', $prefix . '%')
             ->pluck('employee_id');
 
         $max = 0;
         $found = false;
-        $pattern = '/^' . preg_quote($prefix, '/') . '-(\d+)$/';
+        $pattern = '/^' . preg_quote($prefix, '/') . '(\d+)$/';
         foreach ($rows as $id) {
             if (preg_match($pattern, (string) $id, $m)) {
                 $found = true;
@@ -440,7 +442,7 @@ class RecruitmentService
         }
 
         $next = $found ? $max + 1 : 0;
-        return sprintf('%s-%0' . $pad . 'd', $prefix, $next);
+        return $prefix . str_pad((string) $next, $pad, '0', STR_PAD_LEFT);
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tenants\Modules\HRM\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreEmployeeRequest extends FormRequest
 {
@@ -15,11 +16,21 @@ class StoreEmployeeRequest extends FormRequest
 
     public function rules(): array
     {
+        // Uniqueness is enforced per-tenant in the DB (composite indexes from
+        // migration 000062). Scope validation the same way so a row from
+        // another tenant doesn't block this create.
+        $tenantId = tenant()?->getTenantKey();
+        $scoped = fn ($q) => $q
+            ->when($tenantId, fn ($qq) => $qq->where('tenant_id', $tenantId))
+            ->whereNull('deleted_at');
+
         return [
-            'employee_id'    => 'required|string|max:50|unique:employees,employee_id',
+            'employee_id'    => ['nullable', 'string', 'max:50',
+                Rule::unique('employees', 'employee_id')->where($scoped)],
             'first_name'     => 'required|string|max:100',
             'last_name'      => 'required|string|max:100',
-            'email'          => 'required|email|unique:employees,email',
+            'email'          => ['required', 'email',
+                Rule::unique('employees', 'email')->where($scoped)],
             'phone'          => 'nullable|string|max:30',
             'hired_at'       => 'nullable|date',
             'base_salary'         => 'nullable|numeric|min:0',

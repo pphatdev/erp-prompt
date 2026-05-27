@@ -23,6 +23,7 @@ class Quotation extends Model
     protected $fillable = [
         'quote_number',
         'customer_id',
+        'from_opportunity_id',
         'status',
         'quote_date',
         'valid_until',
@@ -31,6 +32,11 @@ class Quotation extends Model
         'tax_amount',
         'total_amount',
         'notes',
+        'loss_reason',
+        'won_by',
+        'won_at',
+        'lost_by',
+        'lost_at',
         'confirmed_by',
         'confirmed_at',
         'cancelled_by',
@@ -46,18 +52,26 @@ class Quotation extends Model
         'subtotal' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'won_at' => 'datetime',
+        'lost_at' => 'datetime',
         'confirmed_at' => 'datetime',
         'cancelled_at' => 'datetime',
     ];
 
-    public const STATUS_NEW = 'new';
-    public const STATUS_CONFIRMED = 'confirmed';
-    public const STATUS_CANCELLED = 'cancelled';
-    public const STATUSES = [self::STATUS_NEW, self::STATUS_CONFIRMED, self::STATUS_CANCELLED];
+    public const STATUS_DRAFT = 'draft';
+    public const STATUS_WON   = 'won';
+    public const STATUS_LOST  = 'lost';
+    public const STATUSES         = [self::STATUS_DRAFT, self::STATUS_WON, self::STATUS_LOST];
+    public const TERMINAL_STATUSES = [self::STATUS_WON, self::STATUS_LOST];
 
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function opportunity(): BelongsTo
+    {
+        return $this->belongsTo(Opportunity::class, 'from_opportunity_id');
     }
 
     public function items(): HasMany
@@ -70,14 +84,24 @@ class Quotation extends Model
         return $this->hasOne(Order::class);
     }
 
-    public function isConfirmed(): bool
+    public function isDraft(): bool
     {
-        return $this->status === self::STATUS_CONFIRMED;
+        return $this->status === self::STATUS_DRAFT;
     }
 
-    public function isCancelled(): bool
+    public function isWon(): bool
     {
-        return $this->status === self::STATUS_CANCELLED;
+        return $this->status === self::STATUS_WON;
+    }
+
+    public function isLost(): bool
+    {
+        return $this->status === self::STATUS_LOST;
+    }
+
+    public function isTerminal(): bool
+    {
+        return in_array($this->status, self::TERMINAL_STATUSES, true);
     }
 
     protected static function boot(): void

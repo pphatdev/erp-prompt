@@ -62,11 +62,12 @@ class CustomerResource extends JsonResource
             'tenantHandle'        => $this->tenant_handle,
             'provisionedTenantId' => $this->provisioned_tenant_id,
             'provisionedAt'       => optional($this->provisioned_at)->toIso8601String(),
-            // Full subdomain URL assembled from handle + platform.system_domain.
-            // Null until the subscription is confirmed and provisioning completes.
-            'provisionedSubdomain' => ($this->tenant_handle && $this->provisioned_tenant_id)
-                ? $this->tenant_handle . '.' . config('platform.system_domain', 'localhost')
-                : null,
+            // Full subdomain hostname (no scheme) — null until provisioning completes.
+            'provisionedSubdomain' => $this->resource->provisionedSubdomain(),
+            // Click-ready URL for the customer's tenant. Mirrors the value
+            // also exposed on SubscriptionResource so any UI surface can
+            // surface a live link without re-composing it.
+            'liveAccessUrl'        => $this->resource->liveAccessUrl(),
 
             // Timestamps
             'createdAt' => optional($this->created_at)->toIso8601String(),

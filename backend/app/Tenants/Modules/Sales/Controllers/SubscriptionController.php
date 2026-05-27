@@ -12,6 +12,7 @@ use App\Tenants\Modules\Sales\Services\SubscriptionService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SubscriptionController extends Controller
 {
@@ -42,10 +43,32 @@ class SubscriptionController extends Controller
         return new SubscriptionResource($subscription->load(['customer', 'items']));
     }
 
-    public function confirm(Subscription $subscription): SubscriptionResource|JsonResponse
+    public function renew(Request $request, Subscription $subscription): SubscriptionResource|JsonResponse
     {
+        $data = $request->validate([
+            'cycle' => ['sometimes', Rule::in([Subscription::CYCLE_MONTHLY, Subscription::CYCLE_ANNUAL])],
+        ]);
+
         try {
-            $this->subs->confirm($subscription);
+            $this->subs->renew($subscription, $data['cycle'] ?? null);
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return new SubscriptionResource($subscription->fresh(['customer', 'items']));
+    }
+
+    public function changePlan(Request $request, Subscription $subscription): SubscriptionResource|JsonResponse
+    {
+        $data = $request->validate([
+            'product_id'        => 'required|uuid|exists:products,id',
+            'variant_id'        => 'sometimes|nullable|uuid|exists:product_variants,id',
+            'target_product_id' => 'sometimes|nullable|uuid|exists:products,id',
+            'action'            => ['required', Rule::in(['upgrade', 'downgrade'])],
+        ]);
+
+        try {
+            $this->subs->changePlan($subscription, $data, $data['action']);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

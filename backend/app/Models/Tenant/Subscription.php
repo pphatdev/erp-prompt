@@ -47,11 +47,11 @@ class Subscription extends Model
         'cancelled_at' => 'datetime',
     ];
 
-    public const STATUS_NEW = 'new';
-    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_ACTIVE    = 'active';
+    public const STATUS_EXPIRED   = 'expired';
     public const STATUS_CANCELLED = 'cancelled';
-    public const STATUS_ACTIVE = 'active';
-    public const STATUS_EXPIRED = 'expired';
+    public const STATUSES = [self::STATUS_ACTIVE, self::STATUS_EXPIRED, self::STATUS_CANCELLED];
+    public const TERMINAL_STATUSES = [self::STATUS_EXPIRED, self::STATUS_CANCELLED];
 
     public const CYCLE_MONTHLY = 'monthly';
     public const CYCLE_ANNUAL = 'annual';
@@ -72,14 +72,24 @@ class Subscription extends Model
         return $this->hasMany(SubscriptionItem::class);
     }
 
-    public function isConfirmed(): bool
+    public function isActive(): bool
     {
-        return in_array($this->status, [self::STATUS_CONFIRMED, self::STATUS_ACTIVE], true);
+        return $this->status === self::STATUS_ACTIVE;
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->status === self::STATUS_EXPIRED;
     }
 
     public function isCancelled(): bool
     {
         return $this->status === self::STATUS_CANCELLED;
+    }
+
+    public function isTerminal(): bool
+    {
+        return in_array($this->status, self::TERMINAL_STATUSES, true);
     }
 
     protected static function boot(): void

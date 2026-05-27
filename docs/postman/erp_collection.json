@@ -394,140 +394,670 @@
     },
     {
       "name": "Sales & CRM",
+      "description": "Pre-sale CRM pipeline (Leads → Opportunities → Contacts + Activities) and post-sale O2C (Customers → Orders → Invoices → Subscriptions).\n\n**Lead → Opportunity flow:**\n1. `Create Lead` — capture inbound interest.\n2. `Qualify Lead` — creates Customer (if missing), CrmContact, and Opportunity in one transaction. Lead status becomes `qualified`.\n3. `Update Opportunity Stage` — move through `new → contacted → qualified → proposal → negotiation → won | lost`. Moving to `lost` requires `loss_reason`. Moving to `won` auto-creates a draft Quotation via event listener.\n\n**Variables captured automatically:**\n- `lead_id`, `opportunity_id`, `crm_contact_id`, `crm_activity_id`",
       "item": [
         {
-          "name": "List Customers",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/customers?page=1&limit=15",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "customers"
-              ],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "15" }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Create Customer",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Corporation\",\n  \"email\": \"info@acme.com\",\n  \"phone\": \"+1234567890\",\n  \"address\": \"123 Business Parkway\"\n}"
+          "name": "Customers",
+          "item": [
+            {
+              "name": "List Customers",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/customers?page=1&limit=15",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "customers"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" }
+                  ]
+                }
+              },
+              "response": []
             },
-            "url": {
-              "raw": "{{base_url}}/api/v1/customers",
-              "host": [
-                "{{base_url}}"
+            {
+              "name": "Create Customer",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var d = pm.response.json().data;",
+                      "    if (d && d.id) pm.collectionVariables.set('customer_id', d.id);",
+                      "}"
+                    ]
+                  }
+                }
               ],
-              "path": [
-                "api",
-                "v1",
-                "customers"
-              ]
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Acme Corporation\",\n  \"email\": \"info@acme.com\",\n  \"phone\": \"+1234567890\",\n  \"address\": \"123 Business Parkway\",\n  \"customer_type\": \"business\",\n  \"status\": \"active\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/customers",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "customers"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Customer",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/customers/{{customer_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "customers", "{{customer_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Customer",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Acme Corp Updated\",\n  \"status\": \"active\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/customers/{{customer_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "customers", "{{customer_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Check Handle Availability",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/customers/check-handle?handle=acme-corp",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "customers", "check-handle"],
+                  "query": [{ "key": "handle", "value": "acme-corp" }]
+                },
+                "description": "Returns `{ available: true|false }`. Use 450 ms debounce on the frontend."
+              },
+              "response": []
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "List Leads",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/leads?page=1&limit=15",
-              "host": [
-                "{{base_url}}"
+          "name": "Leads",
+          "item": [
+            {
+              "name": "List Leads",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/leads?page=1&limit=15",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "leads"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" },
+                    { "key": "status", "value": "new", "disabled": true },
+                    { "key": "search", "value": "", "disabled": true }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Lead",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var d = pm.response.json().data;",
+                      "    if (d && d.id) pm.collectionVariables.set('lead_id', d.id);",
+                      "}"
+                    ]
+                  }
+                }
               ],
-              "path": [
-                "api",
-                "v1",
-                "leads"
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Enterprise License Inquiry\",\n  \"customer_id\": null,\n  \"estimated_value\": 45000,\n  \"source\": \"website\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/leads",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "leads"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Lead",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/leads/{{lead_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "leads", "{{lead_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Lead",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Updated Lead Title\",\n  \"estimated_value\": 60000,\n  \"status\": \"new\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/leads/{{lead_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "leads", "{{lead_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Lead",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/leads/{{lead_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "leads", "{{lead_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Qualify Lead → Opportunity",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    var d = pm.response.json().data;",
+                      "    if (d && d.id) pm.collectionVariables.set('opportunity_id', d.id);",
+                      "}"
+                    ]
+                  }
+                }
               ],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "15" }
-              ]
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_name\": \"Acme Corporation\",\n  \"customer_email\": \"info@acme.com\",\n  \"customer_phone\": \"+1234567890\",\n  \"contact_first_name\": \"John\",\n  \"contact_last_name\": \"Doe\",\n  \"contact_email\": \"john.doe@acme.com\",\n  \"contact_phone\": \"+1234567891\",\n  \"contact_job_title\": \"CTO\",\n  \"opportunity_title\": \"Enterprise Software License\",\n  \"estimated_value\": 45000,\n  \"probability\": 70,\n  \"close_date\": \"2026-09-30\",\n  \"notes\": \"Budget confirmed Q3.\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/leads/{{lead_id}}/qualify",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "leads", "{{lead_id}}", "qualify"]
+                },
+                "description": "Atomically: creates Customer (if lead has no customer_id), creates CrmContact, creates Opportunity at stage=qualified, updates Lead status to `qualified`.\n\nOmit `customer_name` / `customer_email` if the Lead already has a `customer_id`."
+              },
+              "response": []
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "Mark Lead as Won",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/leads/{{lead_id}}/win",
-              "host": [
-                "{{base_url}}"
+          "name": "Opportunities",
+          "item": [
+            {
+              "name": "List Opportunities",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/opportunities?page=1&limit=15",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "opportunities"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" },
+                    { "key": "stage", "value": "qualified", "disabled": true },
+                    { "key": "customer_id", "value": "", "disabled": true },
+                    { "key": "search", "value": "", "disabled": true }
+                  ]
+                },
+                "description": "Supports filtering by `stage` (new|contacted|qualified|proposal|negotiation|won|lost), `customer_id`, and free-text `search`."
+              },
+              "response": []
+            },
+            {
+              "name": "Create Opportunity",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    var d = pm.response.json().data;",
+                      "    if (d && d.id) pm.collectionVariables.set('opportunity_id', d.id);",
+                      "}"
+                    ]
+                  }
+                }
               ],
-              "path": [
-                "api",
-                "v1",
-                "leads",
-                "{{lead_id}}",
-                "win"
-              ]
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Cloud Migration Project\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"lead_id\": null,\n  \"stage\": \"new\",\n  \"estimated_value\": 120000,\n  \"probability\": 40,\n  \"close_date\": \"2026-12-31\",\n  \"notes\": \"Multi-phase cloud lift-and-shift.\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/opportunities",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "opportunities"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Opportunity",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/opportunities/{{opportunity_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "opportunities", "{{opportunity_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Opportunity",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Cloud Migration — Phase 1\",\n  \"estimated_value\": 135000,\n  \"probability\": 55,\n  \"close_date\": \"2026-11-30\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/opportunities/{{opportunity_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "opportunities", "{{opportunity_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Opportunity Stage",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stage\": \"proposal\",\n  \"loss_reason\": null\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/opportunities/{{opportunity_id}}/stage",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "opportunities", "{{opportunity_id}}", "stage"]
+                },
+                "description": "Valid stages: `new`, `contacted`, `qualified`, `proposal`, `negotiation`, `won`, `lost`.\n\n- `won` and `lost` are **terminal** — cannot be changed after.\n- Moving to `lost` requires `loss_reason` (non-empty string).\n- Moving to `won` dispatches `OpportunityWon` event → auto-creates a draft Quotation."
+              },
+              "response": []
+            },
+            {
+              "name": "Mark Opportunity as Lost",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stage\": \"lost\",\n  \"loss_reason\": \"Budget frozen until next fiscal year.\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/opportunities/{{opportunity_id}}/stage",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "opportunities", "{{opportunity_id}}", "stage"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Mark Opportunity as Won",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stage\": \"won\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/opportunities/{{opportunity_id}}/stage",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "opportunities", "{{opportunity_id}}", "stage"]
+                },
+                "description": "Dispatches `OpportunityWon` → `CreateDraftQuotationOnOpportunityWon` listener auto-creates a draft Quotation for the linked Customer."
+              },
+              "response": []
+            },
+            {
+              "name": "Archive Opportunity",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/opportunities/{{opportunity_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "opportunities", "{{opportunity_id}}"]
+                }
+              },
+              "response": []
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "List Orders",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/orders?page=1&limit=15",
-              "host": [
-                "{{base_url}}"
+          "name": "CRM Contacts",
+          "item": [
+            {
+              "name": "List CRM Contacts",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-contacts?page=1&limit=15",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-contacts"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" },
+                    { "key": "customer_id", "value": "{{customer_id}}", "disabled": true },
+                    { "key": "search", "value": "", "disabled": true }
+                  ]
+                },
+                "description": "Filter by `customer_id` to list contacts for a specific account."
+              },
+              "response": []
+            },
+            {
+              "name": "Create CRM Contact",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    var d = pm.response.json().data;",
+                      "    if (d && d.id) pm.collectionVariables.set('crm_contact_id', d.id);",
+                      "}"
+                    ]
+                  }
+                }
               ],
-              "path": [
-                "api",
-                "v1",
-                "orders"
-              ],
-              "query": [
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "15" }
-              ]
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_id\": \"{{customer_id}}\",\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"email\": \"jane.smith@acme.com\",\n  \"phone\": \"+1234567892\",\n  \"job_title\": \"VP Sales\",\n  \"is_primary\": false\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-contacts",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-contacts"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get CRM Contact",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-contacts/{{crm_contact_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-contacts", "{{crm_contact_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update CRM Contact",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"job_title\": \"Chief Revenue Officer\",\n  \"is_primary\": true\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-contacts/{{crm_contact_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-contacts", "{{crm_contact_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete CRM Contact",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-contacts/{{crm_contact_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-contacts", "{{crm_contact_id}}"]
+                }
+              },
+              "response": []
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "Confirm Order",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/orders/{{order_id}}/confirm",
-              "host": [
-                "{{base_url}}"
+          "name": "CRM Activities",
+          "item": [
+            {
+              "name": "List CRM Activities",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-activities?page=1&limit=15",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-activities"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" },
+                    { "key": "trackable_type", "value": "App\\Models\\Tenant\\Opportunity", "disabled": true },
+                    { "key": "trackable_id", "value": "{{opportunity_id}}", "disabled": true },
+                    { "key": "activity_type", "value": "call", "disabled": true },
+                    { "key": "status", "value": "pending", "disabled": true }
+                  ]
+                },
+                "description": "Filter by `trackable_type` + `trackable_id` for a timeline view on a Lead or Opportunity."
+              },
+              "response": []
+            },
+            {
+              "name": "Log Activity on Opportunity",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (pm.response.code === 201) {",
+                      "    var d = pm.response.json().data;",
+                      "    if (d && d.id) pm.collectionVariables.set('crm_activity_id', d.id);",
+                      "}"
+                    ]
+                  }
+                }
               ],
-              "path": [
-                "api",
-                "v1",
-                "orders",
-                "{{order_id}}",
-                "confirm"
-              ]
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"trackable_type\": \"App\\\\Models\\\\Tenant\\\\Opportunity\",\n  \"trackable_id\": \"{{opportunity_id}}\",\n  \"activity_type\": \"call\",\n  \"subject\": \"Discovery call — Q3 budget review\",\n  \"description\": \"Discussed timeline and procurement process.\",\n  \"due_date\": \"2026-06-10T10:00:00Z\",\n  \"status\": \"pending\",\n  \"actor_id\": null\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-activities",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-activities"]
+                },
+                "description": "Valid `activity_type` values: `call`, `email`, `meeting`, `note`, `task`.\nValid `trackable_type` values: `App\\Models\\Tenant\\Opportunity`, `App\\Models\\Tenant\\Lead`."
+              },
+              "response": []
+            },
+            {
+              "name": "Log Activity on Lead",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"trackable_type\": \"App\\\\Models\\\\Tenant\\\\Lead\",\n  \"trackable_id\": \"{{lead_id}}\",\n  \"activity_type\": \"email\",\n  \"subject\": \"Follow-up email sent\",\n  \"description\": \"Sent product brochure and pricing sheet.\",\n  \"due_date\": null,\n  \"status\": \"completed\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-activities",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-activities"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get CRM Activity",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-activities/{{crm_activity_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-activities", "{{crm_activity_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update CRM Activity",
+              "request": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"subject\": \"Discovery call — rescheduled\",\n  \"due_date\": \"2026-06-15T14:00:00Z\"\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-activities/{{crm_activity_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-activities", "{{crm_activity_id}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Complete Activity",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-activities/{{crm_activity_id}}/complete",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-activities", "{{crm_activity_id}}", "complete"]
+                },
+                "description": "Marks activity status as `completed`. Returns 422 if already completed."
+              },
+              "response": []
+            },
+            {
+              "name": "Delete CRM Activity",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/crm-activities/{{crm_activity_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "crm-activities", "{{crm_activity_id}}"]
+                }
+              },
+              "response": []
             }
-          },
-          "response": []
+          ]
+        },
+        {
+          "name": "Orders",
+          "item": [
+            {
+              "name": "List Orders",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/orders?page=1&limit=15",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "orders"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "15" }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Confirm Order",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/orders/{{order_id}}/confirm",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "orders", "{{order_id}}", "confirm"]
+                }
+              },
+              "response": []
+            }
+          ]
         }
       ]
     },

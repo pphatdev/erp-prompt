@@ -43,10 +43,10 @@ class Order extends Model
         'cancelled_at' => 'datetime',
     ];
 
-    public const STATUS_NEW = 'new';
-    public const STATUS_CONFIRMED = 'confirmed';
-    public const STATUS_CANCELLED = 'cancelled';
-    public const STATUSES = [self::STATUS_NEW, self::STATUS_CONFIRMED, self::STATUS_CANCELLED];
+    public const STATUS_DRAFT   = 'draft';
+    public const STATUS_CONFIRM = 'confirm';
+    public const STATUS_CANCEL  = 'cancel';
+    public const STATUSES = [self::STATUS_DRAFT, self::STATUS_CONFIRM, self::STATUS_CANCEL];
 
     public function customer(): BelongsTo
     {
@@ -73,14 +73,19 @@ class Order extends Model
         return $this->hasOne(Subscription::class);
     }
 
+    public function isDraft(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
+    }
+
     public function isConfirmed(): bool
     {
-        return $this->status === self::STATUS_CONFIRMED;
+        return $this->status === self::STATUS_CONFIRM;
     }
 
     public function isCancelled(): bool
     {
-        return $this->status === self::STATUS_CANCELLED;
+        return $this->status === self::STATUS_CANCEL;
     }
 
     protected static function boot()

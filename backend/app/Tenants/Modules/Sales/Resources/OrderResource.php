@@ -11,9 +11,15 @@ class OrderResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.sales_order_prefix') ?: 'SO-';
+        $orderNumber = $this->order_number;
+        if ($orderNumber && preg_match('/(\d+)$/', $orderNumber, $matches)) {
+            $orderNumber = $prefix . $matches[1];
+        }
+
         return [
             'id' => $this->id,
-            'orderNumber' => $this->order_number,
+            'orderNumber' => $orderNumber,
             'quotationId' => $this->quotation_id,
             'customerId' => $this->customer_id,
             'customer' => new CustomerResource($this->whenLoaded('customer')),

@@ -13,14 +13,21 @@ class EmployeeResource extends JsonResource
     {
         $canSeePayroll = $request->user()?->can('hrm.payroll.read') ?? false;
 
+        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.employee_id_prefix') ?: (\App\Tenants\Modules\HRM\Services\RecruitmentService::EMPLOYEE_ID_PREFIX . '-');
+        $employeeId = $this->employee_id;
+        if ($employeeId && preg_match('/(\d+)$/', $employeeId, $matches)) {
+            $employeeId = $prefix . $matches[1];
+        }
+
         return [
             'id' => $this->id,
-            'employeeId' => $this->employee_id,
+            'employeeId' => $employeeId,
             'firstName' => $this->first_name,
             'lastName' => $this->last_name,
             'fullName' => trim("{$this->first_name} {$this->last_name}"),
             'email' => $this->email,
             'phone' => $this->phone,
+            'imageUrl' => $this->image_path ? asset('storage/' . $this->image_path) : null,
             'status' => $this->status,
             'hiredAt' => optional($this->hired_at)->toDateString(),
             'baseSalary' => $canSeePayroll ? ($this->base_salary === null ? null : (float) $this->base_salary) : null,

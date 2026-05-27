@@ -10,6 +10,7 @@ use App\Models\Tenant\Product;
 use App\Tenants\Modules\Inventory\Resources\ProductResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
@@ -18,7 +19,7 @@ class ProductController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Product::query()->with(['variants', 'modules'])->orderBy('name');
+        $query = Product::query()->with(['variants', 'modules', 'category'])->orderBy('name');
 
         if ($search = $request->query('search')) {
             $like = '%' . $search . '%';
@@ -36,6 +37,15 @@ class ProductController extends Controller
             $query->where('is_active', filter_var($request->query('is_active'), FILTER_VALIDATE_BOOLEAN));
         }
 
+        if ($request->has('category_id')) {
+            $cat = $request->query('category_id');
+            if ($cat === '' || $cat === 'null') {
+                $query->whereNull('category_id');
+            } else {
+                $query->where('category_id', $cat);
+            }
+        }
+
         $paginator = $this->paginateQuery($query, $request);
 
         return $this->paginatedResponse(ProductResource::class, $paginator, $request);
@@ -47,6 +57,7 @@ class ProductController extends Controller
             'sku'                  => 'required|string|max:120|unique:products,sku',
             'name'                 => 'required|string|max:255',
             'product_type'         => ['sometimes', Rule::in(Product::TYPES)],
+            'category_id'          => 'sometimes|nullable|uuid|exists:categories,id',
             'description'          => 'nullable|string|max:1000',
             'description_long'     => 'nullable|string',
             'unit_price'           => 'required|numeric|min:0',
@@ -54,20 +65,28 @@ class ProductController extends Controller
             'is_active'            => 'sometimes|boolean',
             'module_ids'           => 'sometimes|array',
             'module_ids.*'         => 'uuid|exists:modules,id',
+            'image'                => 'nullable|image|max:2048',
         ]);
 
-        $product = Product::create(collect($validated)->except('module_ids')->toArray());
+        $data = collect($validated)->except(['module_ids', 'image'])->toArray();
+
+        if ($request->hasFile('image')) {
+            $data['image_path'] = $request->file('image')
+                ->store('products/' . tenant('id'), 'public');
+        }
+
+        $product = Product::create($data);
 
         if (!empty($validated['module_ids'])) {
             $product->modules()->sync($validated['module_ids']);
         }
 
-        return new ProductResource($product->load(['variants', 'modules']));
+        return new ProductResource($product->load(['variants', 'modules', 'category']));
     }
 
     public function show(Product $product): ProductResource
     {
-        return new ProductResource($product->load('variants', 'modules'));
+        return new ProductResource($product->load('variants', 'modules', 'category'));
     }
 
     public function update(Request $request, Product $product): ProductResource
@@ -76,6 +95,7 @@ class ProductController extends Controller
             'sku'                  => ['sometimes', 'string', 'max:120', Rule::unique('products', 'sku')->ignore($product->id)],
             'name'                 => 'sometimes|string|max:255',
             'product_type'         => ['sometimes', Rule::in(Product::TYPES)],
+            'category_id'          => 'sometimes|nullable|uuid|exists:categories,id',
             'description'          => 'sometimes|nullable|string|max:1000',
             'description_long'     => 'sometimes|nullable|string',
             'unit_price'           => 'sometimes|numeric|min:0',
@@ -83,15 +103,26 @@ class ProductController extends Controller
             'is_active'            => 'sometimes|boolean',
             'module_ids'           => 'sometimes|array',
             'module_ids.*'         => 'uuid|exists:modules,id',
+            'image'                => 'nullable|image|max:2048',
         ]);
 
-        $product->update(collect($validated)->except('module_ids')->toArray());
+        $data = collect($validated)->except(['module_ids', 'image'])->toArray();
+
+        if ($request->hasFile('image')) {
+            if ($product->image_path) {
+                Storage::disk('public')->delete($product->image_path);
+            }
+            $data['image_path'] = $request->file('image')
+                ->store('products/' . tenant('id'), 'public');
+        }
+
+        $product->update($data);
 
         if ($request->has('module_ids')) {
             $product->modules()->sync($validated['module_ids'] ?? []);
         }
 
-        return new ProductResource($product->fresh(['variants', 'modules']));
+        return new ProductResource($product->fresh(['variants', 'modules', 'category']));
     }
 
     public function destroy(Product $product): JsonResponse

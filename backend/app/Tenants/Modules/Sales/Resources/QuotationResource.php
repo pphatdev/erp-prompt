@@ -11,9 +11,15 @@ class QuotationResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.quotation_prefix') ?: 'QUO-';
+        $quoteNumber = $this->quote_number;
+        if ($quoteNumber && preg_match('/(\d+)$/', $quoteNumber, $matches)) {
+            $quoteNumber = $prefix . $matches[1];
+        }
+
         return [
             'id' => $this->id,
-            'quoteNumber' => $this->quote_number,
+            'quoteNumber' => $quoteNumber,
             'customerId' => $this->customer_id,
             'customer' => new CustomerResource($this->whenLoaded('customer')),
             'status' => $this->status,

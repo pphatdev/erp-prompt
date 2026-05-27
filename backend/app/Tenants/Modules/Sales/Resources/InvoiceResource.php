@@ -11,9 +11,15 @@ class InvoiceResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.invoice_prefix') ?: 'INV-';
+        $invoiceNumber = $this->invoice_number;
+        if ($invoiceNumber && preg_match('/(\d+)$/', $invoiceNumber, $matches)) {
+            $invoiceNumber = $prefix . $matches[1];
+        }
+
         return [
             'id' => $this->id,
-            'invoiceNumber' => $this->invoice_number,
+            'invoiceNumber' => $invoiceNumber,
             'orderId' => $this->order_id,
             'customerId' => $this->customer_id,
             'customer' => new CustomerResource($this->whenLoaded('customer')),

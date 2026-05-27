@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Traits\BelongsToTenant;
 use App\Models\Traits\Auditable;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
@@ -20,17 +21,25 @@ class Product extends Model
         'sku',
         'name',
         'product_type',
+        'category_id',
         'description',
         'description_long',
+        'image_path',
         'unit_price',
         'minimum_stock_level',
+        'total_quantity',
+        'average_cost',
+        'last_cost',
         'is_active',
         'tenant_id',
     ];
 
     protected $casts = [
-        'unit_price' => 'decimal:2',
-        'is_active' => 'boolean',
+        'unit_price'     => 'decimal:2',
+        'total_quantity' => 'decimal:2',
+        'average_cost'   => 'decimal:4',
+        'last_cost'      => 'decimal:4',
+        'is_active'      => 'boolean',
     ];
 
     /**
@@ -55,6 +64,11 @@ class Product extends Model
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     /**

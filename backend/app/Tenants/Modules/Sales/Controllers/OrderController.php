@@ -7,7 +7,6 @@ namespace App\Tenants\Modules\Sales\Controllers;
 use App\Http\Concerns\Paginates;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\Order;
-use App\Models\Tenant\Quotation;
 use App\Tenants\Modules\Sales\Resources\OrderResource;
 use App\Tenants\Modules\Sales\Services\OrderService;
 use DomainException;
@@ -61,23 +60,6 @@ class OrderController extends Controller
         $order = $this->orders->createOrder($data);
 
         return new OrderResource($order->load(['customer', 'items']));
-    }
-
-    /**
-     * Canonical hybrid-sales entry point: convert a confirmed Quotation to
-     * a Sales Order. POST /api/v1/quotations/{quotation}/convert-to-order
-     */
-    public function storeFromQuotation(Quotation $quotation): JsonResponse
-    {
-        try {
-            $order = $this->orders->createFromQuotation($quotation);
-        } catch (DomainException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
-
-        return (new OrderResource($order->load(['customer', 'items'])))
-            ->response()
-            ->setStatusCode(201);
     }
 
     public function show(Order $order): OrderResource

@@ -8,13 +8,11 @@ use App\Models\Tenant\Account;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoiceItem;
 use App\Models\Tenant\Order;
-use App\Models\Tenant\Subscription;
 use App\Tenants\Modules\FMS\Services\AccountingService;
 use App\Tenants\Modules\Settings\Services\SettingService;
 use DomainException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -41,7 +39,6 @@ class InvoiceService
     public function __construct(
         private readonly AccountingService $accounting,
         private readonly SettingService $settings,
-        private readonly SubscriptionService $subscriptions,
     ) {
     }
 
@@ -97,7 +94,7 @@ class InvoiceService
             return $invoice;
         }
 
-        $confirmed = DB::transaction(function () use ($invoice) {
+        return DB::transaction(function () use ($invoice) {
             $journal = $this->postArJournal($invoice);
 
             $invoice->update([
@@ -109,63 +106,6 @@ class InvoiceService
 
             return $invoice->fresh(['items', 'journalEntry']);
         });
-
-        // After the accounting transaction commits, activate any linked software
-        // subscription. This fires SubscriptionConfirmed → ProvisionSubscriptionTenant
-        // which creates the tenant DB + domain so the customer can access their system.
-        $this->activateLinkedSubscription($confirmed);
-
-        return $confirmed;
-    }
-
-    /**
-     * Activate the linked subscription after the invoice is confirmed.
-     *
-     * Two cases are handled:
-     *  1. Subscription is `new` → call confirm(), which dispatches SubscriptionConfirmed
-     *     and triggers provisioning via the listener.
-     *  2. Subscription is `confirmed` but provisioning previously failed
-     *     (provisioned_tenant_id is null) → re-dispatch SubscriptionConfirmed so the
-     *     listener retries provisioning. TenantProvisioningService::provision() uses
-     *     firstOrCreate for the CentralTenant row, making retries safe.
-     *
-     * Provisioning failures are logged but do NOT roll back the committed invoice.
-     */
-    private function activateLinkedSubscription(Invoice $invoice): void
-    {
-        try {
-            /** @var Subscription|null $sub */
-            $sub = $invoice->order?->subscription;
-
-            if (!$sub || $sub->status === Subscription::STATUS_CANCELLED) {
-                return;
-            }
-
-            if ($sub->status === Subscription::STATUS_NEW) {
-                $this->subscriptions->confirm($sub);
-                Log::info('Subscription auto-confirmed on invoice confirmation.', [
-                    'invoice_id'      => $invoice->id,
-                    'subscription_id' => $sub->id,
-                ]);
-                return;
-            }
-
-            // Subscription is already confirmed but provisioning failed on a prior
-            // attempt — re-dispatch the event so the listener retries.
-            if ($sub->status === Subscription::STATUS_CONFIRMED
-                && empty($sub->provisioned_tenant_id)) {
-                \App\Tenants\Modules\Sales\Events\SubscriptionConfirmed::dispatch($sub->fresh());
-                Log::info('Re-dispatched SubscriptionConfirmed for unprovisioned subscription.', [
-                    'invoice_id'      => $invoice->id,
-                    'subscription_id' => $sub->id,
-                ]);
-            }
-        } catch (\Throwable $e) {
-            Log::error('Auto-confirm/provision subscription after invoice failed — confirm it manually.', [
-                'invoice_id' => $invoice->id,
-                'error'      => $e->getMessage(),
-            ]);
-        }
     }
 
     public function cancel(Invoice $invoice, ?string $reason = null): Invoice
@@ -239,6 +179,10 @@ class InvoiceService
 
     private function generateInvoiceNumber(): string
     {
-        return 'INV-' . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
+        $prefix = $this->settings->get('numbering.invoice_prefix');
+        if (empty($prefix)) {
+            $prefix = 'INV-';
+        }
+        return $prefix . now()->format('Ymd') . '-' . strtoupper(Str::random(6));
     }
 }

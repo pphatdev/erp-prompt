@@ -59,7 +59,7 @@ class Customer extends Model
         'brand_primary_color',
         'brand_logo_url',
 
-        // Tenant linkage (populated by ProvisionSubscriptionTenant listener)
+        // Tenant linkage (populated by TenantProvisioningService on Order::confirm)
         'tenant_handle',
         'provisioned_tenant_id',
         'provisioned_at',
@@ -108,6 +108,30 @@ class Customer extends Model
     public function isProvisioned(): bool
     {
         return !empty($this->provisioned_tenant_id) && $this->provisioned_at !== null;
+    }
+
+    /**
+     * Subdomain hostname (without scheme) where this customer accesses their
+     * tenant — `{tenant_handle}.{platform.system_domain}`. Null until both
+     * `tenant_handle` is set AND provisioning completed.
+     */
+    public function provisionedSubdomain(): ?string
+    {
+        if (!$this->tenant_handle || !$this->isProvisioned()) {
+            return null;
+        }
+        return $this->tenant_handle . '.' . config('platform.system_domain', 'localhost');
+    }
+
+    /**
+     * Full HTTPS URL the customer can click to enter their tenant. Returns
+     * null until provisioning is complete. Used by Customer/Subscription
+     * resources so any subscription-facing UI surfaces the live URL.
+     */
+    public function liveAccessUrl(): ?string
+    {
+        $subdomain = $this->provisionedSubdomain();
+        return $subdomain ? 'https://' . $subdomain : null;
     }
 
     protected static function boot(): void

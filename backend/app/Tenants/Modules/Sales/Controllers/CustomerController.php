@@ -9,10 +9,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant\Customer;
 use App\Tenants\Modules\Sales\Resources\CustomerResource;
 use App\Tenants\Modules\Sales\Services\CrmService;
-use App\Tenants\Modules\Sales\Services\TenantProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
@@ -21,7 +19,6 @@ class CustomerController extends Controller
 
     public function __construct(
         private readonly CrmService $crmService,
-        private readonly TenantProvisioningService $provisioner,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -61,18 +58,8 @@ class CustomerController extends Controller
 
         $customer = Customer::create($data);
 
-        if ($customer->isTenantCustomer()) {
-            try {
-                $this->provisioner->provisionForCustomer($customer);
-                $customer->refresh();
-            } catch (\Throwable $e) {
-                Log::error('Tenant provisioning failed on customer create — provision manually.', [
-                    'customer_id' => $customer->id,
-                    'handle'      => $customer->tenant_handle,
-                    'error'       => $e->getMessage(),
-                ]);
-            }
-        }
+        // Tenant provisioning is no longer triggered on customer create.
+        // The single trigger is Sale Order::confirm — see OrderService.
 
         return new CustomerResource($customer->load('accountManager'));
     }
@@ -139,9 +126,13 @@ class CustomerController extends Controller
         return [
             // Identity
             'name'                  => ($isUpdate ? 'sometimes' : 'required') . '|string|max:255',
+            // Email is optional — early-stage leads convert to Customers via
+            // QuotationService::win without one. The unique rule still applies
+            // when an email is supplied (Postgres allows multiple NULLs in a
+            // unique column, so unfilled rows never collide).
             'email'                 => $isUpdate
-                ? ['sometimes', 'email', Rule::unique('customers', 'email')->ignore($existing->id)]
-                : ['required', 'email', Rule::unique('customers', 'email')],
+                ? ['sometimes', 'nullable', 'email', Rule::unique('customers', 'email')->ignore($existing->id)->whereNotNull('email')]
+                : ['sometimes', 'nullable', 'email', Rule::unique('customers', 'email')->whereNotNull('email')],
             'phone'                 => "{$opt}|string|max:50",
             'company_name'          => "{$opt}|string|max:255",
             'status'                => ['sometimes', Rule::in(['active', 'inactive'])],

@@ -99,7 +99,13 @@ class Application extends Model
     public static function generateCandidateCode(mixed $reference = null): string
     {
         $month = Carbon::parse($reference ?: now())->format('Ym');
-        $prefix = "CAN-{$month}-";
+        // Prefix is tenant-configurable via Settings → Numbering (default "CAN-").
+        $base = app(\App\Tenants\Modules\Settings\Services\SettingService::class)
+            ->get('numbering.candidate_code_prefix');
+        if (empty($base)) {
+            $base = 'CAN-';
+        }
+        $prefix = "{$base}{$month}-";
 
         $rows = static::withTrashed()
             ->where('candidate_code', 'like', $prefix . '%')
