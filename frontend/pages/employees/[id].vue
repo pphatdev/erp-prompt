@@ -24,9 +24,10 @@
                 <div class="flex flex-col md:flex-row items-start md:items-center gap-5">
                     <!-- Avatar -->
                     <div class="relative shrink-0">
-                        <div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center text-xl md:text-2xl font-bold bg-(--color-primary-subtle) text-(--color-primary)"
+                        <div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center text-xl md:text-2xl font-bold bg-(--color-primary-subtle) text-(--color-primary) overflow-hidden"
                             :title="employee.fullName">
-                            {{ initials(employee) }}
+                            <img v-if="employee.imageUrl" :src="employee.imageUrl" :alt="employee.fullName" class="w-full h-full object-cover" />
+                            <span v-else>{{ initials(employee) }}</span>
                         </div>
                         <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-(--bg-card)"
                             :class="statusDotClass(employee.status)" :title="statusLabel(employee.status)" />
@@ -382,6 +383,7 @@ interface Employee {
     fullName: string
     email: string
     phone: string | null
+    imageUrl: string | null
     status: 'active' | 'on_leave' | 'terminated'
     hiredAt: string | null
     baseSalary: number | null

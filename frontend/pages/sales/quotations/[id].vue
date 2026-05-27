@@ -14,23 +14,19 @@
                         <Badge :variant="statusBadgeVariant(quote.status)">{{ quote.status }}</Badge>
                     </div>
                     <p class="text-xs text-(--text-muted) mt-1">
-                        Customer: <span class="text-(--text-body)">{{ quote.customer?.name || '—' }}</span>
+                        Customer: <span class="text-(--text-body)">{{ quote.customer?.name || 'Prospect — no account yet' }}</span>
                     </p>
                 </div>
 
                 <div class="flex flex-wrap gap-2">
-                    <button v-if="quote.status === 'new'" class="btn btn-primary text-xs" :disabled="acting"
-                        @click="confirm">
-                        <i class="ti ti-check" />Confirm quote
+                    <button v-if="quote.status === 'draft'" class="btn btn-primary text-xs" :disabled="acting"
+                        @click="win">
+                        <i class="ti ti-trophy" />Mark won
                     </button>
-                    <button v-if="quote.status === 'confirmed' && !quote.orderId" class="btn btn-primary text-xs"
-                        :disabled="acting" @click="convert">
-                        <i class="ti ti-arrow-right" />Convert to order
-                    </button>
-                    <button v-if="quote.status !== 'cancelled' && !quote.orderId"
+                    <button v-if="quote.status === 'draft'"
                         class="btn text-xs text-(--color-danger) border border-(--color-danger)/20 hover:bg-(--color-danger-subtle)"
-                        :disabled="acting" @click="cancelConfirm">
-                        <i class="ti ti-ban" />Cancel
+                        :disabled="acting" @click="showLose = true">
+                        <i class="ti ti-mood-sad" />Mark lost
                     </button>
                     <NuxtLink v-if="quote.orderId" class="btn btn-soft-primary text-xs"
                         :to="`/sales/orders/${quote.orderId}`">
@@ -39,19 +35,32 @@
                 </div>
             </header>
 
+            <div v-if="quote.status === 'draft'"
+                class="px-4 py-3 rounded-lg bg-(--color-info-subtle) text-(--color-info) text-xs">
+                <i class="ti ti-info-circle" />
+                Marking <strong>won</strong> converts the linked Lead into a Customer (if new) and auto-creates a draft Sale Order.
+                Marking <strong>lost</strong> requires a reason and closes the Lead as unqualified.
+            </div>
+
             <!-- Summary tiles -->
             <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Subtotal</p>
-                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ fmt(quote.subtotal) }}</p>
+                    <p class="text-base font-semibold text-(--text-heading) mt-1">
+                        <CountUp :value="quote.subtotal" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Tax</p>
-                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ fmt(quote.taxAmount) }}</p>
+                    <p class="text-base font-semibold text-(--text-heading) mt-1">
+                        <CountUp :value="quote.taxAmount" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
-                    <p class="text-base font-semibold text-(--color-primary) mt-1">{{ fmt(quote.totalAmount) }}</p>
+                    <p class="text-base font-semibold text-(--color-primary) mt-1">
+                        <CountUp :value="quote.totalAmount" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Due</p>
@@ -93,20 +102,20 @@
             </section>
 
             <!-- Audit trail -->
-            <section v-if="quote.confirmedAt || quote.cancelledAt || quote.notes" class="glass-card rounded-2xl p-5">
+            <section v-if="quote.wonAt || quote.lostAt || quote.notes" class="glass-card rounded-2xl p-5">
                 <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
                     <i class="ti ti-history text-(--color-primary)" />
                     Trail
                 </h3>
                 <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div v-if="quote.confirmedAt">
-                        <dt class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Confirmed</dt>
-                        <dd>{{ formatDate(quote.confirmedAt) }}</dd>
+                    <div v-if="quote.wonAt">
+                        <dt class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Won</dt>
+                        <dd>{{ formatDate(quote.wonAt) }}</dd>
                     </div>
-                    <div v-if="quote.cancelledAt">
-                        <dt class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Cancelled</dt>
-                        <dd>{{ formatDate(quote.cancelledAt) }}</dd>
-                        <dd v-if="quote.cancelReason" class="text-(--text-muted) italic">"{{ quote.cancelReason }}"</dd>
+                    <div v-if="quote.lostAt">
+                        <dt class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Lost</dt>
+                        <dd>{{ formatDate(quote.lostAt) }}</dd>
+                        <dd v-if="quote.lossReason" class="text-(--text-muted) italic">"{{ quote.lossReason }}"</dd>
                     </div>
                     <div v-if="quote.notes" class="sm:col-span-2">
                         <dt class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Notes</dt>
@@ -116,25 +125,24 @@
             </section>
         </div>
 
-        <!-- Cancel reason prompt -->
-        <div v-if="showCancel"
+        <!-- Lose reason modal -->
+        <div v-if="showLose"
             class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div class="glass-card rounded-2xl w-full max-w-md bg-(--bg-card) shadow-(--shadow-lg)">
                 <header class="flex items-center justify-between p-5 border-b border-(--border-color)">
-                    <h3>Cancel quotation</h3>
-                    <button class="w-8 h-8 rounded-full hover:bg-(--bg-muted)" @click="showCancel = false"><i
+                    <h3>Mark quotation lost</h3>
+                    <button class="w-8 h-8 rounded-full hover:bg-(--bg-muted)" @click="showLose = false"><i
                             class="ti ti-x" /></button>
                 </header>
                 <div class="p-5 space-y-3">
-                    <p class="text-xs text-(--text-muted)">This will close the lead. The quote stays in the audit trail
-                        but can't be confirmed afterwards.</p>
-                    <input v-model="cancelReason" type="text" maxlength="500" placeholder="Reason (optional)"
+                    <p class="text-xs text-(--text-muted)">Captured on the originating Lead for funnel analytics. Required.</p>
+                    <input v-model="lossReason" type="text" maxlength="1000" placeholder="Why was the deal lost?"
                         class="form-control text-xs" />
                 </div>
                 <footer class="p-5 border-t border-(--border-color) flex justify-end gap-2">
-                    <button class="btn btn-ghost text-xs" @click="showCancel = false">Keep open</button>
-                    <button class="btn btn-danger text-xs" :disabled="acting" @click="cancel">
-                        <i class="ti ti-ban" />Cancel quote
+                    <button class="btn btn-ghost text-xs" @click="showLose = false">Keep draft</button>
+                    <button class="btn btn-danger text-xs" :disabled="acting || !lossReason.trim()" @click="lose">
+                        <i class="ti ti-mood-sad" />Mark lost
                     </button>
                 </footer>
             </div>
@@ -148,6 +156,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useSales, statusBadgeVariant } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
 import type { Quotation } from '~/types/sales'
+import CountUp from '~/components/CountUp.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -157,8 +166,8 @@ const toast = useToast()
 const quote = ref<Quotation | null>(null)
 const loading = ref(true)
 const acting = ref(false)
-const showCancel = ref(false)
-const cancelReason = ref('')
+const showLose = ref(false)
+const lossReason = ref('')
 
 const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0)
 const formatDate = (iso: string) => new Date(iso).toLocaleString()
@@ -175,49 +184,33 @@ const load = async () => {
     }
 }
 
-const confirm = async () => {
+const win = async () => {
     if (!quote.value) return
     acting.value = true
     try {
-        const res = await sales.quotations.confirm(quote.value.id)
+        const res = await sales.quotations.win(quote.value.id)
         quote.value = res.data
-        toast.success('Quotation confirmed', 'Ready to convert into a Sales Order.')
+        toast.success('Quotation won', 'Draft Sale Order created — open it to confirm fulfillment.')
+        if (res.data.orderId) {
+            router.push(`/sales/orders/${res.data.orderId}`)
+        }
     } catch (err: any) {
-        toast.error('Confirm failed', err?.data?.message)
+        toast.error('Mark won failed', err?.data?.message)
     } finally {
         acting.value = false
     }
 }
 
-const convert = async () => {
-    if (!quote.value) return
+const lose = async () => {
+    if (!quote.value || !lossReason.value.trim()) return
     acting.value = true
     try {
-        const res = await sales.quotations.convertToOrder(quote.value.id)
-        toast.success('Sales Order created', res.data.orderNumber)
-        router.push(`/sales/orders/${res.data.id}`)
-    } catch (err: any) {
-        toast.error('Conversion failed', err?.data?.message)
-    } finally {
-        acting.value = false
-    }
-}
-
-const cancelConfirm = () => {
-    cancelReason.value = ''
-    showCancel.value = true
-}
-
-const cancel = async () => {
-    if (!quote.value) return
-    acting.value = true
-    try {
-        const res = await sales.quotations.cancel(quote.value.id, cancelReason.value || undefined)
+        const res = await sales.quotations.lose(quote.value.id, lossReason.value.trim())
         quote.value = res.data
-        showCancel.value = false
-        toast.success('Quotation cancelled')
+        showLose.value = false
+        toast.success('Quotation marked lost')
     } catch (err: any) {
-        toast.error('Cancel failed', err?.data?.message)
+        toast.error('Mark lost failed', err?.data?.message)
     } finally {
         acting.value = false
     }

@@ -16,7 +16,7 @@
                         class="form-control pl-9" />
                 </div>
                 <div class="flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
-                    <button v-for="s in (['all', 'new', 'confirmed', 'active', 'cancelled', 'expired'] as const)" :key="s"
+                    <button v-for="s in (['all', 'active', 'expired', 'cancelled'] as const)" :key="s"
                         class="px-3 py-1 rounded text-xxs uppercase tracking-widest font-bold transition-colors"
                         :class="filterStatus === s ? 'bg-(--bg-card) text-(--color-primary) shadow-(--shadow-sm)' : 'text-(--text-muted) hover:text-(--text-heading)'"
                         @click="filterStatus = s">{{ s }}</button>
@@ -84,7 +84,7 @@ const toast = useToast()
 const loading = ref(false)
 const subs = ref<Subscription[]>([])
 const search = ref('')
-const filterStatus = ref<'all' | 'new' | 'confirmed' | 'active' | 'cancelled' | 'expired'>('all')
+const filterStatus = ref<'all' | 'active' | 'expired' | 'cancelled'>('all')
 
 const filtered = computed(() => subs.value.filter(s => {
     const matchSearch = !search.value ||

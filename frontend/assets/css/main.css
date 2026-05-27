@@ -731,5 +731,5 @@ select.form-control {
 
 
 .kanban-column {
-    min-height: calc(100vh - 23.8rem);
+    min-height: calc(100vh - 22rem);
 }

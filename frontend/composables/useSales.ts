@@ -1,5 +1,6 @@
 import { useApi } from '~/composables/useApi'
 import type {
+    ChangeSubscriptionPlanPayload,
     CreateCustomerPayload,
     CreateQuotationItemPayload,
     CreateQuotationPayload,
@@ -14,6 +15,7 @@ import type {
     Quotation,
     QuotationItem,
     QuotationStatus,
+    RenewSubscriptionPayload,
     Subscription,
     SubscriptionStatus,
 } from '~/types/sales'
@@ -63,14 +65,11 @@ export const useSales = () => {
         addItem: (id: string, body: CreateQuotationItemPayload) =>
             api.post<{ data: QuotationItem }>(`quotations/${id}/items`, body),
 
-        confirm: (id: string) =>
-            api.post<{ data: Quotation }>(`quotations/${id}/confirm`),
+        win: (id: string) =>
+            api.post<{ data: Quotation }>(`quotations/${id}/win`),
 
-        cancel: (id: string, reason?: string) =>
-            api.post<{ data: Quotation }>(`quotations/${id}/cancel`, { reason }),
-
-        convertToOrder: (id: string) =>
-            api.post<{ data: Order }>(`quotations/${id}/convert-to-order`),
+        lose: (id: string, lossReason: string) =>
+            api.post<{ data: Quotation }>(`quotations/${id}/lose`, { loss_reason: lossReason }),
     }
 
     // ───── Orders ────────────────────────────────────────────────────
@@ -111,8 +110,11 @@ export const useSales = () => {
         show: (id: string) =>
             api.get<{ data: Subscription }>(`subscriptions/${id}`),
 
-        confirm: (id: string) =>
-            api.post<{ data: Subscription }>(`subscriptions/${id}/confirm`),
+        renew: (id: string, body: RenewSubscriptionPayload = {}) =>
+            api.post<{ data: Subscription }>(`subscriptions/${id}/renew`, body),
+
+        changePlan: (id: string, body: ChangeSubscriptionPlanPayload) =>
+            api.post<{ data: Subscription }>(`subscriptions/${id}/change-plan`, body),
 
         cancel: (id: string, reason?: string) =>
             api.post<{ data: Subscription }>(`subscriptions/${id}/cancel`, { reason }),
@@ -161,12 +163,21 @@ export const statusBadgeVariant = (
     status: QuotationStatus | OrderStatus | InvoiceStatus | SubscriptionStatus
 ): 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' => {
     switch (status) {
-        case 'new':       return 'info'
-        case 'confirmed': return 'primary'
+        // shared
         case 'active':    return 'success'
         case 'paid':      return 'success'
         case 'expired':   return 'warning'
         case 'cancelled': return 'danger'
+        // Quotation
+        case 'draft':     return 'info'
+        case 'won':       return 'success'
+        case 'lost':      return 'danger'
+        // Order
+        case 'confirm':   return 'primary'
+        case 'cancel':    return 'danger'
+        // Invoice (unchanged)
+        case 'new':       return 'info'
+        case 'confirmed': return 'primary'
         default:          return 'secondary'
     }
 }

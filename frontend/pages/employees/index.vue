@@ -102,8 +102,9 @@
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3 min-w-0">
                                         <div
-                                            class="w-9 h-9 rounded-lg bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold text-xs shrink-0">
-                                            {{ initials(emp) }}
+                                            class="w-9 h-9 rounded-lg bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold text-xs shrink-0 overflow-hidden">
+                                            <img v-if="emp.imageUrl" :src="emp.imageUrl" :alt="emp.fullName" class="w-full h-full object-cover" />
+                                            <span v-else>{{ initials(emp) }}</span>
                                         </div>
                                         <div class="min-w-0">
                                             <NuxtLink :to="`/employees/${emp.id}`"
@@ -151,9 +152,10 @@
                         <header class="flex items-start justify-between gap-3 mb-4">
                             <div class="flex items-start gap-3 min-w-0">
                                 <div class="relative shrink-0">
-                                    <div class="w-12 h-12 rounded-xl bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold text-sm"
+                                    <div class="w-12 h-12 rounded-xl bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold text-sm overflow-hidden"
                                         :title="emp.fullName">
-                                        {{ initials(emp) }}
+                                        <img v-if="emp.imageUrl" :src="emp.imageUrl" :alt="emp.fullName" class="w-full h-full object-cover" />
+                                        <span v-else>{{ initials(emp) }}</span>
                                     </div>
                                     <span
                                         class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-(--bg-card)"
@@ -258,10 +260,36 @@
                     </header>
 
                     <form class="grid grid-cols-1 sm:grid-cols-2 gap-4" @submit.prevent="saveEmployee">
+                        <!-- Profile photo -->
+                        <div class="sm:col-span-2 flex items-start gap-4">
+                            <div class="w-20 h-20 rounded-full border border-(--border-color) bg-(--bg-muted) overflow-hidden flex items-center justify-center shrink-0">
+                                <img v-if="imagePreview" :src="imagePreview" alt="preview" class="w-full h-full object-cover" />
+                                <span v-else class="text-(--text-muted) text-sm font-semibold">
+                                    {{ form.first_name?.[0]?.toUpperCase() || '' }}{{ form.last_name?.[0]?.toUpperCase() || '' }}
+                                </span>
+                            </div>
+                            <div class="flex-1 space-y-2">
+                                <label class="form-label">Profile photo</label>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <label class="btn btn-ghost text-xs border border-(--border-color) rounded-lg px-3 py-1.5 cursor-pointer inline-flex items-center gap-2">
+                                        <i class="ti ti-upload" />
+                                        {{ imagePreview ? 'Change photo' : 'Upload photo' }}
+                                        <input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImageChange" />
+                                    </label>
+                                    <button v-if="imagePreview" type="button"
+                                        class="text-xxs text-(--color-danger) hover:underline inline-flex items-center gap-1"
+                                        @click="clearImage">
+                                        <i class="ti ti-trash text-xs" />Remove
+                                    </button>
+                                </div>
+                                <p class="text-xxs text-(--text-muted)">PNG, JPG or WebP · max 2 MB</p>
+                            </div>
+                        </div>
+
                         <div class="sm:col-span-2">
-                            <label class="form-label">Employee ID</label>
-                            <input v-model="form.employee_id" type="text" required class="form-control font-mono"
-                                placeholder="EMP-0001" />
+                            <label class="form-label">Employee ID <span v-if="editing" class="text-xxs text-(--text-muted) ml-1">(Immutable)</span></label>
+                            <input v-model="form.employee_id" type="text" class="form-control font-mono"
+                                placeholder="Leave blank to auto-generate" :disabled="!!editing" />
                         </div>
 
                         <div>
@@ -349,6 +377,7 @@ interface Employee {
     fullName: string
     email: string
     phone: string | null
+    imageUrl: string | null
     status: 'active' | 'on_leave' | 'terminated'
     hiredAt: string | null
     baseSalary: number | null
@@ -399,6 +428,29 @@ const form = reactive({
     base_salary: null as number | null,
     status: 'active' as 'active' | 'on_leave' | 'terminated'
 })
+
+const imageInput = ref<HTMLInputElement | null>(null)
+const imageFile = ref<File | null>(null)
+const imagePreview = ref<string | null>(null)
+const removeImageFlag = ref(false)
+
+const onImageChange = (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0] ?? null
+    imageFile.value = file
+    removeImageFlag.value = false
+    if (file) {
+        const reader = new FileReader()
+        reader.onload = ev => { imagePreview.value = ev.target?.result as string }
+        reader.readAsDataURL(file)
+    }
+}
+
+const clearImage = () => {
+    imageFile.value = null
+    imagePreview.value = null
+    removeImageFlag.value = true
+    if (imageInput.value) imageInput.value.value = ''
+}
 
 const initials = (e: Employee) =>
     `${(e.firstName?.[0] || '').toUpperCase()}${(e.lastName?.[0] || '').toUpperCase()}` || 'EM'
@@ -516,6 +568,10 @@ const resetForm = () => {
         hired_at: '', department_id: '', position_id: '', base_salary: null, status: 'active'
     })
     formError.value = null
+    imageFile.value = null
+    imagePreview.value = null
+    removeImageFlag.value = false
+    if (imageInput.value) imageInput.value.value = ''
 }
 
 const openCreateModal = () => {
@@ -539,6 +595,10 @@ const openEditModal = (emp: Employee) => {
         status: emp.status
     })
     formError.value = null
+    imageFile.value = null
+    imagePreview.value = emp.imageUrl ?? null
+    removeImageFlag.value = false
+    if (imageInput.value) imageInput.value.value = ''
     showModal.value = true
 }
 
@@ -557,19 +617,40 @@ const saveEmployee = async () => {
             hired_at: form.hired_at || null,
             department_id: form.department_id || null,
             position_id: form.position_id || null,
-            status: form.status
+            status: form.status,
         }
         if (canSeeSalary.value) payload.base_salary = form.base_salary
 
+        let employeeId: string
         if (editing.value) {
             await api.put(`/employees/${editing.value.id}`, payload)
+            employeeId = editing.value.id
         } else {
-            await api.post('/employees', payload)
+            const res = await api.post<{ data: { id: string } }>('/employees', payload)
+            employeeId = res.data.id
         }
+
+        // Image goes through a dedicated multipart endpoint — keeps the JSON
+        // PUT above clean and avoids the _method=PUT spoof which is fragile
+        // across PHP / proxy / ofetch combinations.
+        if (imageFile.value) {
+            const fd = new FormData()
+            fd.append('image', imageFile.value as File)
+            await api.post(`/employees/${employeeId}/avatar`, fd)
+        } else if (editing.value && removeImageFlag.value) {
+            await api.delete(`/employees/${employeeId}/avatar`)
+        }
+
         showModal.value = false
         await loadEmployees()
     } catch (err: any) {
-        formError.value = err.data?.message || 'Failed to save employee.'
+        console.error('Save employee failed', err?.status, err?.data)
+        const errors = err?.data?.errors
+        if (errors && typeof errors === 'object') {
+            formError.value = (Object.values(errors).flat()[0] as string) || 'Validation failed.'
+        } else {
+            formError.value = err.data?.message || `Failed to save employee (${err?.status ?? 'unknown'}).`
+        }
     } finally {
         saving.value = false
     }

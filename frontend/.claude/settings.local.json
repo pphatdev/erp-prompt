@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(\\(Get-Content \"D:\\\\Project\\\\Sophat\\\\labs\\\\erp-apps\\\\docs\\\\postman\\\\erp_collection.json\" | Measure-Object -Line\\).Lines)"
+    ]
+  }
+}

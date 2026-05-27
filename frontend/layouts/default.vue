@@ -382,7 +382,7 @@
                 <slot />
             </main>
 
-            <footer
+            <!-- <footer
                 class="px-6 py-4 border-t border-(--border-color) bg-(--footer-bg) flex flex-col sm:flex-row justify-between items-center gap-2 text-xxs text-(--text-muted)">
                 <div>
                     © {{ new Date().getFullYear() }} Smart ERP · Tenant <span class="font-mono text-(--text-body)">@{{
@@ -393,7 +393,7 @@
                     <a class="hover:text-(--text-heading) cursor-pointer">Audit Ledger</a>
                     <a class="hover:text-(--text-heading) cursor-pointer">Support</a>
                 </div>
-            </footer>
+            </footer> -->
         </div>
 
         <CustomizerOffcanvas v-model="customizerOpen" />
@@ -411,7 +411,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const tenantStore = useTenantStore()
 const toast = useToast()
-const { load: loadModules, hasModule, loading: modulesLoading } = useModules()
+const { load: loadModules, hasModule, loading: modulesLoading, modules } = useModules()
 
 const skeletonGroups = [
     { label: 'main', labelWidth: '2.5rem', items: ['60%', '55%'] },
@@ -537,10 +537,20 @@ const navGroups: NavGroup[] = [
                 icon: 'ti-shopping-cart',
                 moduleSlug: 'ecommerce',
                 children: [
-                    { label: 'Products', icon: 'ti-package', route: '/products', operational: true },
                     { label: 'Orders', icon: 'ti-receipt', route: '#', operational: false },
-                    { label: 'Inventory', icon: 'ti-archive', route: '#', operational: false },
                     { label: 'Refunds', icon: 'ti-receipt-refund', route: '#', operational: false }
+                ]
+            },
+            {
+                label: 'CRM',
+                icon: 'ti-users',
+                moduleSlug: 'crm',
+                children: [
+                    { label: 'Leads', icon: 'ti-address-book', route: '/crm/leads', operational: true, permission: ['crm.leads.read', 'crm.leads.write'] },
+                    { label: 'Sales Pipeline', icon: 'ti-layout-kanban', route: '/crm/opportunities', operational: true, permission: ['crm.opportunities.read', 'crm.opportunities.write'] },
+                    { label: 'Schedules', icon: 'ti-calendar-event', route: '/crm/schedules', operational: true, permission: ['crm.appointments.read', 'crm.appointments.write'] },
+                    { label: 'Interaction Timeline', icon: 'ti-notes', route: '/crm/activities', operational: true, permission: ['crm.activities.read', 'crm.activities.write'] },
+                    { label: 'B2B Contacts', icon: 'ti-users-group', route: '/crm/contacts', operational: true, permission: ['crm.contacts.read', 'crm.contacts.write'] }
                 ]
             },
             {
@@ -550,9 +560,33 @@ const navGroups: NavGroup[] = [
                 children: [
                     { label: 'Customers', icon: 'ti-users', route: '/sales/customers', operational: true, permission: ['sales.crm.read', 'sales.crm.write'] },
                     { label: 'Quotations', icon: 'ti-file-text', route: '/sales/quotations', operational: true, permission: ['sales.crm.read', 'sales.crm.write'] },
-                    { label: 'Sales Orders', icon: 'ti-shopping-cart', route: '/sales/orders', operational: true, permission: ['sales.orders.read', 'sales.orders.write'] },
+                    { label: 'Sales Orders', icon: 'ti-shopping-cart', route: '/sales/orders', operational: true, permission: ['sales.orders.read', 'sales.orders.write'] }
+                ]
+            },
+            {
+                label: 'Finance',
+                icon: 'ti-coin',
+                moduleSlug: 'fms',
+                children: [
+                    // Invoices/Subscriptions live under the Sales namespace today; surfaced here
+                    // to match the Finance org chart. Backend paths unchanged — see rules/hybrid_sales_business_flow.md.
                     { label: 'Invoices', icon: 'ti-receipt', route: '/sales/invoices', operational: true, permission: ['sales.orders.read', 'sales.orders.write'] },
-                    { label: 'Subscriptions', icon: 'ti-cloud', route: '/sales/subscriptions', operational: true, permission: ['sales.orders.read', 'sales.orders.write'] }
+                    { label: 'Subscriptions', icon: 'ti-cloud', route: '/sales/subscriptions', operational: true, permission: ['sales.orders.read', 'sales.orders.write'] },
+                    { label: 'Payments', icon: 'ti-cash', route: '/finance/payments', operational: false },
+                    { label: 'Estimates', icon: 'ti-file-invoice', route: '/finance/estimates', operational: false },
+                    { label: 'Exchange Rates', icon: 'ti-currency-dollar', route: '/finance/exchange-rates', operational: true, permission: ['fms.exchange_rate.read', 'fms.exchange_rate.write'] }
+                ]
+            },
+            {
+                label: 'Inventory',
+                icon: 'ti-building-warehouse',
+                moduleSlug: 'inventory',
+                children: [
+                    { label: 'Products', icon: 'ti-package', route: '/inventory/products', operational: true, permission: ['inventory.product.read', 'inventory.product.write'] },
+                    { label: 'Categories', icon: 'ti-category', route: '/inventory/categories', operational: true, permission: ['inventory.category.read', 'inventory.category.write'] },
+                    { label: 'Warehouses', icon: 'ti-building-warehouse', route: '/inventory/warehouses', operational: true, permission: ['inventory.warehouse.read', 'inventory.warehouse.write'] },
+                    { label: 'Suppliers', icon: 'ti-truck-delivery', route: '/inventory/suppliers', operational: true, permission: ['inventory.suppliers.read', 'inventory.suppliers.write'] },
+                    { label: 'Purchase Orders', icon: 'ti-shopping-bag', route: '/inventory/purchase-orders', operational: true, permission: ['inventory.procurement.read', 'inventory.procurement.write'] }
                 ]
             },
             {
@@ -612,6 +646,21 @@ const canSeeItem = (item: NavItem): boolean => {
     return slugs.some(slug => authStore.hasPermission(slug))
 }
 
+const getModIndex = (item: NavItem, parentModSlug?: string) => {
+    const mods = modules.value || []
+    if (parentModSlug) {
+        const parentMod = mods.find(m => m.slug === parentModSlug)
+        if (parentMod && parentMod.children) {
+            const idx = parentMod.children.findIndex(c => c.route === item.route || c.slug === item.moduleSlug)
+            return idx === -1 ? 9999 : idx
+        }
+        return 9999
+    } else {
+        const idx = mods.findIndex(m => m.slug === item.moduleSlug || m.route === item.route)
+        return idx === -1 ? 9999 : idx
+    }
+}
+
 const visibleNavGroups = computed<NavGroup[]>(() => {
     return navGroups
         // Hide the self-service group for admins — they get the full module
@@ -619,25 +668,45 @@ const visibleNavGroups = computed<NavGroup[]>(() => {
         // duplicate links (their hasPermission() short-circuits make every .self
         // permission resolve true otherwise).
         .filter(group => !(group.id === 'self-service' && authStore.isAdmin))
-        .map(group => ({
-            ...group,
-            items: group.items
-                .map(item => {
-                    if (!item.children) return item
-                    // Recurse into child links so a group only shows the children the
-                    // user actually has access to.
-                    const visibleChildren = item.children.filter(canSeeItem)
-                    return visibleChildren.length ? { ...item, children: visibleChildren } : null
-                })
-                .filter((item): item is NavItem => item !== null && canSeeItem(item))
-        }))
+        .map(group => {
+            const sortedItems = [...group.items].sort((a, b) => getModIndex(a) - getModIndex(b))
+            
+            return {
+                ...group,
+                items: sortedItems
+                    .map(item => {
+                        if (!item.children) return item
+                        // Recurse into child links so a group only shows the children the
+                        // user actually has access to.
+                        const sortedChildren = [...item.children].sort((a, b) => getModIndex(a, item.moduleSlug) - getModIndex(b, item.moduleSlug))
+                        const visibleChildren = sortedChildren.filter(canSeeItem)
+                        return visibleChildren.length ? { ...item, children: visibleChildren } : null
+                    })
+                    .filter((item): item is NavItem => item !== null && canSeeItem(item))
+            }
+        })
         .filter(group => group.items.length > 0)
 })
 
 const isRouteActive = (target?: string): boolean => {
     if (!target || target === '#') return false
     const path = router.currentRoute.value.path
-    return path === target || path.startsWith(target + '/')
+    // Strip query/hash from the target so deep-links like
+    // /crm/opportunities?stage=won still highlight when on /crm/opportunities.
+    const targetPath = target.split(/[?#]/)[0]
+    if (path !== targetPath && !path.startsWith(targetPath + '/')) return false
+    // If the target carries query params, require each to match the current
+    // query so the "Won (Qualified)" sub-link only highlights when stage=won.
+    if (target.includes('?')) {
+        const targetQuery = new URLSearchParams(target.split('?')[1])
+        const current = router.currentRoute.value.query
+        for (const [k, v] of targetQuery.entries()) {
+            const cv = current[k]
+            const match = typeof cv === 'string' ? cv === v : (Array.isArray(cv) ? cv.includes(v) : false)
+            if (!match) return false
+        }
+    }
+    return true
 }
 
 const isGroupActive = (item: NavItem) =>
@@ -741,7 +810,16 @@ const SLUG_LABELS: Record<string, string> = {
     quotations: 'Quotations',
     orders: 'Sales Orders',
     invoices: 'Invoices',
-    subscriptions: 'Subscriptions'
+    subscriptions: 'Subscriptions',
+    finance: 'Finance',
+    payments: 'Payments',
+    estimates: 'Estimates',
+    crm: 'CRM',
+    leads: 'Leads',
+    opportunities: 'Sales Pipeline',
+    schedules: 'Schedules',
+    contacts: 'B2B Contacts',
+    activities: 'Interaction Timeline'
 }
 
 const titleize = (slug: string) =>
@@ -824,6 +902,8 @@ const selectTenant = (handle: string) => {
     localStorage.setItem('tenant_handle', handle)
     open.tenant = false
     authStore.fetchProfile()
+    // New tenant → re-fetch branding so primary color / logo refresh.
+    tenantStore.syncBranding()
 }
 
 const comingSoon = (label: string) => {
@@ -856,9 +936,16 @@ onMounted(() => {
     authStore.initializeAuth()
     loadModules()
 
-    const saved = (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
-    themeMode.value = saved
-    applyTheme(saved)
+    // Resolve theme in this priority order so navigating between modules
+    // (each page mounts its own NuxtLayout) never silently flips back to
+    // light: explicit user choice → already-applied attribute (set by app.vue
+    // before this layout mounted) → system preference → light.
+    const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
+    const currentAttr = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : null
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : null
+    const resolved: 'light' | 'dark' = storedTheme || currentAttr || prefersDark || 'light'
+    themeMode.value = resolved
+    applyTheme(resolved)
 
     visibleNavGroups.value.forEach(g => g.items.forEach(i => {
         if (i.children?.some(c => isRouteActive(c.route))) openGroups[i.label] = true

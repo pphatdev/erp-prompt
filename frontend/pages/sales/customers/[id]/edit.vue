@@ -418,7 +418,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useBreadcrumbOverride } from '~/composables/useBreadcrumbOverride'
 import { useSales } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
+import { useValidation } from '~/composables/useValidation'
 import type { Customer } from '~/types/sales'
+
+const { normalizePhoneNumber, normalizeEmail } = useValidation()
 
 definePageMeta({ breadcrumb: 'Edit' })
 
@@ -480,7 +483,7 @@ const form = reactive({
 // Mirror of `form` taken right after load, used to highlight unsaved changes.
 const initial = reactive({ ...form })
 
-// ───── Handle availability check ────────────────────────────
+// Handle availability check
 type HandleStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
 const handleStatus = ref<HandleStatus>('idle')
 let handleTimer: ReturnType<typeof setTimeout> | null = null
@@ -516,7 +519,7 @@ const brandPreviewColor = computed(() => {
     return `rgb(${parts.join(',')})`
 })
 
-// ───── Color picker bridge ────────────────────────────────
+// Color picker bridge
 const COLOR_PRESETS = [
     { name: 'Blue', rgb: '59 130 246' },
     { name: 'Indigo', rgb: '99 102 241' },
@@ -546,6 +549,11 @@ const brandHex = computed(() => {
     return '#' + parts.map(p => p.toString(16).padStart(2, '0')).join('')
 })
 
+/**
+ * @description Event handler for native color picker input to map hex code to space-separated RGB triplet.
+ * @param { Event } e Native input event
+ * @returns { void }
+ */
 const onColorPick = (e: Event) => {
     const hex = (e.target as HTMLInputElement).value
     const r = parseInt(hex.slice(1, 3), 16)
@@ -587,9 +595,14 @@ const dirtyFieldsLabels = computed(() => {
         .map(k => FIELD_LABELS[k])
 })
 
-// ───── Logo upload (base64, client-side) ─────────────
+// Logo upload (base64, client-side)
 const LOGO_MAX_BYTES = 200 * 1024
 
+/**
+ * @description Event handler triggered when a branding logo image is selected.
+ * @param { Event } e Native change event
+ * @returns { Promise<void> }
+ */
 const onLogoSelected = async (e: Event) => {
     const target = e.target as HTMLInputElement
     const file = target.files?.[0]
@@ -623,12 +636,21 @@ const onLogoSelected = async (e: Event) => {
     }
 }
 
+/**
+ * @description Reset branding logo input states, clearing active URL value.
+ * @returns { void }
+ */
 const clearLogo = () => {
     form.brand_logo_url = ''
     if (logoInputEl.value) logoInputEl.value.value = ''
 }
 
-// ───── Load + prefill ─────────────────────────────────
+// Load + prefill
+/**
+ * @description Hydrates form states with existing customer database values.
+ * @param { Customer } c Customer model instance
+ * @returns { void }
+ */
 const hydrate = (c: Customer) => {
     form.name = c.name ?? ''
     form.email = c.email ?? ''
@@ -656,6 +678,11 @@ const hydrate = (c: Customer) => {
     Object.assign(initial, form)
 }
 
+/**
+ * @description Load customer profile details by ID and prefill form fields.
+ * @method GET
+ * @returns { Promise<void> } Resolves on success
+ */
 const load = async () => {
     loading.value = true
     try {
@@ -672,8 +699,8 @@ const load = async () => {
 
 const buildPayload = () => ({
     name: form.name,
-    email: form.email,
-    phone: form.phone || null,
+    email: normalizeEmail(form.email),
+    phone: form.phone ? normalizePhoneNumber(form.phone) : null,
     company_name: form.company_name || null,
     status: form.status,
     customer_type: form.customer_type,
@@ -696,6 +723,11 @@ const buildPayload = () => ({
     tenant_handle: form.customer_type === 'tenant' ? (form.tenant_handle || null) : undefined,
 })
 
+/**
+ * @description Submit updated customer payload details to the database
+ * @method PUT
+ * @returns { Promise<void> } Resolves on success, redirects to the customer details page
+ */
 const submit = async () => {
     if (!customer.value) return
     showErrors.value = true

@@ -11,6 +11,7 @@
                     <div class="flex items-center gap-3">
                         <h1 class="text-xl font-semibold">{{ sub.subscriptionNumber }}</h1>
                         <Badge :variant="statusBadgeVariant(sub.status)">{{ sub.status }}</Badge>
+                        <SubscriptionCountdown v-if="sub.status === 'active'" :end-date="sub.endDate" />
                     </div>
                     <p class="text-xs text-(--text-muted) mt-1">
                         Customer: <span class="text-(--text-body)">{{ sub.customer?.name || '—' }}</span>
@@ -21,25 +22,29 @@
                 </div>
 
                 <div class="flex flex-wrap gap-2">
-                    <button v-if="sub.status === 'new'" class="btn btn-primary text-xs" :disabled="acting"
-                        @click="confirm">
-                        <i class="ti ti-cloud-upload" />Confirm &amp; provision
-                    </button>
-                    <button v-if="sub.status !== 'cancelled'"
-                        class="btn text-xs text-(--color-danger) border border-(--color-danger)/20 hover:bg-(--color-danger-subtle)"
-                        :disabled="acting" @click="showCancel = true">
-                        <i class="ti ti-ban" />Cancel
+                    <template v-if="sub.status === 'active'">
+                        <button class="btn btn-primary text-xs" :disabled="acting" @click="showRenew = true">
+                            <i class="ti ti-refresh" />Renew
+                        </button>
+                        <button class="btn btn-soft-primary text-xs" :disabled="acting"
+                            @click="openChangePlan('upgrade')">
+                            <i class="ti ti-arrow-up" />Upgrade
+                        </button>
+                        <button class="btn btn-ghost text-xs" :disabled="acting" @click="openChangePlan('downgrade')">
+                            <i class="ti ti-arrow-down" />Downgrade
+                        </button>
+                        <button
+                            class="btn text-xs text-(--color-danger) border border-(--color-danger)/20 hover:bg-(--color-danger-subtle)"
+                            :disabled="acting" @click="showCancel = true">
+                            <i class="ti ti-ban" />Cancel
+                        </button>
+                    </template>
+                    <button v-else-if="sub.status === 'expired'" class="btn btn-primary text-xs"
+                        :disabled="acting" @click="showRenew = true">
+                        <i class="ti ti-refresh" />Renew
                     </button>
                 </div>
             </header>
-
-            <div v-if="sub.status === 'new'"
-                class="px-4 py-3 rounded-lg bg-(--color-info-subtle) text-(--color-info) text-xs">
-                <i class="ti ti-info-circle" />
-                Confirming dispatches the <code class="font-mono">SubscriptionConfirmed</code> event. The provisioning
-                listener will create the customer's tenant, seed default IAM, create their first admin user, and email
-                an activation link.
-            </div>
 
             <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="glass-card rounded-xl p-4">
@@ -49,7 +54,9 @@
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
-                    <p class="text-base font-semibold text-(--color-primary) mt-1">{{ fmt(sub.totalAmount) }}</p>
+                    <p class="text-base font-semibold text-(--color-primary) mt-1">
+                        <CountUp :value="sub.totalAmount" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Start</p>
@@ -61,16 +68,44 @@
                 </div>
             </section>
 
-            <section v-if="sub.provisionedTenantId || sub.provisionedAt"
-                class="glass-card rounded-2xl p-5 flex items-center justify-between">
-                <div>
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Provisioned tenant</p>
-                    <p class="text-sm font-mono font-semibold text-(--text-heading) mt-1">{{ sub.provisionedTenantId ||
-                        'Pending listener' }}</p>
-                    <p v-if="sub.provisionedAt" class="text-xxs text-(--text-muted) mt-0.5">at {{
-                        formatDate(sub.provisionedAt) }}</p>
+            <!-- Live access URL (replaces the opaque "provisioned tenant id" block) -->
+            <section v-if="sub.liveAccessUrl"
+                class="glass-card rounded-2xl p-5 border border-(--color-success)/40 bg-(--color-success)/8">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-xxs font-bold uppercase tracking-widest text-(--color-success)">
+                            <i class="ti ti-circle-check-filled mr-1" />Tenant is live
+                        </p>
+                        <p class="text-xxs text-(--text-muted) mt-1">Customer access URL:</p>
+                        <a :href="sub.liveAccessUrl" target="_blank" rel="noopener"
+                            class="mt-1 inline-flex items-center gap-2 font-mono text-sm font-semibold text-(--color-primary) hover:underline break-all">
+                            <i class="ti ti-external-link shrink-0" />{{ sub.liveAccessUrl }}
+                        </a>
+                        <p v-if="sub.provisionedAt" class="text-xxs text-(--text-muted) mt-1.5">
+                            Provisioned at {{ formatDate(sub.provisionedAt) }}
+                        </p>
+                    </div>
+                    <button class="btn btn-ghost text-xxs shrink-0" :disabled="copying" @click="copyAccessUrl">
+                        <i :class="copied ? 'ti ti-check' : 'ti ti-copy'" />{{ copied ? 'Copied' : 'Copy URL' }}
+                    </button>
                 </div>
-                <i class="ti ti-cloud-check text-2xl text-(--color-success)" />
+            </section>
+
+            <!-- Pending state — tenant customer with a subscription but provisioning hasn't completed yet. -->
+            <section v-else-if="sub.status === 'active'"
+                class="glass-card rounded-2xl p-5 border border-(--color-warning)/40 bg-(--color-warning)/8">
+                <div class="flex items-start gap-3">
+                    <i class="ti ti-server-off text-xl text-(--color-warning) shrink-0 mt-0.5" />
+                    <div>
+                        <p class="text-xs font-semibold text-(--text-heading)">Tenant provisioning pending</p>
+                        <p class="text-xxs text-(--text-muted) mt-0.5">
+                            The customer's access URL will appear here once provisioning completes.
+                            <template v-if="sub.tenantHandle">
+                                Reserved handle: <span class="font-mono text-(--color-primary)">@{{ sub.tenantHandle }}</span>
+                            </template>
+                        </p>
+                    </div>
+                </div>
             </section>
 
             <section class="glass-card rounded-2xl p-5">
@@ -104,14 +139,89 @@
             </section>
         </div>
 
+        <!-- Renew modal -->
+        <div v-if="showRenew"
+            class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="glass-card rounded-2xl w-full max-w-md bg-(--bg-card) shadow-(--shadow-lg)">
+                <header class="flex items-center justify-between p-5 border-b border-(--border-color)">
+                    <h3>Renew subscription</h3>
+                    <button class="w-8 h-8 rounded-full hover:bg-(--bg-muted)" @click="showRenew = false">
+                        <i class="ti ti-x" />
+                    </button>
+                </header>
+                <div class="p-5 space-y-3">
+                    <p class="text-xs text-(--text-muted)">Extends the end date by one cycle and issues a renewal invoice.</p>
+                    <div>
+                        <label class="form-label">Billing cycle</label>
+                        <select v-model="renewCycle" class="form-control">
+                            <option value="">Keep current ({{ sub?.billingCycle }})</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="annual">Annual</option>
+                        </select>
+                    </div>
+                </div>
+                <footer class="p-5 border-t border-(--border-color) flex justify-end gap-2">
+                    <button class="btn btn-ghost text-xs" @click="showRenew = false">Close</button>
+                    <button class="btn btn-primary text-xs" :disabled="acting" @click="renew">
+                        <i class="ti ti-refresh" />Renew now
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Change plan modal -->
+        <div v-if="showChangePlan"
+            class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="glass-card rounded-2xl w-full max-w-lg bg-(--bg-card) shadow-(--shadow-lg)">
+                <header class="flex items-center justify-between p-5 border-b border-(--border-color)">
+                    <h3>{{ changePlanAction === 'upgrade' ? 'Upgrade' : 'Downgrade' }} plan</h3>
+                    <button class="w-8 h-8 rounded-full hover:bg-(--bg-muted)" @click="showChangePlan = false">
+                        <i class="ti ti-x" />
+                    </button>
+                </header>
+                <div class="p-5 space-y-3">
+                    <p class="text-xs text-(--text-muted)">
+                        Swaps the existing line to a new product/variant. {{ changePlanAction === 'upgrade'
+                            ? 'An upgrade delta invoice is billed immediately.'
+                            : 'A downgrade credit (negative invoice) is emitted to apply on the next cycle.' }}
+                    </p>
+                    <div>
+                        <label class="form-label">Replace line</label>
+                        <select v-model="changePlanTargetId" class="form-control">
+                            <option v-for="line in sub?.items || []" :key="line.id" :value="line.productId">
+                                {{ line.productName }} ({{ fmt(line.unitPrice) }})
+                            </option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">New product</label>
+                        <select v-model="changePlanProductId" class="form-control">
+                            <option value="" disabled>Select software product…</option>
+                            <option v-for="p in catalogue" :key="p.id" :value="p.id">
+                                {{ p.name }} — {{ fmt(p.unit_price) }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+                <footer class="p-5 border-t border-(--border-color) flex justify-end gap-2">
+                    <button class="btn btn-ghost text-xs" @click="showChangePlan = false">Close</button>
+                    <button class="btn btn-primary text-xs" :disabled="acting || !changePlanProductId" @click="changePlan">
+                        <i :class="changePlanAction === 'upgrade' ? 'ti ti-arrow-up' : 'ti ti-arrow-down'" />
+                        {{ changePlanAction === 'upgrade' ? 'Upgrade' : 'Downgrade' }}
+                    </button>
+                </footer>
+            </div>
+        </div>
+
         <!-- Cancel modal -->
         <div v-if="showCancel"
             class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div class="glass-card rounded-2xl w-full max-w-md bg-(--bg-card) shadow-(--shadow-lg)">
                 <header class="flex items-center justify-between p-5 border-b border-(--border-color)">
                     <h3>Cancel subscription</h3>
-                    <button class="w-8 h-8 rounded-full hover:bg-(--bg-muted)" @click="showCancel = false"><i
-                            class="ti ti-x" /></button>
+                    <button class="w-8 h-8 rounded-full hover:bg-(--bg-muted)" @click="showCancel = false">
+                        <i class="ti ti-x" />
+                    </button>
                 </header>
                 <div class="p-5 space-y-3">
                     <p class="text-xs text-(--text-muted)">Cancelling deactivates the subscription. The customer's
@@ -135,7 +245,8 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSales, statusBadgeVariant } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
-import type { Subscription } from '~/types/sales'
+import type { BillingCycle, ProductLite, Subscription } from '~/types/sales'
+import SubscriptionCountdown from '~/components/sales/SubscriptionCountdown.vue'
 
 const route = useRoute()
 const sales = useSales()
@@ -144,8 +255,35 @@ const toast = useToast()
 const sub = ref<Subscription | null>(null)
 const loading = ref(true)
 const acting = ref(false)
+
 const showCancel = ref(false)
 const cancelReason = ref('')
+
+const copying = ref(false)
+const copied = ref(false)
+const copyAccessUrl = async () => {
+    if (!sub.value?.liveAccessUrl) return
+    copying.value = true
+    try {
+        await navigator.clipboard.writeText(sub.value.liveAccessUrl)
+        copied.value = true
+        setTimeout(() => { copied.value = false }, 2000)
+    } catch {
+        toast.error('Copy failed')
+    } finally {
+        copying.value = false
+    }
+}
+
+const showRenew = ref(false)
+const renewCycle = ref<'' | BillingCycle>('')
+
+const showChangePlan = ref(false)
+const changePlanAction = ref<'upgrade' | 'downgrade'>('upgrade')
+const changePlanProductId = ref('')
+const changePlanTargetId = ref('')
+
+const catalogue = ref<ProductLite[]>([])
 
 const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0)
 const formatDate = (iso: string) => new Date(iso).toLocaleString()
@@ -162,15 +300,58 @@ const load = async () => {
     }
 }
 
-const confirm = async () => {
+const loadCatalogue = async () => {
+    try {
+        const res = await sales.catalogue.listProducts()
+        catalogue.value = res.data.filter((p) => p.product_type === 'software' && p.is_active)
+    } catch {
+        // non-fatal — modal stays empty
+    }
+}
+
+const renew = async () => {
     if (!sub.value) return
     acting.value = true
     try {
-        const res = await sales.subscriptions.confirm(sub.value.id)
+        const res = await sales.subscriptions.renew(sub.value.id, renewCycle.value ? { cycle: renewCycle.value as BillingCycle } : {})
         sub.value = res.data
-        toast.success('Subscription confirmed', 'Tenant-provisioning event dispatched.')
+        showRenew.value = false
+        renewCycle.value = ''
+        toast.success('Subscription renewed', 'End date extended; renewal invoice issued.')
     } catch (err: any) {
-        toast.error('Confirm failed', err?.data?.message)
+        toast.error('Renew failed', err?.data?.message)
+    } finally {
+        acting.value = false
+    }
+}
+
+const openChangePlan = (action: 'upgrade' | 'downgrade') => {
+    changePlanAction.value = action
+    changePlanProductId.value = ''
+    changePlanTargetId.value = sub.value?.items[0]?.productId || ''
+    showChangePlan.value = true
+    if (catalogue.value.length === 0) loadCatalogue()
+}
+
+const changePlan = async () => {
+    if (!sub.value || !changePlanProductId.value) return
+    acting.value = true
+    try {
+        const res = await sales.subscriptions.changePlan(sub.value.id, {
+            product_id: changePlanProductId.value,
+            target_product_id: changePlanTargetId.value || null,
+            action: changePlanAction.value,
+        })
+        sub.value = res.data
+        showChangePlan.value = false
+        toast.success(
+            changePlanAction.value === 'upgrade' ? 'Upgrade applied' : 'Downgrade applied',
+            changePlanAction.value === 'upgrade'
+                ? 'Delta invoice issued.'
+                : 'Credit invoice issued (applies on next cycle).',
+        )
+    } catch (err: any) {
+        toast.error('Plan change failed', err?.data?.message)
     } finally {
         acting.value = false
     }

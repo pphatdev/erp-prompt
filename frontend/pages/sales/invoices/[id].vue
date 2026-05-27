@@ -43,19 +43,27 @@
             <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Subtotal</p>
-                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ fmt(invoice.subtotal) }}</p>
+                    <p class="text-base font-semibold text-(--text-heading) mt-1">
+                        <CountUp :value="invoice.subtotal" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Tax</p>
-                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ fmt(invoice.taxAmount) }}</p>
+                    <p class="text-base font-semibold text-(--text-heading) mt-1">
+                        <CountUp :value="invoice.taxAmount" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
-                    <p class="text-base font-semibold text-(--color-primary) mt-1">{{ fmt(invoice.totalAmount) }}</p>
+                    <p class="text-base font-semibold text-(--color-primary) mt-1">
+                        <CountUp :value="invoice.totalAmount" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Paid</p>
-                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ fmt(invoice.paidAmount) }}</p>
+                    <p class="text-base font-semibold text-(--text-heading) mt-1">
+                        <CountUp :value="invoice.paidAmount" currency="USD" />
+                    </p>
                 </div>
             </section>
 
@@ -133,6 +141,7 @@ import { useRoute } from 'vue-router'
 import { useSales, statusBadgeVariant } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
 import type { Invoice } from '~/types/sales'
+import CountUp from '~/components/CountUp.vue'
 
 const route = useRoute()
 const sales = useSales()

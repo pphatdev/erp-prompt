@@ -15,7 +15,11 @@
 
         <div class="relative z-10">
             <div class="flex items-baseline gap-2 flex-wrap">
-                <h3 class="text-2xl font-bold font-mono text-(--text-heading) tracking-tight">{{ value }}</h3>
+                <h3 class="text-2xl font-bold font-mono text-(--text-heading) tracking-tight">
+                    <CountUp v-if="numericValue !== null" :value="numericValue" :currency="currency"
+                        :decimals="decimals" :prefix="prefix" :suffix="suffix" />
+                    <template v-else>{{ value }}</template>
+                </h3>
                 <span v-if="delta"
                     class="text-xxs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded inline-flex items-center gap-1"
                     :class="deltaClass">
@@ -26,13 +30,20 @@
             </div>
             <p v-if="sub" class="text-xs text-(--text-muted) mt-2 flex items-center justify-between gap-3">
                 <span>{{ sub }}</span>
-                <span v-if="subValue" class="font-mono font-semibold text-(--text-body)">{{ subValue }}</span>
+                <span v-if="subValue" class="font-mono font-semibold text-(--text-body)">
+                    <CountUp v-if="numericSubValue !== null" :value="numericSubValue" :currency="currency"
+                        :decimals="decimals" />
+                    <template v-else>{{ subValue }}</template>
+                </span>
             </p>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import CountUp from '~/components/CountUp.vue'
+
 interface Props {
     label: string
     value: string | number
@@ -42,12 +53,29 @@ interface Props {
     deltaDirection?: 'up' | 'down'
     icon: string                    // e.g. "ti-package"
     variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info'
+    /** Pass an ISO currency code (e.g. 'USD') to format value as money. */
+    currency?: string
+    /** Decimal places (defaults to 0 for plain numbers, 2 for currency). */
+    decimals?: number
+    /** Optional prefix/suffix when not using currency mode. */
+    prefix?: string
+    suffix?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
     variant: 'primary',
     deltaDirection: 'up'
 })
+
+// Strings that don't parse cleanly fall back to plain rendering — keeps legacy
+// callers passing things like "12 of 30" working without animations.
+const asNumber = (v: unknown): number | null => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v)
+    return null
+}
+const numericValue    = computed(() => asNumber(props.value))
+const numericSubValue = computed(() => asNumber(props.subValue))
 
 const glowMap = {
     primary: 'bg-(--color-primary-subtle)',

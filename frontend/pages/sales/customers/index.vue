@@ -16,19 +16,27 @@
             <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
-                    <p class="text-xl font-semibold text-(--text-heading) mt-1">{{ customers.length }}</p>
+                    <p class="text-xl font-semibold text-(--text-heading) mt-1">
+                        <CountUp :value="customers.length" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Tenant customers</p>
-                    <p class="text-xl font-semibold text-(--color-primary) mt-1">{{ tenantCount }}</p>
+                    <p class="text-xl font-semibold text-(--color-primary) mt-1">
+                        <CountUp :value="tenantCount" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Provisioned</p>
-                    <p class="text-xl font-semibold text-(--color-success) mt-1">{{ provisionedCount }}</p>
+                    <p class="text-xl font-semibold text-(--color-success) mt-1">
+                        <CountUp :value="provisionedCount" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Enterprise tier</p>
-                    <p class="text-xl font-semibold text-(--text-heading) mt-1">{{ enterpriseCount }}</p>
+                    <p class="text-xl font-semibold text-(--text-heading) mt-1">
+                        <CountUp :value="enterpriseCount" />
+                    </p>
                 </div>
             </section>
 
@@ -207,6 +215,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useSales } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
 import type { Customer, CustomerType, CustomerTier } from '~/types/sales'
+import CountUp from '~/components/CountUp.vue'
 
 const sales = useSales()
 const toast = useToast()

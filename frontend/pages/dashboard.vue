@@ -383,8 +383,7 @@
                                         <td
                                             class="px-5 py-3 text-xs text-right font-mono font-semibold text-(--text-heading)">
                                             {{ l.days }}d</td>
-                                        <td class="px-5 py-3 text-xs text-(--text-muted) font-mono">{{ l.start_date ??
-                                            '—' }}</td>
+                                        <td class="px-5 py-3 text-xs text-(--text-muted) font-mono">{{ l.start_date ?? '—' }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -547,8 +546,7 @@
                             <tbody class="divide-y divide-(--border-color)">
                                 <tr v-for="l in recentLeaves" :key="l.id"
                                     class="hover:bg-(--bg-muted) transition-colors">
-                                    <td class="px-5 py-3 text-xs font-semibold text-(--text-heading)">{{ l.employee_name
-                                        || '—' }}</td>
+                                    <td class="px-5 py-3 text-xs font-semibold text-(--text-heading)">{{ l.employee_name || '—' }}</td>
                                     <td class="px-5 py-3 text-xs">{{ l.type }}</td>
                                     <td
                                         class="px-5 py-3 text-xs text-right font-mono font-semibold text-(--text-heading)">

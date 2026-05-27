@@ -31,18 +31,66 @@
                 <!-- ── Main form ── -->
                 <section class="glass-card rounded-2xl p-6 lg:col-span-2 space-y-6">
 
+                    <!-- Source: Qualified Lead / Opportunity -->
+                    <div>
+                        <h2 class="section-heading"><i class="ti ti-target" />Source</h2>
+                        <div class="grid grid-cols-1 gap-4 mt-4">
+                            <div>
+                                <label class="form-label">
+                                    From Qualified Lead / Opportunity
+                                    <span class="text-(--text-muted) normal-case font-normal lowercase">— optional, pre-fills items + customer · shows only Won (Qualified) opportunities</span>
+                                </label>
+                                <select v-model="form.from_opportunity_id" class="form-control"
+                                    @change="onOpportunityChange" :disabled="loadingSchedule">
+                                    <option :value="null">— Standalone quotation (no lead) —</option>
+                                    <option v-for="o in selectableOpportunities" :key="o.id" :value="o.id">
+                                        {{ o.title }}
+                                        <template v-if="o.lead">· Lead: {{ o.lead.title }}</template>
+                                        <template v-else-if="o.customer">· {{ o.customer.name }}</template>
+                                        <template v-else>· No account yet</template>
+                                    </option>
+                                </select>
+                                <p v-if="!loadingSchedule && selectableOpportunities.length === 0 && opportunities.length > 0"
+                                    class="text-xxs text-(--text-muted) mt-1">
+                                    <i class="ti ti-info-circle" />
+                                    No qualified opportunities yet — drag a deal to the
+                                    <strong>Won (Qualified)</strong> column in the Sales Pipeline first.
+                                </p>
+                                <p v-if="loadingSchedule" class="text-xxs text-(--text-muted) mt-1">
+                                    <i class="ti ti-loader-2 animate-spin" /> Loading product schedule…
+                                </p>
+                                <p v-else-if="form.from_opportunity_id && scheduleLineCount > 0"
+                                    class="text-xxs text-(--color-success) mt-1">
+                                    <i class="ti ti-circle-check-filled" />
+                                    Pre-filled {{ scheduleLineCount }} line(s) from the Opportunity's B2B Product Schedule.
+                                </p>
+                                <p v-else-if="form.from_opportunity_id && scheduleLineCount === 0"
+                                    class="text-xxs text-(--color-warning) mt-1">
+                                    <i class="ti ti-info-circle" />
+                                    This Opportunity has no Product Schedule yet — add line items below manually.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Customer & dates -->
                     <div>
                         <h2 class="section-heading"><i class="ti ti-users" />Customer & dates</h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             <div class="md:col-span-2">
-                                <label class="form-label">Customer *</label>
+                                <label class="form-label">
+                                    Customer<span v-if="!form.from_opportunity_id"> *</span>
+                                    <span v-if="form.from_opportunity_id"
+                                        class="text-(--text-muted) normal-case font-normal lowercase">— optional, created on Quotation Won if blank</span>
+                                </label>
                                 <select v-model="form.customer_id" class="form-control"
-                                    :class="{ 'ring-1 ring-(--color-danger)': showErrors && !form.customer_id }">
-                                    <option value="" disabled>Select customer…</option>
+                                    :class="{ 'ring-1 ring-(--color-danger)': showErrors && !canSubmit && !form.customer_id && !form.from_opportunity_id }">
+                                    <option value="">{{ form.from_opportunity_id ? '— No account yet (prospect) —' : 'Select customer…' }}</option>
                                     <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }}</option>
                                 </select>
-                                <p v-if="showErrors && !form.customer_id" class="form-error">Customer is required.</p>
+                                <p v-if="showErrors && !form.customer_id && !form.from_opportunity_id" class="form-error">
+                                    Pick a Customer or a Qualified Lead.
+                                </p>
                             </div>
                             <div>
                                 <label class="form-label">Quote date</label>
@@ -191,9 +239,9 @@
                         </h3>
                         <ul class="space-y-2">
                             <li class="flex items-center gap-2 text-xs"
-                                :class="form.customer_id ? 'text-(--color-success)' : 'text-(--text-muted)'">
-                                <i :class="['ti', form.customer_id ? 'ti-circle-check-filled' : 'ti-circle-dashed']" />
-                                Customer selected
+                                :class="(form.customer_id || form.from_opportunity_id) ? 'text-(--color-success)' : 'text-(--text-muted)'">
+                                <i :class="['ti', (form.customer_id || form.from_opportunity_id) ? 'ti-circle-check-filled' : 'ti-circle-dashed']" />
+                                Customer or qualified lead selected
                             </li>
                             <li class="flex items-center gap-2 text-xs"
                                 :class="form.items.length > 0 ? 'text-(--color-success)' : 'text-(--text-muted)'">
@@ -228,23 +276,29 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useCrm } from '~/composables/useCrm'
 import { useSales } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
 import type { CreateQuotationItemPayload, CustomerLite, ProductLite } from '~/types/sales'
+import type { Opportunity } from '~/types/crm'
 
 definePageMeta({ breadcrumb: 'New quotation' })
 
 const router = useRouter()
 const sales = useSales()
+const crm = useCrm()
 const toast = useToast()
 
 const submitting = ref(false)
 const showErrors = ref(false)
+const loadingSchedule = ref(false)
 const customers = ref<CustomerLite[]>([])
 const products = ref<ProductLite[]>([])
+const opportunities = ref<Opportunity[]>([])
 
 const form = reactive<{
     customer_id: string
+    from_opportunity_id: string | null
     quote_date: string
     valid_until: string
     due_date: string
@@ -252,12 +306,24 @@ const form = reactive<{
     items: (CreateQuotationItemPayload & { unit_price?: number | null; discount_pct?: number | null; notes?: string | null })[]
 }>({
     customer_id: '',
+    from_opportunity_id: null,
     quote_date: '',
     valid_until: '',
     due_date: '',
     notes: '',
     items: [],
 })
+
+// Only Won (Qualified) opportunities surface here. In this flow:
+//   Opportunity Won  = lead is qualified, ready to quote
+//   Quotation Won    = deal is closed (Customer + Sale Order created)
+// So the rep picks a qualified opportunity and produces a draft Quotation
+// from its B2B/B2C Product Schedule.
+const selectableOpportunities = computed(() =>
+    opportunities.value.filter(o => o.stage === 'won')
+)
+
+const scheduleLineCount = computed(() => form.items.length)
 
 const selectedCustomer = computed(() =>
     customers.value.find(c => c.id === form.customer_id) ?? null
@@ -278,7 +344,12 @@ const allLinesValid = computed(() =>
     form.items.length > 0 && form.items.every(l => !!l.product_id && (l.quantity || 0) > 0)
 )
 
-const canSubmit = computed(() => !!form.customer_id && allLinesValid.value)
+// Backend requires either customer_id OR from_opportunity_id. The Sales-side
+// QuotationService::win creates the Customer from the linked Lead later if
+// the quotation goes out without one.
+const canSubmit = computed(() =>
+    (!!form.customer_id || !!form.from_opportunity_id) && allLinesValid.value
+)
 
 const fmt = (v: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0)
@@ -288,6 +359,40 @@ const addLine = () => {
 }
 
 const removeLine = (idx: number) => { form.items.splice(idx, 1) }
+
+/**
+ * Picking an Opportunity auto-fills the customer (if linked) and replaces
+ * line items with the snapshot of its B2B/B2C Product Schedule. Choosing
+ * "Standalone" clears the link but keeps any items the user has entered.
+ */
+const onOpportunityChange = async () => {
+    if (!form.from_opportunity_id) return
+
+    const opp = opportunities.value.find(o => o.id === form.from_opportunity_id)
+    if (opp?.customerId) form.customer_id = opp.customerId
+
+    loadingSchedule.value = true
+    try {
+        const res = await crm.opportunities.listSchedule(form.from_opportunity_id)
+        if (res.data.length > 0) {
+            form.items = res.data.map(line => ({
+                product_id: line.productId,
+                variant_id: line.variantId ?? null,
+                quantity: line.quantity,
+                unit_price: line.estimatedUnitPrice,
+                discount_pct: null,
+                notes: line.notes ?? null,
+            }))
+        } else if (form.items.length === 0) {
+            // Keep at least one empty row so the user can start typing.
+            addLine()
+        }
+    } catch (err: any) {
+        toast.error('Failed to load product schedule', err?.data?.message)
+    } finally {
+        loadingSchedule.value = false
+    }
+}
 
 const onProductChange = (idx: number) => {
     const line = form.items[idx]
@@ -307,8 +412,11 @@ const submit = async () => {
     if (!canSubmit.value) return
     submitting.value = true
     try {
+        // Backend accepts customer_id OR from_opportunity_id (or both). Send
+        // only what's set so empty strings don't trip the uuid|exists rules.
         const payload = {
-            customer_id: form.customer_id,
+            customer_id: form.customer_id || undefined,
+            from_opportunity_id: form.from_opportunity_id || undefined,
             quote_date: form.quote_date || undefined,
             valid_until: form.valid_until || undefined,
             due_date: form.due_date || undefined,
@@ -334,12 +442,14 @@ const submit = async () => {
 
 onMounted(async () => {
     try {
-        const [cRes, pRes] = await Promise.all([
+        const [cRes, pRes, oRes] = await Promise.all([
             sales.catalogue.listCustomers(),
             sales.catalogue.listProducts(),
+            crm.opportunities.list({ limit: 150 }),
         ])
         customers.value = cRes.data
         products.value = pRes.data
+        opportunities.value = oRes.data
         addLine()
     } catch (err: any) {
         toast.error('Failed to load data', err?.data?.message)

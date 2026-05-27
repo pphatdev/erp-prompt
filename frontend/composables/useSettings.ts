@@ -1,6 +1,6 @@
 import { useApi } from '~/composables/useApi'
 
-export type SettingGroup = 'branding' | 'locale' | 'notifications' | 'security' | 'general'
+export type SettingGroup = 'branding' | 'locale' | 'notifications' | 'security' | 'numbering' | 'general'
 export type SettingType = 'string' | 'json' | 'boolean' | 'integer' | 'color' | 'url'
 
 export interface SettingRow {

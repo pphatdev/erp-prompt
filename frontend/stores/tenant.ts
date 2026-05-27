@@ -34,25 +34,53 @@ export const useTenantStore = defineStore('tenant', {
 
     actions: {
         setTenantByHandle(handle: string) {
+            // If the handle hasn't changed, do NOT rebuild currentTenant.
+            // Rebuilding clobbers backend-synced fields (primaryColor, logoUrl)
+            // with static defaults — which is the bug that caused theme color
+            // to flip back to default on every page navigation, since each
+            // page wraps its own <NuxtLayout> and the layout's onMounted
+            // re-calls this for the same handle.
+            if (this.currentTenant?.handle === handle) {
+                this.applyBrandToDocument()
+                return
+            }
+
             const tenant = this.availableTenants.find(t => t.handle === handle)
             if (tenant) {
-                this.currentTenant = tenant
+                // Spread so subsequent mutations (e.g. syncBranding) don't
+                // poison the static availableTenants source.
+                this.currentTenant = { ...tenant }
             } else {
+                // Unknown handle: seed primaryColor from the localStorage cache
+                // populated by a previous syncBranding so the first paint after
+                // reload is correct before the async sync completes.
+                const cached = import.meta.client
+                    ? localStorage.getItem(`tenant_primary:${handle}`)
+                    : null
                 this.currentTenant = {
                     id: `${handle}-id`,
                     handle,
                     name: `${handle.charAt(0).toUpperCase() + handle.slice(1)} ERP`,
-                    primaryColor: DEFAULT_PRIMARY
+                    primaryColor: cached || DEFAULT_PRIMARY,
                 }
             }
-            if (import.meta.client) {
-                const userAccent = localStorage.getItem('accent')
-                document.documentElement.style.setProperty(
-                    '--color-primary-rgb',
-                    userAccent || this.currentTenant.primaryColor || DEFAULT_PRIMARY
-                )
-            }
+            this.applyBrandToDocument()
         },
+
+        /**
+         * Push the active tenant brand onto the `--color-primary-rgb` CSS var.
+         * User's local accent override (CustomizerOffcanvas) always wins so
+         * personalization survives tenant switches.
+         */
+        applyBrandToDocument() {
+            if (!import.meta.client) return
+            const userAccent = localStorage.getItem('accent')
+            document.documentElement.style.setProperty(
+                '--color-primary-rgb',
+                userAccent || this.currentTenant?.primaryColor || DEFAULT_PRIMARY
+            )
+        },
+
         initializeTenant() {
             if (import.meta.client) {
                 const stored = localStorage.getItem('tenant_handle')
@@ -85,18 +113,16 @@ export const useTenantStore = defineStore('tenant', {
 
                 if (this.currentTenant && typeof tenantPrimary === 'string') {
                     this.currentTenant.primaryColor = tenantPrimary
+                    // Cache per-handle so the next page load can paint the
+                    // correct brand before the async sync completes — keeps
+                    // unknown tenants (e.g. handle="demo") from defaulting.
+                    localStorage.setItem(`tenant_primary:${this.activeHandle}`, tenantPrimary)
                 }
                 if (this.currentTenant && typeof logo === 'string') {
                     this.currentTenant.logoUrl = logo
                 }
 
-                // Re-apply CSS — userAccent override takes precedence over tenant.
-                const userAccent = localStorage.getItem('accent')
-                document.documentElement.style.setProperty(
-                    '--color-primary-rgb',
-                    userAccent || (typeof tenantPrimary === 'string' ? tenantPrimary : null) ||
-                    this.currentTenant?.primaryColor || DEFAULT_PRIMARY
-                )
+                this.applyBrandToDocument()
             } catch {
                 // Best-effort — branding falls back to local defaults on failure.
             }

@@ -5,10 +5,10 @@
 
 export type ProductType = 'hardware' | 'software'
 
-export type QuotationStatus = 'new' | 'confirmed' | 'cancelled'
-export type OrderStatus = 'new' | 'confirmed' | 'cancelled'
+export type QuotationStatus = 'draft' | 'won' | 'lost'
+export type OrderStatus = 'draft' | 'confirm' | 'cancel'
 export type InvoiceStatus = 'new' | 'confirmed' | 'cancelled' | 'paid'
-export type SubscriptionStatus = 'new' | 'confirmed' | 'cancelled' | 'active' | 'expired'
+export type SubscriptionStatus = 'active' | 'expired' | 'cancelled'
 
 export interface CustomerLite {
     id: string
@@ -183,7 +183,8 @@ export interface QuotationItem {
 export interface Quotation {
     id: string
     quoteNumber: string
-    customerId: string
+    customerId: string | null
+    fromOpportunityId?: string | null
     customer?: CustomerLite
     status: QuotationStatus
     quoteDate: string | null
@@ -193,9 +194,9 @@ export interface Quotation {
     taxAmount: number
     totalAmount: number
     notes: string | null
-    confirmedAt: string | null
-    cancelledAt: string | null
-    cancelReason: string | null
+    lossReason: string | null
+    wonAt: string | null
+    lostAt: string | null
     items: QuotationItem[]
     orderId?: string | null
     createdAt: string
@@ -212,7 +213,9 @@ export interface CreateQuotationItemPayload {
 }
 
 export interface CreateQuotationPayload {
-    customer_id: string
+    /** One of customer_id or from_opportunity_id is required. */
+    customer_id?: string | null
+    from_opportunity_id?: string | null
     quote_date?: string
     valid_until?: string | null
     due_date?: string | null
@@ -322,11 +325,26 @@ export interface Subscription {
     totalAmount: number
     provisionedTenantId: string | null
     provisionedAt: string | null
-    confirmedAt: string | null
+    /** Click-ready URL once provisioning completes. e.g. "https://acme.system.app" */
+    liveAccessUrl: string | null
+    /** Tenant subdomain handle — same as customer.tenantHandle. */
+    tenantHandle: string | null
     cancelledAt: string | null
     cancelReason: string | null
     items: SubscriptionItem[]
     createdAt: string
+}
+
+export interface RenewSubscriptionPayload {
+    cycle?: BillingCycle
+}
+
+export interface ChangeSubscriptionPlanPayload {
+    product_id: string
+    variant_id?: string | null
+    /** Optional — defaults to the first existing line on the subscription. */
+    target_product_id?: string | null
+    action: 'upgrade' | 'downgrade'
 }
 
 // ───── Pagination envelope ───────────────────────────────────────────────────

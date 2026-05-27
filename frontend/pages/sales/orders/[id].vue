@@ -22,11 +22,11 @@
                 </div>
 
                 <div class="flex flex-wrap gap-2">
-                    <button v-if="order.status === 'new'" class="btn btn-primary text-xs" :disabled="acting"
+                    <button v-if="order.status === 'draft'" class="btn btn-primary text-xs" :disabled="acting"
                         @click="confirm">
                         <i class="ti ti-check" />Confirm &amp; fulfill
                     </button>
-                    <button v-if="order.status === 'new'"
+                    <button v-if="order.status === 'draft'"
                         class="btn text-xs text-(--color-danger) border border-(--color-danger)/20 hover:bg-(--color-danger-subtle)"
                         :disabled="acting" @click="showCancel = true">
                         <i class="ti ti-ban" />Cancel
@@ -35,27 +35,34 @@
             </header>
 
             <!-- Confirm warning -->
-            <div v-if="order.status === 'new'"
+            <div v-if="order.status === 'draft'"
                 class="px-4 py-3 rounded-lg bg-(--color-warning-subtle) text-(--color-warning) text-xs">
                 <i class="ti ti-alert-triangle" />
-                Confirming this order will <b>atomically</b> create an Invoice, set up a Subscription for software
-                lines, and deduct hardware lines from stock. Anything that fails rolls the entire order back to <code
-                    class="font-mono">new</code>.
+                Confirming this order will <b>atomically</b> create an Invoice, set up an active Subscription for software
+                lines, and deduct hardware lines from stock. If the customer is a tenant-type and not yet provisioned,
+                it will also <b>provision their tenant</b> (subdomain + admin user) after the transaction commits.
+                Anything that fails inside the transaction rolls the entire order back to <code class="font-mono">draft</code>.
             </div>
 
             <!-- Tiles -->
             <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Subtotal</p>
-                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ fmt(order.subtotal) }}</p>
+                    <p class="text-base font-semibold text-(--text-heading) mt-1">
+                        <CountUp :value="order.subtotal" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Tax</p>
-                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ fmt(order.taxAmount) }}</p>
+                    <p class="text-base font-semibold text-(--text-heading) mt-1">
+                        <CountUp :value="order.taxAmount" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
-                    <p class="text-base font-semibold text-(--color-primary) mt-1">{{ fmt(order.totalAmount) }}</p>
+                    <p class="text-base font-semibold text-(--color-primary) mt-1">
+                        <CountUp :value="order.totalAmount" currency="USD" />
+                    </p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Due</p>
@@ -151,7 +158,7 @@
                             class="ti ti-x" /></button>
                 </header>
                 <div class="p-5 space-y-3">
-                    <p class="text-xs text-(--text-muted)">Only orders in <code class="font-mono">new</code> status can
+                    <p class="text-xs text-(--text-muted)">Only orders in <code class="font-mono">draft</code> status can
                         be cancelled. Confirmed orders require reversing their downstream artifacts first.</p>
                     <input v-model="cancelReason" type="text" maxlength="500" placeholder="Reason (optional)"
                         class="form-control text-xs" />
@@ -173,6 +180,7 @@ import { useRoute } from 'vue-router'
 import { useSales, statusBadgeVariant } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
 import type { Order } from '~/types/sales'
+import CountUp from '~/components/CountUp.vue'
 
 const route = useRoute()
 const sales = useSales()

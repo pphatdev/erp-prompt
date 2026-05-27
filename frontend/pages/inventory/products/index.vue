@@ -33,19 +33,30 @@
             <!-- Filter toolbar -->
             <section class="glass-card rounded-xl p-4">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div class="relative md:col-span-5">
+                    <div class="relative md:col-span-4">
                         <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm" />
                         <input v-model="search" type="search" placeholder="Search by name or SKU..."
                             class="form-control pl-9" />
                     </div>
 
-                    <div class="relative md:col-span-3">
+                    <div class="relative md:col-span-2">
                         <i
                             class="ti ti-category absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm pointer-events-none" />
                         <select v-model="filterType" class="form-control pl-9 appearance-none">
-                            <option value="all">All product types</option>
+                            <option value="all">All types</option>
                             <option value="hardware">Hardware</option>
                             <option value="software">Software</option>
+                        </select>
+                    </div>
+
+                    <div class="relative md:col-span-2">
+                        <i
+                            class="ti ti-tag absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm pointer-events-none" />
+                        <select v-model="filterCategory" class="form-control pl-9 appearance-none">
+                            <option value="">All categories</option>
+                            <option value="__none__">— Uncategorised —</option>
+                            <option v-for="c in categories" :key="c.id" :value="c.id">{{ categoryIndentLabel(c) }}
+                            </option>
                         </select>
                     </div>
 
@@ -102,6 +113,7 @@
                                 <th class="px-4 py-3 font-semibold">Product</th>
                                 <th class="px-4 py-3 font-semibold font-mono">SKU</th>
                                 <th class="px-4 py-3 font-semibold">Type</th>
+                                <th class="px-4 py-3 font-semibold">Category</th>
                                 <th class="px-4 py-3 font-semibold text-right font-mono">Stock</th>
                                 <th class="px-4 py-3 font-semibold text-right font-mono">Min</th>
                                 <th class="px-4 py-3 font-semibold text-right font-mono">Price</th>
@@ -115,9 +127,11 @@
                                 class="hover:bg-(--bg-muted)/60 transition-colors group/row">
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3 min-w-[220px]">
-                                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-(--color-primary)"
+                                        <div class="w-10 h-10 rounded-lg flex items-center justify-center text-(--color-primary) overflow-hidden"
                                             :class="p.product_type === 'software' ? 'bg-(--color-primary-subtle)' : 'bg-(--bg-muted) border border-(--border-color)'">
-                                            <i
+                                            <img v-if="p.image_url" :src="p.image_url" :alt="p.name"
+                                                class="w-full h-full object-cover" />
+                                            <i v-else
                                                 :class="['ti', p.product_type === 'software' ? 'ti-cloud' : 'ti-device-laptop']" />
                                         </div>
                                         <div class="min-w-0">
@@ -125,7 +139,7 @@
                                                 class="text-xs font-semibold text-(--text-heading) truncate group-hover/row:text-(--color-primary) transition-colors">
                                                 {{ p.name }}</p>
                                             <p class="text-[10px] text-(--text-muted) truncate">{{ p.description || '—'
-                                                }}</p>
+                                            }}</p>
                                         </div>
                                     </div>
                                 </td>
@@ -148,6 +162,14 @@
                                         <span v-else-if="p.product_type === 'software'"
                                             class="text-xxs text-(--text-muted) italic">no modules</span>
                                     </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span v-if="p.category" class="inline-flex items-center gap-1.5 text-xxs">
+                                        <span class="w-2.5 h-2.5 rounded-sm border border-(--border-color)"
+                                            :style="{ backgroundColor: p.category.color || 'transparent' }" />
+                                        <span class="text-(--text-body)">{{ p.category.name }}</span>
+                                    </span>
+                                    <span v-else class="text-xxs text-(--text-muted) italic">uncategorised</span>
                                 </td>
                                 <td class="px-4 py-3 text-right font-mono text-xs" :class="stockClass(p)">{{
                                     p.current_stock }}</td>
@@ -180,13 +202,13 @@
                             <!-- Variant expansion rows -->
                             <template v-for="p in paginated" :key="`v-${p.id}`">
                                 <tr v-if="expanded[p.id] && p.variants?.length" class="bg-(--bg-muted)/40">
-                                    <td colspan="9" class="px-4 py-3">
+                                    <td colspan="10" class="px-4 py-3">
                                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                             <div v-for="v in p.variants" :key="v.id"
                                                 class="rounded-lg border border-(--border-color) bg-(--bg-card) p-3 text-xs">
                                                 <div class="flex items-center justify-between">
                                                     <span class="font-semibold text-(--text-heading)">{{ v.name
-                                                        }}</span>
+                                                    }}</span>
                                                     <span class="font-mono font-bold text-(--color-primary)">{{
                                                         fmtMoney(v.unit_price) }}</span>
                                                 </div>
@@ -234,9 +256,10 @@
                 class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <div v-for="p in paginated" :key="p.id"
                     class="glass-card rounded-xl overflow-hidden group flex flex-col">
-                    <div class="aspect-[4/3] flex items-center justify-center text-(--color-primary)"
+                    <div class="aspect-4/3 flex items-center justify-center text-(--color-primary) overflow-hidden"
                         :class="p.product_type === 'software' ? 'bg-(--color-primary-subtle)' : 'bg-(--bg-muted)'">
-                        <i :class="['ti', p.product_type === 'software' ? 'ti-cloud' : 'ti-device-laptop']"
+                        <img v-if="p.image_url" :src="p.image_url" :alt="p.name" class="w-full h-full object-cover" />
+                        <i v-else :class="['ti', p.product_type === 'software' ? 'ti-cloud' : 'ti-device-laptop']"
                             class="text-5xl opacity-60" />
                     </div>
                     <div class="p-4 space-y-2 flex-1 flex flex-col">
@@ -318,6 +341,16 @@
                     </div>
 
                     <div>
+                        <label
+                            class="block text-xxs font-bold text-(--text-muted) uppercase tracking-wide mb-1.5">Category</label>
+                        <select v-model="form.category_id" class="form-control">
+                            <option :value="null">— Uncategorised —</option>
+                            <option v-for="c in categories" :key="c.id" :value="c.id">{{ categoryIndentLabel(c) }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div>
                         <label class="block text-xxs font-bold text-(--text-muted) uppercase tracking-wide mb-1.5">Short
                             description</label>
                         <input v-model="form.description" type="text" maxlength="1000" class="form-control"
@@ -329,6 +362,38 @@
                             description</label>
                         <textarea v-model="form.description_long" rows="3" class="form-control"
                             placeholder="Marketing copy, surfaced on detail pages" />
+                    </div>
+
+                    <!-- Image upload -->
+                    <div>
+                        <label
+                            class="block text-xxs font-bold text-(--text-muted) uppercase tracking-wide mb-1.5">Product
+                            image</label>
+                        <div class="flex items-start gap-4">
+                            <!-- Preview -->
+                            <div
+                                class="w-20 h-20 rounded-xl border border-(--border-color) bg-(--bg-muted) flex items-center justify-center shrink-0 overflow-hidden">
+                                <img v-if="imagePreview" :src="imagePreview" alt="preview"
+                                    class="w-full h-full object-cover" />
+                                <i v-else class="ti ti-photo text-2xl text-(--text-muted)" />
+                            </div>
+                            <!-- Controls -->
+                            <div class="flex-1 space-y-2">
+                                <label
+                                    class="inline-flex items-center gap-2 btn btn-ghost text-xs cursor-pointer border border-(--border-color) rounded-lg px-3 py-2">
+                                    <i class="ti ti-upload text-sm" />
+                                    {{ imagePreview ? 'Change image' : 'Upload image' }}
+                                    <input ref="imageInput" type="file" accept="image/*" class="hidden"
+                                        @change="onImageChange" />
+                                </label>
+                                <button v-if="imagePreview" type="button"
+                                    class="flex items-center gap-1.5 text-xxs text-(--color-danger) hover:underline"
+                                    @click="clearImage">
+                                    <i class="ti ti-trash text-xs" />Remove
+                                </button>
+                                <p class="text-xxs text-(--text-muted)">PNG, JPG or WebP · max 2 MB</p>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -393,10 +458,10 @@
                                         <i :class="['ti', mod.icon || 'ti-puzzle', 'text-xs']" />
                                     </div>
                                     <span class="flex-1 text-xs font-semibold text-(--text-heading)">{{ mod.name
-                                        }}</span>
+                                    }}</span>
                                     <span
                                         class="text-xxs font-mono px-1 py-0.5 rounded border border-(--border-color) text-(--text-muted)">{{
-                                        mod.prefix }}</span>
+                                            mod.prefix }}</span>
                                 </label>
 
                                 <!-- Children -->
@@ -416,6 +481,79 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Variants editor -->
+                    <div class="space-y-2 pt-4 border-t border-(--border-color)">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-xxs font-bold text-(--text-muted) uppercase tracking-wide">
+                                Variants
+                            </label>
+                            <span class="text-xxs text-(--color-primary) font-mono">{{ variantDrafts.length }} row<span
+                                    v-if="variantDrafts.length !== 1">s</span></span>
+                        </div>
+                        <p class="text-xxs text-(--text-muted)">
+                            Variations of this product (e.g. colour, size, plan tier). Each variant has its own SKU and
+                            price.
+                        </p>
+
+                        <div v-if="variantDrafts.length"
+                            class="rounded-xl border border-(--border-color) divide-y divide-(--border-color)">
+                            <div v-for="(v, idx) in variantDrafts" :key="v.tempId" class="p-3 space-y-2 bg-(--bg-card)">
+                                <div class="grid grid-cols-12 gap-2">
+                                    <div class="col-span-4 space-y-1">
+                                        <label
+                                            class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">SKU
+                                            *</label>
+                                        <input v-model="v.sku" type="text" required maxlength="120"
+                                            placeholder="VAR-001" class="form-control text-xs font-mono"
+                                            @input="markVariantDirty(v)" />
+                                    </div>
+                                    <div class="col-span-5 space-y-1">
+                                        <label
+                                            class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Name
+                                            *</label>
+                                        <input v-model="v.name" type="text" required maxlength="255"
+                                            placeholder="e.g. Red — Large" class="form-control text-xs"
+                                            @input="markVariantDirty(v)" />
+                                    </div>
+                                    <div class="col-span-3 space-y-1">
+                                        <label
+                                            class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Price</label>
+                                        <input v-model.number="v.unit_price" type="number" min="0" step="0.01"
+                                            class="form-control text-xs text-right" @input="markVariantDirty(v)" />
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-12 gap-2 items-end">
+                                    <div class="col-span-9 space-y-1">
+                                        <label
+                                            class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Attributes
+                                            (JSON)</label>
+                                        <textarea v-model="v.attributes_json" rows="2"
+                                            placeholder='{"color":"red","size":"L"}'
+                                            class="form-control text-xxs font-mono resize-none"
+                                            @input="markVariantDirty(v)" />
+                                    </div>
+                                    <div class="col-span-3 flex items-center justify-between gap-2 pb-2">
+                                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                                            <input v-model="v.is_active" type="checkbox"
+                                                class="rounded border-(--border-color)" @change="markVariantDirty(v)" />
+                                            <span class="text-xxs">Active</span>
+                                        </label>
+                                        <button type="button" class="action-btn action-btn-danger"
+                                            title="Remove variant" @click="removeVariantRow(idx)">
+                                            <i class="ti ti-trash" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="button"
+                            class="btn btn-ghost text-xs w-full justify-center border border-dashed border-(--border-color)"
+                            @click="addVariantRow">
+                            <i class="ti ti-plus" />Add variant
+                        </button>
                     </div>
 
                     <footer class="pt-4 border-t border-(--border-color) flex justify-end gap-2">
@@ -462,7 +600,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useApi } from '~/composables/useApi'
+import { useInventory } from '~/composables/useInventory'
 import { useToast } from '~/composables/useToast'
+import type { Category } from '~/types/inventory'
 
 interface Variant {
     id: string
@@ -472,6 +612,18 @@ interface Variant {
     unit_price: number
     attributes: Record<string, unknown> | null
     is_active: boolean
+}
+
+interface VariantDraft {
+    tempId: string
+    id: string | null
+    sku: string
+    name: string
+    unit_price: number
+    attributes_json: string
+    is_active: boolean
+    _isNew: boolean
+    _dirty: boolean
 }
 
 interface ModuleOption {
@@ -487,9 +639,12 @@ interface ModuleOption {
 
 interface Product {
     id: string
+    image_url: string | null
     sku: string
     name: string
     product_type: 'hardware' | 'software'
+    category_id: string | null
+    category: { id: string; name: string; slug: string; color: string | null } | null
     description: string | null
     description_long: string | null
     unit_price: number
@@ -501,6 +656,7 @@ interface Product {
 }
 
 const api = useApi()
+const inventory = useInventory()
 const toast = useToast()
 
 // ─── Module options (loaded once, used by software product form) ─────────────
@@ -530,6 +686,36 @@ const view = ref<'list' | 'grid'>('list')
 const search = ref('')
 const filterType = ref<'all' | 'hardware' | 'software'>('all')
 const filterStatus = ref<'all' | 'active' | 'inactive' | 'low_stock' | 'out_of_stock'>('all')
+const filterCategory = ref<string>('')
+
+const categories = ref<Category[]>([])
+const loadCategories = async () => {
+    try {
+        const res = await inventory.categories.tree()
+        const flatten = (nodes: Category[]): Category[] => {
+            const out: Category[] = []
+            const walk = (list: Category[]) => list.forEach(n => {
+                out.push(n)
+                if (n.children?.length) walk(n.children)
+            })
+            walk(nodes)
+            return out
+        }
+        categories.value = flatten(res.data)
+    } catch {
+        // non-fatal: picker just shows no options
+    }
+}
+const categoryDepthOf = (id: string): number => {
+    let d = 0
+    let current = categories.value.find(c => c.id === id)
+    while (current?.parentId) {
+        d++
+        current = categories.value.find(c => c.id === current!.parentId)
+    }
+    return d
+}
+const categoryIndentLabel = (c: Category) => `${'— '.repeat(categoryDepthOf(c.id))}${c.name}`
 const page = ref(1)
 const pageSize = 8
 const expanded = reactive<Record<string, boolean>>({})
@@ -578,7 +764,10 @@ const filtered = computed(() => products.value.filter(p => {
         || (filterStatus.value === 'inactive' && !p.is_active)
         || (filterStatus.value === 'low_stock' && isLowStock(p))
         || (filterStatus.value === 'out_of_stock' && isOutOfStock(p))
-    return matchSearch && matchType && matchStatus
+    const matchCategory = !filterCategory.value
+        || (filterCategory.value === '__none__' && !p.category_id)
+        || p.category_id === filterCategory.value
+    return matchSearch && matchType && matchStatus && matchCategory
 }))
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize)))
@@ -620,10 +809,14 @@ const toggleVariants = (id: string) => { expanded[id] = !expanded[id] }
 // ───── Add / Edit modal ─────────────────────────────────────────
 const showModal = ref(false)
 const editing = ref<Product | null>(null)
+const imageFile = ref<File | null>(null)
+const imagePreview = ref<string | null>(null)
+const imageInput = ref<HTMLInputElement | null>(null)
 const form = reactive({
     sku: '',
     name: '',
     product_type: 'hardware' as 'hardware' | 'software',
+    category_id: null as string | null,
     description: '',
     description_long: '',
     unit_price: 0,
@@ -632,16 +825,100 @@ const form = reactive({
     module_ids: [] as string[],
 })
 
+const variantDrafts = ref<VariantDraft[]>([])
+const removedVariantIds = ref<string[]>([])
+let tempVariantSeq = 0
+const nextTempId = () => `tmp-${++tempVariantSeq}`
+
 const resetForm = () => {
     form.sku = ''
     form.name = ''
     form.product_type = 'hardware'
+    form.category_id = null
     form.description = ''
     form.description_long = ''
     form.unit_price = 0
     form.minimum_stock_level = 0
     form.is_active = true
     form.module_ids = []
+    variantDrafts.value = []
+    removedVariantIds.value = []
+    imageFile.value = null
+    imagePreview.value = null
+    if (imageInput.value) imageInput.value.value = ''
+}
+
+const variantFromExisting = (v: Variant): VariantDraft => ({
+    tempId: nextTempId(),
+    id: v.id,
+    sku: v.sku,
+    name: v.name,
+    unit_price: Number(v.unit_price) || 0,
+    attributes_json: v.attributes ? JSON.stringify(v.attributes, null, 2) : '',
+    is_active: !!v.is_active,
+    _isNew: false,
+    _dirty: false,
+})
+
+const addVariantRow = () => {
+    variantDrafts.value.push({
+        tempId: nextTempId(),
+        id: null,
+        sku: '',
+        name: '',
+        unit_price: form.unit_price || 0,
+        attributes_json: '',
+        is_active: true,
+        _isNew: true,
+        _dirty: false,
+    })
+}
+
+const removeVariantRow = (idx: number) => {
+    const row = variantDrafts.value[idx]
+    if (row.id) removedVariantIds.value.push(row.id)
+    variantDrafts.value.splice(idx, 1)
+}
+
+const markVariantDirty = (row: VariantDraft) => { if (!row._isNew) row._dirty = true }
+
+const parseAttributes = (raw: string): Record<string, unknown> | null => {
+    const trimmed = raw.trim()
+    if (!trimmed) return null
+    try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed
+        throw new Error('Attributes must be a JSON object')
+    } catch (e: any) {
+        throw new Error(`Invalid attributes JSON: ${e.message}`)
+    }
+}
+
+const persistVariants = async (productId: string): Promise<void> => {
+    // Deletes first so a freed SKU can be re-used by a new row in the same save.
+    await Promise.all(removedVariantIds.value.map(id =>
+        inventory.productVariants.destroy(id).catch(err => {
+            console.warn('Variant delete failed', id, err?.data?.message)
+        })))
+    removedVariantIds.value = []
+
+    const ops: Promise<unknown>[] = []
+    for (const row of variantDrafts.value) {
+        if (!row.sku.trim() || !row.name.trim()) continue
+        const payload = {
+            sku: row.sku.trim(),
+            name: row.name.trim(),
+            unit_price: Number(row.unit_price) || 0,
+            attributes: parseAttributes(row.attributes_json),
+            is_active: row.is_active,
+        }
+        if (row._isNew) {
+            ops.push(inventory.productVariants.create(productId, payload))
+        } else if (row._dirty && row.id) {
+            ops.push(inventory.productVariants.update(row.id, payload))
+        }
+    }
+    await Promise.all(ops)
 }
 
 const openCreate = () => {
@@ -656,14 +933,36 @@ const openEdit = (p: Product) => {
     form.sku = p.sku
     form.name = p.name
     form.product_type = p.product_type
+    form.category_id = p.category_id
     form.description = p.description ?? ''
     form.description_long = p.description_long ?? ''
     form.unit_price = p.unit_price
     form.minimum_stock_level = p.minimum_stock_level ?? 0
     form.is_active = p.is_active
     form.module_ids = p.modules?.map(m => m.id) ?? []
+    variantDrafts.value = (p.variants ?? []).map(variantFromExisting)
+    removedVariantIds.value = []
+    imageFile.value = null
+    imagePreview.value = p.image_url ?? null
+    if (imageInput.value) imageInput.value.value = ''
     showModal.value = true
     loadModuleOptions()
+}
+
+const onImageChange = (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0] ?? null
+    imageFile.value = file
+    if (file) {
+        const reader = new FileReader()
+        reader.onload = ev => { imagePreview.value = ev.target?.result as string }
+        reader.readAsDataURL(file)
+    }
+}
+
+const clearImage = () => {
+    imageFile.value = null
+    imagePreview.value = null
+    if (imageInput.value) imageInput.value.value = ''
 }
 
 const toggleModuleId = (id: string) => {
@@ -694,35 +993,69 @@ const isParentIndeterminate = (mod: ModuleOption): boolean => {
 const submit = async () => {
     submitting.value = true
     try {
-        const payload: Record<string, unknown> = {
-            sku: form.sku,
-            name: form.name,
-            product_type: form.product_type,
-            description: form.description || null,
-            description_long: form.description_long || null,
-            unit_price: form.unit_price,
-            is_active: form.is_active,
-        }
-        // Software products don't track stock — don't send a misleading min level.
-        if (form.product_type === 'hardware') {
-            payload.minimum_stock_level = form.minimum_stock_level
-        }
-        // Always send module_ids for software so the pivot is kept in sync.
-        if (form.product_type === 'software') {
-            payload.module_ids = form.module_ids
+        const buildPayload = () => {
+            if (imageFile.value) {
+                const fd = new FormData()
+                fd.append('sku', form.sku)
+                fd.append('name', form.name)
+                fd.append('product_type', form.product_type)
+                if (form.category_id) fd.append('category_id', form.category_id)
+                if (form.description) fd.append('description', form.description)
+                if (form.description_long) fd.append('description_long', form.description_long)
+                fd.append('unit_price', String(form.unit_price))
+                fd.append('is_active', form.is_active ? '1' : '0')
+                if (form.product_type === 'hardware')
+                    fd.append('minimum_stock_level', String(form.minimum_stock_level))
+                if (form.product_type === 'software')
+                    form.module_ids.forEach(id => fd.append('module_ids[]', id))
+                fd.append('image', imageFile.value)
+                return fd
+            }
+            const payload: Record<string, unknown> = {
+                sku: form.sku,
+                name: form.name,
+                product_type: form.product_type,
+                category_id: form.category_id,
+                description: form.description || null,
+                description_long: form.description_long || null,
+                unit_price: form.unit_price,
+                is_active: form.is_active,
+            }
+            if (form.product_type === 'hardware')
+                payload.minimum_stock_level = form.minimum_stock_level
+            if (form.product_type === 'software')
+                payload.module_ids = form.module_ids
+            return payload
         }
 
+        let savedId: string
         if (editing.value) {
-            const res = await api.put<{ data: Product }>(`products/${editing.value.id}`, payload)
+            const body = buildPayload()
+            // Laravel doesn't parse multipart PUT — spoof the method via POST
+            if (body instanceof FormData) body.append('_method', 'PUT')
+            const res = body instanceof FormData
+                ? await api.post<{ data: Product }>(`products/${editing.value.id}`, body)
+                : await api.put<{ data: Product }>(`products/${editing.value.id}`, body)
+            savedId = res.data.id
             const idx = products.value.findIndex(p => p.id === editing.value!.id)
-            if (idx !== -1) products.value[idx] = res.data
+            if (idx !== -1) products.value.splice(idx, 1, res.data)
             toast.success('Product updated', res.data.name)
         } else {
-            const res = await api.post<{ data: Product }>('products', payload)
-            products.value.unshift(res.data)
+            const res = await api.post<{ data: Product }>('products', buildPayload())
+            savedId = res.data.id
+            products.value.splice(0, 0, res.data)
             toast.success('Product created', res.data.name)
         }
+
+        try {
+            await persistVariants(savedId)
+        } catch (e: any) {
+            toast.error('Variants partially saved', e?.message || e?.data?.message || 'Some variants did not save')
+        }
+
         showModal.value = false
+        // Reload to ensure image_url and all derived fields are fresh from the server
+        await load()
     } catch (err: any) {
         const msg = err?.data?.message || Object.values(err?.data?.errors || {}).flat()[0] || 'Check the form and try again.'
         toast.error('Failed to save product', String(msg))
@@ -797,6 +1130,7 @@ const closeActionMenu = () => { actionMenu.open = false; actionMenu.product = nu
 
 onMounted(() => {
     load()
+    loadCategories()
     if (import.meta.client) document.addEventListener('click', closeActionMenu)
 })
 onUnmounted(() => {

@@ -35,6 +35,10 @@
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2 shrink-0">
+                    <NuxtLink v-if="customer.customerType === 'tenant'"
+                        :to="`/sales/customers/${customer.id}/account`" class="btn btn-soft-primary text-xs">
+                        <i class="ti ti-dashboard" />Account dashboard
+                    </NuxtLink>
                     <NuxtLink :to="`/sales/quotations?customer_id=${customer.id}`" class="btn btn-primary text-xs">
                         <i class="ti ti-file-text" />New quote
                     </NuxtLink>

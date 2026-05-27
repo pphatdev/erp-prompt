@@ -393,12 +393,14 @@ import { computed, reactive, ref, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSales } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
+import { useValidation } from '~/composables/useValidation'
 
 definePageMeta({ breadcrumb: 'New customer' })
 
 const router = useRouter()
 const sales = useSales()
 const toast = useToast()
+const { normalizePhoneNumber, normalizeEmail } = useValidation()
 
 const submitting = ref(false)
 const showErrors = ref(false)
@@ -447,7 +449,7 @@ watch(() => form.customer_type, (type) => {
     if (type === 'tenant') activeTab.value = 'tenant'
 })
 
-// ───── Handle availability check ────────────────────────────
+// Handle availability check
 type HandleStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
 const handleStatus = ref<HandleStatus>('idle')
 let handleTimer: ReturnType<typeof setTimeout> | null = null
@@ -475,7 +477,7 @@ const visibleTabs = computed(() =>
     form.customer_type === 'tenant' ? TABS : TABS.filter(t => t.key !== 'tenant'),
 )
 
-// ───── Color picker bridge ────────────────────────────────
+// Color picker bridge
 // The backend stores brand color as a space-separated RGB triple
 // ("59 130 246"). <input type="color"> only speaks hex, so we
 // translate both directions.
@@ -508,6 +510,11 @@ const brandHex = computed(() => {
     return '#' + parts.map(p => p.toString(16).padStart(2, '0')).join('')
 })
 
+/**
+ * @description Event handler for native color picker input to map hex code to space-separated RGB triplet.
+ * @param { Event } e Native input event
+ * @returns { void }
+ */
 const onColorPick = (e: Event) => {
     const hex = (e.target as HTMLInputElement).value
     const r = parseInt(hex.slice(1, 3), 16)
@@ -516,9 +523,14 @@ const onColorPick = (e: Event) => {
     form.brand_primary_color = `${r} ${g} ${b}`
 }
 
-// ───── Logo upload (base64, client-side encoded) ─────────────
+// Logo upload (base64, client-side encoded)
 const LOGO_MAX_BYTES = 200 * 1024 // 200 KB raw — base64 inflates to ~267 KB
 
+/**
+ * @description Event handler triggered when a branding logo image is selected.
+ * @param { Event } e Native change event
+ * @returns { Promise<void> }
+ */
 const onLogoSelected = async (e: Event) => {
     const target = e.target as HTMLInputElement
     const file = target.files?.[0]
@@ -547,6 +559,11 @@ const onLogoSelected = async (e: Event) => {
     }
 }
 
+/**
+ * @description Converts a raw browser File into a base64 Data URL string.
+ * @param { File } file Browser File object
+ * @returns { Promise<string> } Promise resolving to base64 Data URL string
+ */
 const fileToDataUrl = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
         const reader = new FileReader()
@@ -555,6 +572,10 @@ const fileToDataUrl = (file: File): Promise<string> =>
         reader.readAsDataURL(file)
     })
 
+/**
+ * @description Reset branding logo input states, clearing active URL value.
+ * @returns { void }
+ */
 const clearLogo = () => {
     form.brand_logo_url = ''
     if (logoInputEl.value) logoInputEl.value.value = ''
@@ -572,8 +593,8 @@ const checklist = computed(() => [
 
 const buildPayload = () => ({
     name: form.name,
-    email: form.email,
-    phone: form.phone || null,
+    email: normalizeEmail(form.email),
+    phone: form.phone ? normalizePhoneNumber(form.phone) : null,
     company_name: form.company_name || null,
     status: form.status,
     customer_type: form.customer_type,
@@ -596,6 +617,11 @@ const buildPayload = () => ({
     tenant_handle: form.customer_type === 'tenant' ? (form.tenant_handle || null) : undefined,
 })
 
+/**
+ * @description Submit new customer payload details to the database
+ * @method POST
+ * @returns { Promise<void> } Resolves on success, redirects to the customer details page
+ */
 const submit = async () => {
     showErrors.value = true
     if (!form.name || !form.email) {
