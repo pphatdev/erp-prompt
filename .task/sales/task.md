@@ -93,3 +93,52 @@ Implement the canonical hybrid sales flow per [`rules/hybrid_sales_business_flow
 - [ ] Variant management UI on the Products page (currently variants are read-only via the eager-loaded backend response — no create/edit yet)
 - [ ] PDF export of quotation/invoice (print stylesheet exists implicitly via Tailwind; dedicated print view pending)
 - [ ] Vitest coverage for the Quotation builder (line totals, variant price overrides, canSubmit guard)
+
+## Phase 9 — Target-flow refactor (Planned)
+Spec: [`rules/hybrid_sales_business_flow.md`](../../rules/hybrid_sales_business_flow.md), [`skills/sales/rules.md`](../../skills/sales/rules.md), [`skills/sales/flow.md`](../../skills/sales/flow.md).
+
+### 9.1 Status enum refactor
+- [x] Migration `2024_01_01_000049_remap_sales_status_columns` (per-tenant): `quotations.status` new→draft, confirmed→won, cancelled→lost (backfill `loss_reason`); `orders.status` new→draft, confirmed→confirm, cancelled→cancel; `subscriptions.status` new/confirmed→active.
+- [x] Migration `2024_01_01_000050_add_from_opportunity_id_to_quotations` — adds `from_opportunity_id`, `loss_reason`, `won_by/at`, `lost_by/at`.
+- [x] Drop legacy `Quotation::STATUS_NEW` / `STATUS_CONFIRMED` / `STATUS_CANCELLED` constants. Same for `Order` and `Subscription`.
+- [x] Update `QuotationService`, `OrderService`, `SubscriptionService` to use new constants.
+
+### 9.2 Quotation → Lead-to-Customer conversion
+- [x] Rename `QuotationService::confirm` → `win` (atomic Lead → Customer creation, CrmContact create, draft Order create). `cancel` → `lose` (requires `loss_reason`).
+- [x] Rename routes: `POST /quotations/{id}/confirm` → `/win`, `POST /quotations/{id}/cancel` → `/lose`. Removed `/convert-to-order`.
+- [x] Add `quotations.from_opportunity_id` (UUID nullable, FK → opportunities.id) — see migration above.
+- [x] Sales-side `HandleLeadQualified` listener — creates a `CrmActivity` of type=task on the Opportunity.
+- [x] Deleted legacy `App\Tenants\Modules\Sales\Listeners\CreateDraftQuotationOnOpportunityWon`.
+
+### 9.3 Tenant provisioning trigger move
+- [x] `OrderService::confirmOrder` invokes `TenantProvisioningService::provisionForCustomer` after commit when `customer_type=tenant` AND has subscription.
+- [x] Removed `TenantProvisioningService` call from `CustomerController::store()`.
+- [x] Deleted `SubscriptionConfirmed` event + `ProvisionSubscriptionTenant` listener.
+- [x] `SubscriptionService::createFromOrder` returns subscriptions with `status=active` directly (no separate confirm step).
+- [x] `InvoiceService::confirm` no longer auto-activates linked subscription (already active); injected `SubscriptionService` dependency removed.
+
+### 9.4 Subscription lifecycle additions
+- [x] `SubscriptionService::renew(Subscription, ?string $cycle)` — extends `end_date`, issues renewal Invoice.
+- [x] `SubscriptionService::changePlan(Subscription, array $data, string $action)` — upgrade/downgrade variant + delta/credit invoice.
+- [x] Scheduled command `subscriptions:expire` — daily job (02:00) per-tenant fan-out via `App\Console\Commands\ExpireSubscriptions`.
+- [x] `POST /subscriptions/{id}/renew` route + `SubscriptionController::renew`.
+- [x] `POST /subscriptions/{id}/change-plan` route + `SubscriptionController::changePlan`.
+
+### 9.5 Customer Account dashboard (Frontend)
+- [x] `pages/sales/customers/[id]/account.vue` — Access URL chip + copy button, active/expired/cancelled subscription cards, countdown badges, Renew/Upgrade/Downgrade/Cancel modal flows.
+- [x] `useSales().subscriptions.renew(id, payload)` / `.changePlan(id, payload)` composable methods (+ removed `.confirm`).
+- [x] `components/sales/SubscriptionCountdown.vue` — color-coded by days remaining (green >30, amber 7-30, red <7, danger when ≤0).
+- [x] Link to dashboard from Customer detail page (only when `customerType === 'tenant'`).
+- [x] Subscription detail page rewritten with the same Renew/Upgrade/Downgrade modals (legacy SubscriptionConfirmed copy removed).
+
+### 9.6 Testing
+- [x] Pest: `QuotationWinTest` — atomic Lead→Customer conversion, CrmContact creation, draft Order auto-creation, idempotency on re-win, lose closes lead.
+- [x] Pest: `OrderConfirmProvisioningTest` — provisioning fires only for tenant-type customer with software line; failure doesn't roll back the order; mocks `TenantProvisioningService`.
+- [x] Pest: `SubscriptionLifecycleTest` — renew, upgrade (delta invoice), downgrade (credit invoice), cancel, expire transitions.
+- [x] Pest: `StatusRemapMigrationTest` — verifies legacy → new value mapping on a seeded dataset.
+- [x] Rewrote existing `HybridSalesFlowTest` for the new flow (subscriptions start active, no SubscriptionConfirmed event).
+
+### 9.7 Docs sync
+- [x] `rules/hybrid_sales_business_flow.md` describes target flow + status migration.
+- [x] `skills/sales/{flow,rules,skill}.md` mark target sections Planned, current sections Shipped.
+- [x] `skills/crm/{flow,rules,skill}.md` document B2B Product Schedule + handoff event.

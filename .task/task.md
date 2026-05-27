@@ -1,6 +1,6 @@
 # ERP Master Progress Registry
 
-> Last synced: 2026-05-23
+> Last synced: 2026-05-27
 
 ## Infrastructure & Platform
 - [x] Laravel multi-tenant backend (stancl/tenancy v3, multi-database)
@@ -38,7 +38,20 @@
 - [x] `UpdateSettingsRequest::authorize()` — uses `hasPermission()` not Gate
 - [x] Customer admin can update branding (logo, colors, theme)
 - [x] Theme applied immediately on save + persisted in localStorage
-- [x] Settings tabs: branding, locale, notifications, security, modules (adminOnly), platform (adminOnly)
+- [x] Settings tabs: branding, locale, notifications, security, **numbering**, modules (adminOnly), platform (adminOnly)
+- [x] `Setting` model `value` cast fixed: `'array'` → `'json'` (scalar types round-trip correctly)
+
+## Document Numbering Prefixes
+> Full task: [`.task/numbering/task.md`](./.task/numbering/task.md) | Rule: [`skills/configuration/numbering.md`](./skills/configuration/numbering.md)
+- [x] 7 prefix keys registered in `SettingService::defaults()` (employee, candidate, quotation, order, invoice, subscription, PO)
+- [x] All generators read from `SettingService` with `empty()` fallback — no hardcoded values
+- [x] All 7 code columns carry unique DB constraints
+- [x] `TenantDatabaseSeeder` uses `generateNextEmployeeId()` — hardcoded `'TT-0001'` removed
+- [x] Frontend Numbering tab — all 7 inputs, maxlength=16, live previews, immutability callout
+- [ ] Collision retry on `23505` for sequential generators (Employee, Candidate) — **P1 open**
+- [ ] `UpdateSettingsRequest` validation for `numbering.*` prefix format/length — **P1 open**
+- [ ] Pest tests: prefix respected, fallback, tenancy isolation, audit log — **P1 open**
+- [ ] Postman collection — `GET /settings?group=numbering` + `PUT /settings` prefix update examples
 
 ## Dashboard
 - [x] `GET /api/v1/dashboard/summary` — `DashboardSummaryController` + `DashboardSummaryService`
@@ -58,17 +71,22 @@
 - [x] Subscriptions (CRUD + activate/cancel)
 - [x] `TenantProvisioningService` — provision DB on subscription creation
 - [x] Software products linked to system modules (modal picker, badge display)
+- [ ] **Target-flow refactor (Planned)** — status enums to `draft`/`won`/`lost` (Quotation), `draft`/`confirm`/`cancel` (Order), `active`/`expired`/`cancelled` (Subscription); Lead→Customer conversion at Quotation `won`; tenant provisioning moved to Order `confirm`; Customer Account dashboard with countdown + renew/upgrade/downgrade/cancel. See `.task/sales/task.md` § Phase 9 and `rules/hybrid_sales_business_flow.md`.
 
 ## CRM (Customer Relationship Management)
-- [ ] Decouple Lead models and CrmService to dedicated namespace
-- [ ] Migrate Opportunities table & models (stages FSM)
-- [ ] Migrate Contacts table & models (encrypted phone/email)
-- [ ] Migrate Polymorphic Activities table & models (interaction logging)
-- [ ] Lead Qualification & Conversion transactional engine
-- [ ] API Surface (slim controllers, direct resource returns)
+- [x] Decouple Lead models and CrmService to dedicated namespace
+- [x] Migrate Opportunities table & models (stages FSM)
+- [x] Migrate Contacts table & models (encrypted phone/email)
+- [x] Migrate Polymorphic Activities table & models (interaction logging)
+- [x] Lead Qualification & Conversion transactional engine
+- [x] API Surface (slim controllers, direct resource returns)
+- [x] CRM permissions (`crm.leads.*` / `crm.opportunities.*` / `crm.contacts.*` / `crm.activities.*`) wired via 4 policies + `CrmPermissionSeeder`
 - [x] PrimeVue Opportunity Kanban Board UI (drag-and-drop, loss reason guard)
 - [x] Polymorphic Interaction Timeline UI component
-- [ ] Pest PHP Integration test suite (Tenancy isolation, transaction boundaries)
+- [x] Integration test suite under `tests/Feature/Tenant/Crm/` (OpportunityPipeline, LeadQualification, TenancyIsolation, PolymorphicActivity)
+- [x] **B2B/B2C Product Schedule** — `opportunity_product_schedules` entity + service + REST CRUD; lock on terminal stage; snapshot to Quotation on `won`. (Phase 7 shipped backend + frontend editor.)
+- [x] **`LeadQualified` handoff event** — replaced `OpportunityWon`+auto-Quotation listener; Customer creation deferred to Sales-side Quotation `win`.
+- [x] **Appointments / Schedules calendar** — `crm_appointments` entity + service + REST + `crm.appointments.*` perms + policy + `pages/crm/schedules.vue` (agenda/week/month). See `.task/crm/task.md` § Phase 8.
 
 ## HRM
 - [x] Employees CRUD
@@ -82,14 +100,27 @@
 
 ## Inventory
 - [x] Products CRUD (with variants, module linking for software type)
-- [x] Stock Movements
-- [ ] Warehouse management UI
-- [ ] Supplier management UI
-- [ ] Purchase Orders UI
+- [x] **Product Variants CRUD** — `ProductVariantController` (nested under products + shallow), `ProductVariantService` with cross-table SKU uniqueness, `ProductVariantPolicy` reusing `inventory.product.*` perms. Products page modal gains a dynamic variants editor (add/remove rows, JSON attributes, persisted in a second round-trip after product save).
+- [x] **Categories** — hierarchical taxonomy (`categories` table with self-FK parent_id), `Category` model + service (move-under-descendant cycle guard, archive blocked by children/products), `CategoryController` (flat + `?tree=1`), `CategoryPolicy` with `inventory.category.{read,write,delete}`. `/inventory/categories` page with tree view + color chips + parent picker. Category column/filter on the Products page; nullable `category_id` FK added to products.
+- [x] Stock Movements ledger & service (recordMovement, transferStock)
+- [x] Warehouse management API & PrimeVue UI (`/inventory/warehouses` — CRUD + KPI cards, archive blocked by on-hand stock guard)
+- [x] Supplier directory API & PrimeVue UI (`/inventory/suppliers` — CRUD + rating/lead-time/terms, archive blocked by open PO guard)
+- [x] Purchase Orders & P2P system (PR -> PO -> eApprovals -> GRN) — full FSM (`draft→submitted→approved→receiving→received`) with `/inventory/purchase-orders` list + `create` wizard + `[id]` detail/receive page. eApprovals routing in `ProcurementService::submit`.
+- [x] Cost valuation integration (Weighted Average Costing inline on receive — see Phase 2 INV-WAC)
+- [x] Low-Stock Alert & automated reorder suggestions engine (INV-LOWSTOCK backend completed)
+- [ ] FIFO costing option (WAC shipped; FIFO still pending)
+- [/] eCommerce Sync & stock reservation engine (15-min TTL locks + returns restock) — backend INV-RESERVE + INV-DAEMON shipped, INV-STOREFRONT pending
+- [ ] Omnichannel price integration (Catalog pricing SSOT for Quotations, CRM, PO, eCommerce, POS)
 
-## FMS (Financial Management)
+
+
+
+## FMS / Finance
+> Sidebar "Finance" group includes mirrored Invoices/Subscriptions from Sales (code stays under `App\Tenants\Modules\Sales\*`).
 - [x] Chart of Accounts
 - [x] Journal Entries + Ledger
+- [ ] **Payments (Planned)** — record customer remittance, partial-apply against Invoice, post `DR Cash, CR AR`. See `.task/fms/task.md` § Phase 1.
+- [ ] **Estimates (Planned)** — informal pre-binding pricing; convert to a Sales Quotation. See `.task/fms/task.md` § Phase 2.
 - [ ] AP/AR module UI
 - [ ] Tax management UI
 - [ ] Financial reports UI

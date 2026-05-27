@@ -6,9 +6,10 @@ Implement a fully decoupled, multi-tenant CRM module scoping raw Leads, Opportun
 ---
 
 ## Architectural Boundaries
-1. **Module Segregation:** CRM is strictly pre-sale. Once an Opportunity is `won`, it can trigger the creation of a draft `Quotation` in the `Sales` module, passing control to the Order-to-Cash (O2C) pipeline.
-2. **Tenancy Scoping:** All tables (`leads`, `opportunities`, `crm_contacts`, `crm_activities`) must reside within the tenant-isolated databases and inherit the `BelongsToTenant` trait. Cross-tenant queries are structurally impossible.
-3. **Audit Trail (P1):** Ensure compliance by using the `Auditable` trait on all CRM models.
+1. **Module Segregation:** CRM is strictly pre-sale. The Opportunity's `B2B Product Schedule` is the artefact handed off to Sales. The Quotation/Order/Invoice/Subscription lifecycle lives entirely in Sales.
+2. **Tenancy Scoping:** All tables (`leads`, `opportunities`, `opportunity_product_schedules` [planned], `crm_contacts`, `crm_activities`) reside within tenant-isolated databases and inherit the `BelongsToTenant` trait.
+3. **Audit Trail (P1):** Use the `Auditable` trait on all CRM models.
+4. **Handoff Contract (Planned):** Stage transition to `won` dispatches `LeadQualified(lead, opportunity)`. Sales' `HandleLeadQualified` listener creates a "Create Quotation from Lead" rep task — Sales **does not** auto-create the Quotation. Customer creation is deferred to the Sales-side Quotation `won` transition.
 
 ---
 
