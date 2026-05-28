@@ -39,10 +39,12 @@ onMounted(() => {
 
     setTimeout(() => {
         const path = router.currentRoute.value.path
+        const fullPath = router.currentRoute.value.fullPath
         if (!authStore.isAuthenticated && path !== '/login') {
-            router.push('/login')
+            router.push({ path: '/login', query: { redirect: fullPath } })
         } else if (authStore.isAuthenticated && (path === '/login' || path === '/')) {
-            router.push('/dashboard')
+            const redirect = router.currentRoute.value.query.redirect as string || '/dashboard'
+            router.push(redirect)
         }
     }, 100)
 })

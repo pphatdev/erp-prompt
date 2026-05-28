@@ -275,7 +275,7 @@ const sumValues = (obj: Record<string, number> | null): number =>
 const loadPeriods = async () => {
     loading.value = true
     try {
-        const res = await api.get<Paginated<PayrollPeriod>>(`/payroll-periods?page=${pagination.page}&limit=${pagination.limit}`)
+        const res = await api.get<Paginated<PayrollPeriod>>(`/hrm/payroll-periods?page=${pagination.page}&limit=${pagination.limit}`)
         periods.value = res.data
         pagination.total = res.pagination.total
         pagination.totalPages = res.pagination.totalPages
@@ -308,7 +308,7 @@ const createPeriod = async () => {
     saving.value = true
     formError.value = null
     try {
-        await api.post('/payroll-periods', form)
+        await api.post('/hrm/payroll-periods', form)
         showCreateModal.value = false
         toast.success('Period created', `${form.name} is ready to process.`)
         await loadPeriods()
@@ -329,7 +329,7 @@ const processPeriod = async (p: PayrollPeriod) => {
     })
     if (!ok) return
     try {
-        await api.post(`/payroll-periods/${p.id}/process`)
+        await api.post(`/hrm/payroll-periods/${p.id}/process`)
         toast.success('Payroll processed', `${p.name} payslips generated.`)
         await loadPeriods()
     } catch (err: any) {
@@ -347,7 +347,7 @@ const closePeriod = async (p: PayrollPeriod) => {
     })
     if (!ok) return
     try {
-        await api.post(`/payroll-periods/${p.id}/close`)
+        await api.post(`/hrm/payroll-periods/${p.id}/close`)
         toast.success('Period closed', `${p.name} is locked and the journal has been posted.`)
         await loadPeriods()
     } catch (err: any) {

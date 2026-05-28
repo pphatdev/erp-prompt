@@ -538,7 +538,7 @@ const loadLeaves = async () => {
     leaves.balanceLoading = true
     try {
         const [reqs, bal] = await Promise.all([
-            api.get<Paginated<Leave>>(`/leaves?employeeId=${employeeId.value}&limit=100`),
+            api.get<Paginated<Leave>>(`/hrm/timeoff/leaves?employeeId=${employeeId.value}&limit=100`),
             api.get<{ data: LeaveBalanceRow[] }>(`/employees/${employeeId.value}/leave-balance`)
         ])
         leaves.list = reqs.data

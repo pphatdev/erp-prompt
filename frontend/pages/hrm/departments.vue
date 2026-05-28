@@ -3,11 +3,12 @@
         <div class="space-y-6">
             <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                    <h1 class="text-xl font-semibold">Positions</h1>
-                    <p class="text-xs text-(--text-muted) mt-1">Job titles and grade levels assigned to employees.</p>
+                    <h1 class="text-xl font-semibold">Departments</h1>
+                    <p class="text-xs text-(--text-muted) mt-1">Org units used to group employees and route approvals.
+                    </p>
                 </div>
                 <button class="btn btn-primary text-xs" @click="openCreateModal">
-                    <i class="ti ti-plus" />New position
+                    <i class="ti ti-plus" />New department
                 </button>
             </header>
 
@@ -15,7 +16,7 @@
             <section class="glass-card rounded-xl p-4">
                 <div class="relative w-full md:w-96">
                     <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm" />
-                    <input v-model="search" type="search" placeholder="Search title or level..."
+                    <input v-model="search" type="search" placeholder="Search by name or code..."
                         class="form-control pl-9" />
                 </div>
             </section>
@@ -23,13 +24,13 @@
             <div v-if="loading" class="py-24 flex flex-col items-center justify-center gap-3">
                 <span
                     class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
-                <span class="text-xs text-(--text-muted) font-medium">Loading positions...</span>
+                <span class="text-xs text-(--text-muted) font-medium">Loading departments...</span>
             </div>
 
             <div v-else-if="filtered.length === 0" class="glass-card rounded-2xl py-20 text-center">
-                <i class="ti ti-briefcase text-4xl text-(--text-muted)" />
-                <h4 class="text-sm font-semibold text-(--text-heading) mt-3">No positions</h4>
-                <p class="text-xs text-(--text-muted) mt-1">Define titles before hiring employees.</p>
+                <i class="ti ti-building text-4xl text-(--text-muted)" />
+                <h4 class="text-sm font-semibold text-(--text-heading) mt-3">No departments</h4>
+                <p class="text-xs text-(--text-muted) mt-1">Create your first department to organise the workforce.</p>
             </div>
 
             <section v-else class="glass-card rounded-2xl overflow-hidden">
@@ -38,33 +39,30 @@
                         <thead>
                             <tr
                                 class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
-                                <th class="px-4 py-3 font-semibold">Title</th>
-                                <th class="px-4 py-3 font-semibold font-mono">Level</th>
+                                <th class="px-4 py-3 font-semibold">Name</th>
+                                <th class="px-4 py-3 font-semibold font-mono">Code</th>
                                 <th class="px-4 py-3 font-semibold">Created</th>
                                 <th class="px-4 py-3 font-semibold text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-(--border-color)">
-                            <tr v-for="p in filtered" :key="p.id" class="hover:bg-(--bg-muted) transition-colors">
+                            <tr v-for="d in filtered" :key="d.id" class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
                                         <span
-                                            class="w-8 h-8 rounded-lg bg-(--color-info-subtle, var(--color-primary-subtle)) text-(--color-info, var(--color-primary)) flex items-center justify-center">
-                                            <i class="ti ti-briefcase text-sm" />
+                                            class="w-8 h-8 rounded-lg bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center">
+                                            <i class="ti ti-building text-sm" />
                                         </span>
-                                        <span class="text-xs font-semibold text-(--text-heading)">{{ p.title }}</span>
+                                        <span class="text-xs font-semibold text-(--text-heading)">{{ d.name }}</span>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3">
-                                    <Badge v-if="p.level" variant="secondary">{{ p.level }}</Badge>
-                                    <span v-else class="text-xxs text-(--text-muted)">—</span>
-                                </td>
-                                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatDate(p.createdAt)
+                                <td class="px-4 py-3 font-mono text-xs text-(--text-body)">{{ d.code }}</td>
+                                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatDate(d.createdAt)
                                     }}</td>
                                 <td class="px-4 py-3 text-center">
                                     <button type="button" class="action-trigger"
-                                        :class="{ 'action-trigger-open': actionMenu.open && actionMenu.position?.id === p.id }"
-                                        title="Actions" @click.stop="openActionMenu(p, $event)">
+                                        :class="{ 'action-trigger-open': actionMenu.open && actionMenu.dept?.id === d.id }"
+                                        title="Actions" @click.stop="openActionMenu(d, $event)">
                                         <i class="ti ti-dots-vertical" />
                                     </button>
                                 </td>
@@ -74,8 +72,9 @@
                 </div>
 
                 <Pagination :page="pagination.page" :limit="pagination.limit" :total="pagination.total"
-                    :total-pages="pagination.totalPages" @update:page="(p) => { pagination.page = p; loadPositions() }"
-                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadPositions() }" />
+                    :total-pages="pagination.totalPages"
+                    @update:page="(p) => { pagination.page = p; loadDepartments() }"
+                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadDepartments() }" />
             </section>
 
             <!-- Modal -->
@@ -84,20 +83,21 @@
                 <div class="glass-card rounded-2xl w-full max-w-md p-6 shadow-(--shadow-lg) bg-(--bg-card)">
                     <header class="flex items-center justify-between mb-5">
                         <h3 class="text-base font-semibold text-(--text-heading)">
-                            {{ editing ? 'Edit position' : 'New position' }}
+                            {{ editing ? 'Edit department' : 'New department' }}
                         </h3>
                         <button class="topbar-btn" @click="closeModal"><i class="ti ti-x" /></button>
                     </header>
 
-                    <form class="space-y-4" @submit.prevent="savePosition">
+                    <form class="space-y-4" @submit.prevent="saveDepartment">
                         <div>
-                            <label class="form-label">Title</label>
-                            <input v-model="form.title" type="text" required class="form-control"
-                                placeholder="Senior Backend Engineer" />
+                            <label class="form-label">Name</label>
+                            <input v-model="form.name" type="text" required class="form-control"
+                                placeholder="Engineering" />
                         </div>
                         <div>
-                            <label class="form-label">Level</label>
-                            <input v-model="form.level" type="text" class="form-control font-mono" placeholder="L5" />
+                            <label class="form-label">Code</label>
+                            <input v-model="form.code" type="text" required class="form-control font-mono uppercase"
+                                placeholder="ENG" />
                         </div>
 
                         <div v-if="formError"
@@ -116,15 +116,15 @@
             </div>
 
             <!-- Action dropdown -->
-            <div v-if="actionMenu.open && actionMenu.position"
+            <div v-if="actionMenu.open && actionMenu.dept"
                 class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
                 :style="{ top: actionMenu.y + 'px', left: actionMenu.x + 'px' }" @click.stop>
                 <button class="action-item" @click="actionEdit">
                     <i class="ti ti-pencil" /> Edit
                 </button>
                 <hr class="my-1 border-(--border-color)" />
-                <button class="action-item action-item-danger" @click="actionRemove">
-                    <i class="ti ti-trash" /> Remove
+                <button class="action-item action-item-danger" @click="actionArchive">
+                    <i class="ti ti-trash" /> Archive
                 </button>
             </div>
         </div>
@@ -132,130 +132,129 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useApi } from '~/composables/useApi'
 import { formatDate } from '~/composables/useDateFormat'
 import { useToast } from '~/composables/useToast'
 
-interface Position { id: string; title: string; level: string | null; createdAt: string | null }
+interface Department { id: string; name: string; code: string; createdAt: string | null }
 interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; total: number; totalPages: number } }
 
 const api = useApi()
 const toast = useToast()
-const positions = ref<Position[]>([])
+const departments = ref<Department[]>([])
 const loading = ref(false)
 const search = ref('')
 
 const pagination = reactive({ page: 1, limit: 15, total: 0, totalPages: 1 })
 
 const showModal = ref(false)
-const editing = ref<Position | null>(null)
+const editing = ref<Department | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
-const form = reactive({ title: '', level: '' })
+const form = reactive({ name: '', code: '' })
 
 const actionMenu = reactive({
     open: false,
     x: 0,
     y: 0,
-    position: null as Position | null
+    dept: null as Department | null
 })
 
 const filtered = computed(() => {
-    if (!search.value) return positions.value
+    if (!search.value) return departments.value
     const q = search.value.toLowerCase()
-    return positions.value.filter(p =>
-        p.title.toLowerCase().includes(q) || (p.level || '').toLowerCase().includes(q)
-    )
+    return departments.value.filter(d => d.name.toLowerCase().includes(q) || d.code.toLowerCase().includes(q))
 })
 
-const loadPositions = async () => {
+const loadDepartments = async () => {
     loading.value = true
     try {
-        const res = await api.get<Paginated<Position>>(`/positions?page=${pagination.page}&limit=${pagination.limit}`)
-        positions.value = res.data
+        const res = await api.get<Paginated<Department>>(`/hrm/departments?page=${pagination.page}&limit=${pagination.limit}`)
+        departments.value = res.data
         pagination.total = res.pagination.total
         pagination.totalPages = res.pagination.totalPages
     } catch (err) {
-        console.error('Failed to load positions', err)
-        positions.value = []
+        console.error('Failed to load departments', err)
+        departments.value = []
     } finally {
         loading.value = false
     }
 }
 
-const resetForm = () => { form.title = ''; form.level = ''; formError.value = null }
+const resetForm = () => { form.name = ''; form.code = ''; formError.value = null }
 const openCreateModal = () => { editing.value = null; resetForm(); showModal.value = true }
-const openEditModal = (p: Position) => {
-    editing.value = p
-    form.title = p.title
-    form.level = p.level ?? ''
+const openEditModal = (d: Department) => {
+    editing.value = d
+    form.name = d.name
+    form.code = d.code
     formError.value = null
     showModal.value = true
 }
 const closeModal = () => { showModal.value = false; editing.value = null }
 
-const savePosition = async () => {
+const saveDepartment = async () => {
     saving.value = true
     formError.value = null
     try {
-        const payload = { title: form.title, level: form.level || null }
         if (editing.value) {
-            await api.put(`/positions/${editing.value.id}`, payload)
+            await api.put(`/hrm/departments/${editing.value.id}`, form)
         } else {
-            await api.post('/positions', payload)
+            await api.post('/hrm/departments', form)
         }
         showModal.value = false
-        await loadPositions()
+        await loadDepartments()
     } catch (err: any) {
-        formError.value = err.data?.message || 'Failed to save position.'
+        formError.value = err.data?.message || 'Failed to save department.'
     } finally {
         saving.value = false
     }
 }
 
-const removePosition = async (p: Position) => {
-    if (!confirm(`Remove position "${p.title}"? Employees currently assigned will become unassigned.`)) return
+const removeDepartment = async (d: Department) => {
+    if (!confirm(`Archive department "${d.name}"? Employees assigned to it will become unassigned.`)) return
     try {
-        await api.delete(`/positions/${p.id}`)
-        await loadPositions()
+        await api.delete(`/hrm/departments/${d.id}`)
+        await loadDepartments()
     } catch (err: any) {
-        console.error('Failed to remove position', err)
-        toast.error('Failed to remove position.', err?.data?.message)
+        console.error('Failed to archive department', err)
+        toast.error('Failed to archive department.', err?.data?.message)
     }
 }
 
-const openActionMenu = (p: Position, ev: MouseEvent) => {
+watch(() => pagination.limit, () => { pagination.page = 1 })
+
+const openActionMenu = (d: Department, ev: MouseEvent) => {
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
     const menuWidth = 180
     const menuMaxHeight = 120
     const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
     const wouldOverflow = rect.bottom + menuMaxHeight + 8 > window.innerHeight
-    actionMenu.position = p
+    actionMenu.dept = d
     actionMenu.x = Math.max(8, left)
     actionMenu.y = wouldOverflow ? rect.top - menuMaxHeight - 6 : rect.bottom + 6
     actionMenu.open = true
 }
 
-const closeActionMenu = () => { actionMenu.open = false; actionMenu.position = null }
+const closeActionMenu = () => { actionMenu.open = false; actionMenu.dept = null }
 
 const actionEdit = () => {
-    const p = actionMenu.position
+    const d = actionMenu.dept
     closeActionMenu()
-    if (p) openEditModal(p)
+    if (d) openEditModal(d)
 }
 
-const actionRemove = async () => {
-    const p = actionMenu.position
+const actionArchive = async () => {
+    const d = actionMenu.dept
     closeActionMenu()
-    if (p) await removePosition(p)
+    if (d) await removeDepartment(d)
 }
 
 onMounted(() => {
     if (import.meta.client) {
         document.addEventListener('click', closeActionMenu)
     }
-    loadPositions()
+    loadDepartments()
 })
 </script>
 

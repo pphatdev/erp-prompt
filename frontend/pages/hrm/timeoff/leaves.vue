@@ -8,12 +8,12 @@
                         workforce.</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <NuxtLink to="/leave-types" class="btn btn-ghost text-xs">
+                    <NuxtLink to="/settings/hrm/leave-types" class="btn btn-ghost text-xs">
                         <i class="ti ti-list" />Leave types
                     </NuxtLink>
-                    <button class="btn btn-primary text-xs" @click="openSubmitModal">
-                        <i class="ti ti-plus" />Submit request
-                    </button>
+                    <NuxtLink to="/approvals/forms/leave" class="btn btn-primary text-xs">
+                        <i class="ti ti-external-link" />Submit via eApprovals
+                    </NuxtLink>
                 </div>
             </header>
 
@@ -121,87 +121,6 @@
                     @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadLeaves() }" />
             </section>
 
-            <!-- Submit modal -->
-            <div v-if="showSubmitModal"
-                class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <div class="glass-card rounded-2xl w-full max-w-lg p-6 shadow-(--shadow-lg) bg-(--bg-card)">
-                    <header class="flex items-center justify-between mb-5">
-                        <h3 class="text-base font-semibold text-(--text-heading)">Submit leave request</h3>
-                        <button class="topbar-btn" @click="showSubmitModal = false"><i class="ti ti-x" /></button>
-                    </header>
-
-                    <form class="grid grid-cols-1 sm:grid-cols-2 gap-4" @submit.prevent="submitLeave">
-                        <div class="sm:col-span-2">
-                            <label class="form-label">Employee</label>
-                            <select v-model="form.employee_id" required class="form-control">
-                                <option value="" disabled>Select employee...</option>
-                                <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{
-                                    e.employeeId }})</option>
-                            </select>
-                        </div>
-
-                        <div class="sm:col-span-2">
-                            <label class="form-label">Leave type</label>
-                            <select v-model="form.leave_type_id" required class="form-control">
-                                <option value="" disabled>Select leave type...</option>
-                                <option v-for="t in leaveTypes" :key="t.id" :value="t.id">
-                                    {{ t.name }} · {{ t.annualAllowance }} days/yr
-                                </option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="form-label">Start date</label>
-                            <input v-model="form.start_date" type="date" required class="form-control" />
-                        </div>
-                        <div>
-                            <label class="form-label">End date</label>
-                            <input v-model="form.end_date" type="date" :required="form.leave_session === 'full_day'"
-                                :disabled="form.leave_session !== 'full_day'" class="form-control" />
-                            <p v-if="form.leave_session !== 'full_day'" class="text-xxs text-(--text-muted) mt-1">
-                                Half-day request — locked to start date.
-                            </p>
-                        </div>
-
-                        <div class="sm:col-span-2">
-                            <label class="form-label">Session</label>
-                            <div
-                                class="flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
-                                <button v-for="opt in (['full_day', 'morning', 'afternoon'] as const)" :key="opt"
-                                    type="button"
-                                    class="flex-1 px-3 py-1 rounded text-xxs uppercase tracking-widest font-bold transition-colors"
-                                    :class="form.leave_session === opt ? 'bg-(--bg-card) text-(--color-primary) shadow-(--shadow-sm)' : 'text-(--text-muted) hover:text-(--text-heading)'"
-                                    @click="selectSession(opt)">
-                                    {{ opt.replace('_', ' ') }}
-                                </button>
-                            </div>
-                            <p class="text-xxs text-(--text-muted) mt-1">
-                                Half-day options consume 0.5 days from your balance.
-                            </p>
-                        </div>
-
-                        <div class="sm:col-span-2">
-                            <label class="form-label">Reason (optional)</label>
-                            <textarea v-model="form.reason" rows="3" class="form-control"
-                                placeholder="Family event, medical, etc." />
-                        </div>
-
-                        <div v-if="formError"
-                            class="sm:col-span-2 text-xs text-(--color-danger) bg-(--color-danger-subtle) px-3 py-2 rounded">
-                            {{ formError }}
-                        </div>
-
-                        <footer class="sm:col-span-2 pt-4 border-t border-(--border-color) flex justify-end gap-2">
-                            <button type="button" class="btn btn-ghost text-xs"
-                                @click="showSubmitModal = false">Cancel</button>
-                            <button type="submit" class="btn btn-primary text-xs" :disabled="saving">
-                                <i class="ti ti-send" />{{ saving ? 'Submitting...' : 'Submit' }}
-                            </button>
-                        </footer>
-                    </form>
-                </div>
-            </div>
-
             <!-- Balance modal -->
             <div v-if="showBalanceModal"
                 class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -307,28 +226,6 @@ const loading = ref(false)
 const pagination = reactive({ page: 1, limit: 15, total: 0, totalPages: 1 })
 const filters = reactive({ employeeId: '', status: '' as '' | 'pending' | 'approved' | 'rejected' })
 
-const showSubmitModal = ref(false)
-const saving = ref(false)
-const formError = ref<string | null>(null)
-type LeaveSession = 'full_day' | 'morning' | 'afternoon'
-const form = reactive({
-    employee_id: '',
-    leave_type_id: '',
-    start_date: '',
-    end_date: '',
-    leave_session: 'full_day' as LeaveSession,
-    reason: ''
-})
-
-const selectSession = (opt: LeaveSession) => {
-    form.leave_session = opt
-    // Half-day requests are single-day by contract — lock end_date to start_date
-    // so the user can't accidentally submit a multi-day morning leave.
-    if (opt !== 'full_day' && form.start_date) {
-        form.end_date = form.start_date
-    }
-}
-
 const showBalanceModal = ref(false)
 const balanceLoading = ref(false)
 const balance = ref<BalanceRow[]>([])
@@ -364,7 +261,7 @@ const loadLeaves = async () => {
         if (filters.employeeId) query.set('employeeId', filters.employeeId)
         if (filters.status) query.set('status', filters.status)
 
-        const res = await api.get<Paginated<Leave>>(`/leaves?${query.toString()}`)
+        const res = await api.get<Paginated<Leave>>(`/hrm/timeoff/leaves?${query.toString()}`)
         leaves.value = res.data
         pagination.total = res.pagination.total
         pagination.totalPages = res.pagination.totalPages
@@ -381,46 +278,9 @@ watch(() => [filters.employeeId, filters.status], () => {
     loadLeaves()
 })
 
-const openSubmitModal = () => {
-    Object.assign(form, {
-        employee_id: '',
-        leave_type_id: '',
-        start_date: '',
-        end_date: '',
-        leave_session: 'full_day' as LeaveSession,
-        reason: ''
-    })
-    formError.value = null
-    showSubmitModal.value = true
-}
-
-const submitLeave = async () => {
-    saving.value = true
-    formError.value = null
-    try {
-        await api.post('/leaves', {
-            employee_id: form.employee_id,
-            leave_type_id: form.leave_type_id,
-            start_date: form.start_date,
-            // Half-day requests collapse end_date onto start_date — server validates
-            // the same invariant, but keep this defensive so the disabled input's
-            // stale state can't ship a wider range.
-            end_date: form.leave_session === 'full_day' ? form.end_date : form.start_date,
-            leave_session: form.leave_session,
-            reason: form.reason || null
-        })
-        showSubmitModal.value = false
-        await loadLeaves()
-    } catch (err: any) {
-        formError.value = err.data?.message || 'Failed to submit leave request.'
-    } finally {
-        saving.value = false
-    }
-}
-
 const approve = async (lv: Leave) => {
     try {
-        await api.post(`/leaves/${lv.id}/approve`)
+        await api.post(`/hrm/timeoff/leaves/${lv.id}/approve`)
         await loadLeaves()
     } catch (err: any) {
         toast.error('Failed to approve leave.', err?.data?.message)
@@ -430,7 +290,7 @@ const approve = async (lv: Leave) => {
 const reject = async (lv: Leave) => {
     if (!confirm('Reject this leave request?')) return
     try {
-        await api.post(`/leaves/${lv.id}/reject`)
+        await api.post(`/hrm/timeoff/leaves/${lv.id}/reject`)
         await loadLeaves()
     } catch (err: any) {
         toast.error('Failed to reject leave.', err?.data?.message)
@@ -440,7 +300,7 @@ const reject = async (lv: Leave) => {
 const withdraw = async (lv: Leave) => {
     if (!confirm('Withdraw this leave request?')) return
     try {
-        await api.delete(`/leaves/${lv.id}`)
+        await api.delete(`/hrm/timeoff/leaves/${lv.id}`)
         await loadLeaves()
     } catch (err: any) {
         toast.error('Failed to withdraw leave.', err?.data?.message)

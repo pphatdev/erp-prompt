@@ -24,10 +24,10 @@
                         </NuxtLink>
                     </div>
 
-                    <NuxtLink v-if="canWrite" to="/applications/new" class="btn btn-primary text-xs">
+                    <NuxtLink v-if="canWrite" to="/hrm/applications/new" class="btn btn-primary text-xs">
                         <i class="ti ti-user-plus" /> Add candidate
                     </NuxtLink>
-                    <NuxtLink v-if="canWrite" to="/vacancies" class="btn btn-ghost text-xs">
+                    <NuxtLink v-if="canWrite" to="/hrm/recruitments/hrm/recruitments/vacancies" class="btn btn-ghost text-xs">
                         <i class="ti ti-plus" /> Post New Job
                     </NuxtLink>
                 </div>
@@ -170,7 +170,7 @@
                             <!-- Empty-state slot: entry column gets a CTA card; other columns keep the drop-here hint -->
                             <template v-if="!grouped[col.status]?.length">
                                 <NuxtLink v-if="col.status === 'applied' && canWrite"
-                                    :to="{ path: '/applications/new', query: filters.jobVacancyId ? { vacancyId: filters.jobVacancyId } : {} }"
+                                    :to="{ path: '/hrm/applications/new', query: filters.jobVacancyId ? { vacancyId: filters.jobVacancyId } : {} }"
                                     class="kanban-cta glass-card rounded-xl p-4 w-full text-left transition-all">
                                     <span class="kanban-cta-icon">
                                         <i class="ti ti-user-plus text-base" />

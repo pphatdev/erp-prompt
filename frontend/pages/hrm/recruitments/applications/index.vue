@@ -14,7 +14,7 @@
                     <NuxtLink to="/candidates" class="btn btn-ghost text-xs" title="Board view">
                         <i class="ti ti-layout-kanban" />Board view
                     </NuxtLink>
-                    <NuxtLink to="/applications/new" class="btn btn-primary text-xs">
+                    <NuxtLink to="/hrm/applications/new" class="btn btn-primary text-xs">
                         <i class="ti ti-user-plus" />Add candidate
                     </NuxtLink>
                     <button class="btn btn-ghost text-xs" @click="openSubmitModal">

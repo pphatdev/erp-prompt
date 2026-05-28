@@ -122,18 +122,53 @@
                                 <div v-show="!isCompact && openGroups[item.label]"
                                     class="pl-2 mt-1 space-y-0.5 border-l border-(--border-color) ml-5">
                                     <template v-for="child in item.children" :key="child.label">
-                                        <NuxtLink v-if="child.operational" :to="child.route!"
-                                            class="nav-link nav-link-sub"
-                                            :class="isRouteActive(child.route) ? 'nav-link-active' : ''">
-                                            <span class="nav-icon"><i :class="['ti', child.icon]" /></span>
-                                            <span class="truncate">{{ child.label }}</span>
-                                        </NuxtLink>
-                                        <button v-else type="button"
-                                            class="nav-link nav-link-sub nav-link-disabled w-full"
-                                            @click="comingSoon(child.label)">
-                                            <span class="nav-icon"><i :class="['ti', child.icon]" /></span>
-                                            <span class="truncate text-left flex-1">{{ child.label }}</span>
-                                        </button>
+                                        <!-- No sub-children -->
+                                        <template v-if="!child.children">
+                                            <NuxtLink v-if="child.operational" :to="child.route!"
+                                                class="nav-link nav-link-sub"
+                                                :class="isRouteActive(child.route) ? 'nav-link-active' : ''">
+                                                <span class="nav-icon"><i :class="['ti', child.icon]" /></span>
+                                                <span class="truncate">{{ child.label }}</span>
+                                            </NuxtLink>
+                                            <button v-else type="button"
+                                                class="nav-link nav-link-sub nav-link-disabled w-full"
+                                                @click="comingSoon(child.label)">
+                                                <span class="nav-icon"><i :class="['ti', child.icon]" /></span>
+                                                <span class="truncate text-left flex-1">{{ child.label }}</span>
+                                            </button>
+                                        </template>
+
+                                        <!-- With sub-children (3rd level) -->
+                                        <div v-else>
+                                            <button type="button" class="nav-link nav-link-sub w-full"
+                                                :class="isGroupActive(child) ? 'nav-link-active' : ''"
+                                                @click="toggleOpen(item.label + '-' + child.label)">
+                                                <span class="nav-icon"><i :class="['ti', child.icon]" /></span>
+                                                <span class="truncate flex-1 text-left">{{ child.label }}</span>
+                                                <i class="ti ti-chevron-right text-xs transition-transform"
+                                                    :class="openGroups[item.label + '-' + child.label] ? 'rotate-90' : ''" />
+                                            </button>
+                                            <div v-show="openGroups[item.label + '-' + child.label]"
+                                                class="pl-2 mt-1 space-y-0.5 border-l border-(--border-color) ml-5">
+                                                <template v-for="grandchild in child.children" :key="grandchild.label">
+                                                    <NuxtLink v-if="grandchild.operational" :to="grandchild.route!"
+                                                        class="nav-link nav-link-sub"
+                                                        :class="isRouteActive(grandchild.route) ? 'nav-link-active' : ''">
+                                                        <span class="nav-icon"><i
+                                                                :class="['ti', grandchild.icon]" /></span>
+                                                        <span class="truncate">{{ grandchild.label }}</span>
+                                                    </NuxtLink>
+                                                    <button v-else type="button"
+                                                        class="nav-link nav-link-sub nav-link-disabled w-full"
+                                                        @click="comingSoon(grandchild.label)">
+                                                        <span class="nav-icon"><i
+                                                                :class="['ti', grandchild.icon]" /></span>
+                                                        <span class="truncate text-left flex-1">{{ grandchild.label
+                                                            }}</span>
+                                                    </button>
+                                                </template>
+                                            </div>
+                                        </div>
                                     </template>
                                 </div>
                             </div>
@@ -256,9 +291,9 @@
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <p class="text-xs font-semibold text-(--text-heading) truncate">{{ n.title
-                                                }}</p>
+                                            }}</p>
                                             <p class="text-xxs text-(--text-muted) truncate">{{ n.detail }} · {{ n.time
-                                                }}</p>
+                                            }}</p>
                                         </div>
                                     </li>
                                 </ul>
@@ -509,7 +544,7 @@ interface NavItem {
 }
 interface NavGroup { id: string; label: string; items: NavItem[] }
 
-const navGroups: NavGroup[] = [
+const navGroups = reactive<NavGroup[]>([
     {
         id: 'main',
         label: 'Main',
@@ -523,9 +558,9 @@ const navGroups: NavGroup[] = [
         label: 'My Workspace',
         items: [
             { label: 'My Profile', icon: 'ti-user-circle', route: '#', operational: false, permission: 'hrm.employee.read.self' },
-            { label: 'My Leaves', icon: 'ti-calendar-event', route: '/leaves', operational: true, permission: 'hrm.leave.read.self', moduleSlug: 'my-leaves' },
+            { label: 'My Leaves', icon: 'ti-calendar-event', route: '/hrm/timeoff/leaves', operational: true, permission: 'hrm.leave.read.self', moduleSlug: 'my-leaves' },
             { label: 'My Payslips', icon: 'ti-cash', route: '#', operational: false, permission: 'hrm.payslip.read.self', moduleSlug: 'my-payslips' },
-            { label: 'My Appraisals', icon: 'ti-clipboard-list', route: '/appraisals', operational: true, permission: 'hrm.performance.read.self', moduleSlug: 'my-appraisals' }
+            { label: 'My Appraisals', icon: 'ti-clipboard-list', route: '/hrm/appraisals', operational: true, permission: 'hrm.performance.read.self', moduleSlug: 'my-appraisals' }
         ]
     },
     {
@@ -594,38 +629,69 @@ const navGroups: NavGroup[] = [
                 icon: 'ti-users',
                 moduleSlug: 'hrm',
                 children: [
-                    { label: 'Employees', icon: 'ti-user-circle', route: '/employees', operational: true, permission: 'hrm.employee.read' },
-                    { label: 'Departments', icon: 'ti-building', route: '/departments', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] },
-                    { label: 'Positions', icon: 'ti-briefcase', route: '/positions', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] },
-                    { label: 'Leave Requests', icon: 'ti-calendar-event', route: '/leaves', operational: true, permission: 'hrm.leave.read' },
-                    { label: 'Leave Types', icon: 'ti-list', route: '/leave-types', operational: true, permission: 'hrm.leave.read' },
-                    { label: 'Shifts', icon: 'ti-clock-hour-8', route: '/shifts', operational: true, permission: ['hrm.shift.read', 'hrm.attendance.read', 'hrm.attendance.clock.self'] },
-                    { label: 'Attendance', icon: 'ti-fingerprint', route: '/attendance', operational: true, permission: ['hrm.attendance.read', 'hrm.attendance.read.self', 'hrm.attendance.clock.self'] },
-                    { label: 'Overtime', icon: 'ti-clock-up', route: '/overtime', operational: true, permission: ['hrm.overtime.read', 'hrm.overtime.read.self', 'hrm.overtime.write.self'] },
-                    { label: 'Payroll', icon: 'ti-cash', route: '/payroll', operational: true, permission: 'hrm.payroll.read' },
-                    { label: 'Vacancies', icon: 'ti-briefcase-2', route: '/vacancies', operational: true, permission: 'hrm.recruitment.read' },
-                    { label: 'Applications', icon: 'ti-user-search', route: '/applications', operational: true, permission: 'hrm.recruitment.read' },
-                    { label: 'Candidates', icon: 'ti-layout-kanban', route: '/candidates', operational: true, permission: 'hrm.recruitment.read' },
-                    { label: 'Appraisals', icon: 'ti-clipboard-list', route: '/appraisals', operational: true, permission: 'hrm.performance.read' }
+                    { label: 'Employees', icon: 'ti-user-circle', route: '/hrm/employees', operational: true, permission: 'hrm.employee.read' },
+                    { label: 'Departments', icon: 'ti-building', route: '/hrm/departments', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] },
+                    { label: 'Positions', icon: 'ti-briefcase', route: '/hrm/positions', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] },
+                    { label: 'Leave Requests', icon: 'ti-calendar-event', route: '/hrm/timeoff/leaves', operational: true, permission: 'hrm.leave.read' },
+                    { label: 'Shifts', icon: 'ti-clock-hour-8', route: '/hrm/timeoff/shifts', operational: true, permission: ['hrm.shift.read', 'hrm.attendance.read', 'hrm.attendance.clock.self'] },
+                    { label: 'Attendance', icon: 'ti-fingerprint', route: '/hrm/timeoff/attendance', operational: true, permission: ['hrm.attendance.read', 'hrm.attendance.read.self', 'hrm.attendance.clock.self'] },
+                    { label: 'Overtime', icon: 'ti-clock-up', route: '/hrm/timeoff/overtime', operational: true, permission: ['hrm.overtime.read', 'hrm.overtime.read.self', 'hrm.overtime.write.self'] },
+                    { label: 'Payroll', icon: 'ti-cash', route: '/hrm/payroll', operational: true, permission: 'hrm.payroll.read' },
+                    { label: 'Vacancies', icon: 'ti-briefcase-2', route: '/hrm/recruitments/vacancies', operational: true, permission: 'hrm.recruitment.read' },
+                    { label: 'Applications', icon: 'ti-user-search', route: '/hrm/recruitments/applications', operational: true, permission: 'hrm.recruitment.read' },
+                    { label: 'Candidates', icon: 'ti-layout-kanban', route: '/hrm/recruitments/candidates', operational: true, permission: 'hrm.recruitment.read' },
+                    { label: 'Appraisals', icon: 'ti-clipboard-list', route: '/hrm/appraisals', operational: true, permission: 'hrm.performance.read' }
+                ]
+            },
+            {
+                label: 'eApprovals', icon: 'ti-checks', route: '#', operational: true,
+                children: [
+                    { label: 'Forms Portal', icon: 'ti-forms', route: '/approvals/forms', operational: true },
+                    { label: 'My Requests', icon: 'ti-inbox', route: '/approvals/requests', operational: true },
+                    { label: 'Review Portal', icon: 'ti-user-check', route: '/approvals/review', operational: true }
                 ]
             },
             { label: 'Fleets', icon: 'ti-truck', route: '#', operational: false, moduleSlug: 'fleets' },
             { label: 'Project Management', icon: 'ti-presentation', route: '#', operational: false, moduleSlug: 'projects' },
-            { label: 'eApprovals', icon: 'ti-circle-check', route: '#', operational: false, moduleSlug: 'eapprovals' },
             { label: 'eDocuments', icon: 'ti-file-text', route: '#', operational: false, moduleSlug: 'edocuments' },
             { label: 'Reports & Analytics', icon: 'ti-chart-bar', route: '#', operational: false, moduleSlug: 'reporting' },
+        ]
+    },
+    {
+        id: 'configurations',
+        label: 'Configurations',
+        items: [
             {
-                label: 'Settings',
-                icon: 'ti-shield-lock',
+                label: 'Apps Management',
+                icon: 'ti-box',
                 children: [
-                    { label: 'User Directory', icon: 'ti-users-group', route: '/users', operational: true, permission: 'iam.users.read' },
-                    { label: 'Roles Matrix', icon: 'ti-shield-check', route: '/roles', operational: true, permission: 'iam.roles.read' },
-                    { label: 'Configuration', icon: 'ti-settings', route: '/settings', operational: true }
+                    {
+                        label: 'Human Resource',
+                        icon: 'ti-users',
+                        children: [
+                            { label: 'Leave Types', icon: 'ti-list', route: '/settings/apps/hrm/leave-types', operational: true, permission: 'hrm.leave.read' }
+                        ]
+                    },
                 ]
-            }
+            },
+            { label: 'User Directory', icon: 'ti-users-group', route: '/settings/users', operational: true, permission: 'iam.users.read' },
+            { label: 'Roles Matrix', icon: 'ti-shield-check', route: '/settings/roles', operational: true, permission: 'iam.roles.read' },
+            {
+                label: 'Configuration',
+                icon: 'ti-settings',
+                children: [
+                    { label: 'Branding', icon: 'ti-palette', route: '/settings/configuration/branding', operational: true, permission: 'settings.read' },
+                    { label: 'Locale', icon: 'ti-language', route: '/settings/configuration/locale', operational: true, permission: 'settings.read' },
+                    { label: 'Notifications', icon: 'ti-bell', route: '/settings/configuration/notifications', operational: true, permission: 'settings.read' },
+                    { label: 'Security', icon: 'ti-shield-lock', route: '/settings/configuration/security', operational: true, permission: 'settings.read' },
+                    { label: 'Modules', icon: 'ti-puzzle', route: '/settings/configuration/modules', operational: true, permission: 'settings.read' },
+                    { label: 'Numbering', icon: 'ti-hash', route: '/settings/configuration/numbering', operational: true, permission: 'settings.read' },
+                    { label: 'Platform', icon: 'ti-server', route: '/settings/configuration/platform', operational: true, permission: 'settings.read' },
+                ]
+            },
         ]
     }
-]
+])
 
 /**
  * Returns true if the current user can see this nav item.
@@ -670,7 +736,7 @@ const visibleNavGroups = computed<NavGroup[]>(() => {
         .filter(group => !(group.id === 'self-service' && authStore.isAdmin))
         .map(group => {
             const sortedItems = [...group.items].sort((a, b) => getModIndex(a) - getModIndex(b))
-            
+
             return {
                 ...group,
                 items: sortedItems
@@ -694,6 +760,7 @@ const isRouteActive = (target?: string): boolean => {
     // Strip query/hash from the target so deep-links like
     // /crm/opportunities?stage=won still highlight when on /crm/opportunities.
     const targetPath = target.split(/[?#]/)[0]
+    if (targetPath === '/settings' && path !== '/settings') return false
     if (path !== targetPath && !path.startsWith(targetPath + '/')) return false
     // If the target carries query params, require each to match the current
     // query so the "Won (Qualified)" sub-link only highlights when stage=won.
@@ -709,8 +776,8 @@ const isRouteActive = (target?: string): boolean => {
     return true
 }
 
-const isGroupActive = (item: NavItem) =>
-    Boolean(item.children?.some(c => isRouteActive(c.route)))
+const isGroupActive = (item: NavItem): boolean =>
+    Boolean(item.children?.some(c => isRouteActive(c.route) || isGroupActive(c)))
 
 const megaMenu = [
     { title: 'Dashboards', items: ['Ecommerce', 'Analytics', 'CRM', 'Finance', 'Projects'] },
@@ -804,7 +871,8 @@ const SLUG_LABELS: Record<string, string> = {
     users: 'User Directory',
     roles: 'Roles Matrix',
     new: 'New',
-    settings: 'Configuration',
+    settings: 'Settings',
+    hrm: 'HRM',
     sales: 'Sales',
     customers: 'Customers',
     quotations: 'Quotations',
@@ -819,7 +887,12 @@ const SLUG_LABELS: Record<string, string> = {
     opportunities: 'Sales Pipeline',
     schedules: 'Schedules',
     contacts: 'B2B Contacts',
-    activities: 'Interaction Timeline'
+    activities: 'Interaction Timeline',
+    approvals: 'eApprovals',
+    forms: 'Forms Portal',
+    leave: 'Leave Request',
+    'requests': 'My Requests',
+    review: 'Review Portal',
 }
 
 const titleize = (slug: string) =>
@@ -871,11 +944,6 @@ const breadcrumbItems = computed<Crumb[]>(() => {
         trail += `/${seg}`
         const segLabel = SLUG_LABELS[seg] || titleize(seg)
 
-        // Skip the first segment when its label duplicates the parent-module
-        // crumb we just pushed (e.g. /sales/customers — parent "Sales" already
-        // covers the "sales" segment, so we don't want "Sales > Sales > …").
-        if (i === 0 && parentLabel && segLabel === parentLabel) return
-
         const isLast = i === segments.length - 1
         // For the last segment use the page-level override (highest priority),
         // then route meta, then the slug label.
@@ -889,8 +957,16 @@ const breadcrumbItems = computed<Crumb[]>(() => {
         const entityLabel = !isLast && UUID_RE.test(seg) && breadcrumbEntityName.value
             ? breadcrumbEntityName.value
             : undefined
+
+        const finalLabel = lastLabel || entityLabel || segLabel
+
+        // Skip the first segment when its label duplicates the parent-module
+        // crumb we just pushed (e.g. /sales/customers — parent "Sales" already
+        // covers the "sales" segment, so we don't want "Sales > Sales > …").
+        if (i === 0 && parentLabel && finalLabel === parentLabel) return
+
         crumbs.push({
-            label: lastLabel || entityLabel || segLabel,
+            label: finalLabel,
             to: trail
         })
     })
@@ -936,6 +1012,30 @@ onMounted(() => {
     authStore.initializeAuth()
     loadModules()
 
+    // Fetch pending approvals for badge
+    if (authStore.isAuthenticated) {
+        try {
+            const { getRequests } = useApprovals()
+            getRequests(1, 1, true).then(res => {
+                if (res.data && res.pagination && res.pagination.total > 0) {
+                    const appsGroup = navGroups.find(g => g.id === 'apps')
+                    if (appsGroup) {
+                        const eAppItem = appsGroup.items.find(i => i.label === 'eApprovals')
+                        if (eAppItem && eAppItem.children) {
+                            const reviewItem = eAppItem.children.find(c => c.label === 'Review Portal')
+                            if (reviewItem) {
+                                reviewItem.badge = res.pagination.total.toString()
+                                reviewItem.badgeVariant = 'warning'
+                            }
+                        }
+                    }
+                }
+            }).catch(() => { })
+        } catch (e) {
+            // ignore if useApprovals is not yet fully resolvable
+        }
+    }
+
     // Resolve theme in this priority order so navigating between modules
     // (each page mounts its own NuxtLayout) never silently flips back to
     // light: explicit user choice → already-applied attribute (set by app.vue
@@ -947,9 +1047,19 @@ onMounted(() => {
     themeMode.value = resolved
     applyTheme(resolved)
 
-    visibleNavGroups.value.forEach(g => g.items.forEach(i => {
-        if (i.children?.some(c => isRouteActive(c.route))) openGroups[i.label] = true
-    }))
+    // Recursively open parent groups if any of their children are active.
+    const initializeOpenGroups = (items: NavItem[], parentLabel?: string) => {
+        for (const i of items) {
+            if (i.children) {
+                if (isGroupActive(i)) {
+                    const key = parentLabel ? `${parentLabel}-${i.label}` : i.label
+                    openGroups[key] = true
+                }
+                initializeOpenGroups(i.children, i.label)
+            }
+        }
+    }
+    visibleNavGroups.value.forEach(g => initializeOpenGroups(g.items))
 
     if (!authStore.isAuthenticated) router.push('/login')
 })

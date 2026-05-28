@@ -443,27 +443,27 @@
 
                         <dl class="text-xs grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                             <div>
-                                <dt class="form-label !mb-1">Name</dt>
+                                <dt class="form-label mb-1!">Name</dt>
                                 <dd class="text-(--text-heading) font-semibold">{{ form.applicant_name || '—' }}</dd>
                             </div>
                             <div>
-                                <dt class="form-label !mb-1">Email</dt>
+                                <dt class="form-label mb-1!">Email</dt>
                                 <dd class="text-(--text-body) font-mono">{{ form.applicant_email || '—' }}</dd>
                             </div>
                             <div>
-                                <dt class="form-label !mb-1">Phone</dt>
+                                <dt class="form-label mb-1!">Phone</dt>
                                 <dd class="text-(--text-body) font-mono">{{ form.applicant_phone || '—' }}</dd>
                             </div>
                             <div>
-                                <dt class="form-label !mb-1">Location</dt>
+                                <dt class="form-label mb-1!">Location</dt>
                                 <dd class="text-(--text-body)">{{ form.location || '—' }}</dd>
                             </div>
                             <div class="sm:col-span-2">
-                                <dt class="form-label !mb-1">Vacancy</dt>
+                                <dt class="form-label mb-1!">Vacancy</dt>
                                 <dd class="text-(--text-heading)">{{ selectedVacancy?.title || '—' }}</dd>
                             </div>
                             <div v-if="form.linkedin_url" class="sm:col-span-2">
-                                <dt class="form-label !mb-1">LinkedIn</dt>
+                                <dt class="form-label mb-1!">LinkedIn</dt>
                                 <dd>
                                     <a :href="form.linkedin_url" target="_blank"
                                         class="text-(--color-primary) hover:underline font-mono break-all">{{
@@ -471,15 +471,15 @@
                                 </dd>
                             </div>
                             <div v-if="form.expected_salary != null">
-                                <dt class="form-label !mb-1">Expected salary</dt>
+                                <dt class="form-label mb-1!">Expected salary</dt>
                                 <dd class="text-(--text-body) font-mono">{{ formatMoney(form.expected_salary) }}</dd>
                             </div>
                             <div v-if="selectedReferrer">
-                                <dt class="form-label !mb-1">Referrer</dt>
+                                <dt class="form-label mb-1!">Referrer</dt>
                                 <dd class="text-(--text-body)">{{ selectedReferrer.fullName }}</dd>
                             </div>
                             <div v-if="form.skills.length" class="sm:col-span-2">
-                                <dt class="form-label !mb-1">Skills</dt>
+                                <dt class="form-label mb-1!">Skills</dt>
                                 <dd class="flex flex-wrap gap-1.5">
                                     <span v-for="skill in form.skills" :key="skill"
                                         class="px-2 py-0.5 rounded bg-(--color-primary-subtle) text-(--color-primary) font-semibold text-[10px]">
@@ -488,7 +488,7 @@
                                 </dd>
                             </div>
                             <div v-if="form.work_experience.length" class="sm:col-span-2">
-                                <dt class="form-label !mb-1">Experience ({{ form.work_experience.length }})</dt>
+                                <dt class="form-label mb-1!">Experience ({{ form.work_experience.length }})</dt>
                                 <dd class="space-y-1">
                                     <div v-for="(exp, idx) in form.work_experience" :key="`fr-${idx}`"
                                         class="text-xxs text-(--text-body)">
@@ -498,7 +498,7 @@
                                 </dd>
                             </div>
                             <div v-if="form.education.length" class="sm:col-span-2">
-                                <dt class="form-label !mb-1">Education ({{ form.education.length }})</dt>
+                                <dt class="form-label mb-1!">Education ({{ form.education.length }})</dt>
                                 <dd class="space-y-1">
                                     <div v-for="(edu, idx) in form.education" :key="`fe-${idx}`"
                                         class="text-xxs text-(--text-body)">
@@ -508,7 +508,7 @@
                                 </dd>
                             </div>
                             <div v-if="form.cover_letter" class="sm:col-span-2">
-                                <dt class="form-label !mb-1">Cover letter</dt>
+                                <dt class="form-label mb-1!">Cover letter</dt>
                                 <dd
                                     class="rounded-lg bg-(--bg-muted) p-3 text-(--text-body) whitespace-pre-wrap leading-relaxed">
                                     {{ form.cover_letter }}</dd>
@@ -592,7 +592,7 @@ import { useTenantStore } from '~/stores/tenant'
 import { useToast } from '~/composables/useToast'
 
 definePageMeta({
-    path: '/applications/new',
+    path: '/hrm/applications/new',
     breadcrumb: 'Add Candidate'
 })
 

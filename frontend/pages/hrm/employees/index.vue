@@ -520,8 +520,8 @@ const cardActionTerminate = async () => {
 const loadLookups = async () => {
     try {
         const [d, p] = await Promise.all([
-            api.get<Paginated<{ id: string; name: string }>>('/departments?limit=100'),
-            api.get<Paginated<{ id: string; title: string }>>('/positions?limit=100')
+            api.get<Paginated<{ id: string; name: string }>>('/hrm/departments?limit=100'),
+            api.get<Paginated<{ id: string; title: string }>>('/hrm/positions?limit=100')
         ])
         departments.value = d.data
         positions.value = p.data

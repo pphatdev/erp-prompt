@@ -218,7 +218,7 @@ const loadShifts = async () => {
     try {
         const q = new URLSearchParams({ page: String(pagination.page), limit: String(pagination.limit) })
         if (search.value) q.set('search', search.value)
-        const res = await api.get<Paginated<Shift>>(`/shifts?${q.toString()}`)
+        const res = await api.get<Paginated<Shift>>(`/hrm/shifts?${q.toString()}`)
         shifts.value = res.data
         pagination.total = res.pagination.total
         pagination.totalPages = res.pagination.totalPages
@@ -277,9 +277,9 @@ const saveShift = async () => {
             half_day_threshold_minutes: form.half_day_threshold_minutes
         }
         if (editing.value) {
-            await api.put(`/shifts/${editing.value.id}`, payload)
+            await api.put(`/hrm/shifts/${editing.value.id}`, payload)
         } else {
-            await api.post('/shifts', payload)
+            await api.post('/hrm/shifts', payload)
         }
         showModal.value = false
         await loadShifts()
@@ -300,7 +300,7 @@ const removeShift = async (s: Shift) => {
     })
     if (!ok) return
     try {
-        await api.delete(`/shifts/${s.id}`)
+        await api.delete(`/hrm/shifts/${s.id}`)
         await loadShifts()
         toast.info('Shift removed.')
     } catch (err: any) {

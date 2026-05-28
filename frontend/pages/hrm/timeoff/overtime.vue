@@ -272,7 +272,7 @@ const loadRequests = async () => {
         if (filters.from) q.set('from', filters.from)
         if (filters.to) q.set('to', filters.to)
 
-        const res = await api.get<Paginated<OvertimeRequest>>(`/overtime-requests?${q.toString()}`)
+        const res = await api.get<Paginated<OvertimeRequest>>(`/hrm/overtime-requests?${q.toString()}`)
         requests.value = res.data
         pagination.total = res.pagination.total
         pagination.totalPages = res.pagination.totalPages
@@ -308,7 +308,7 @@ const submit = async () => {
         const payload: Record<string, any> = { ...form }
         if (!payload.employee_id) delete payload.employee_id   // server force-fills for self-service callers
         if (!payload.reason) payload.reason = null
-        await api.post('/overtime-requests', payload)
+        await api.post('/hrm/overtime-requests', payload)
         showSubmitModal.value = false
         toast.success('Overtime request submitted', 'Awaiting approval.')
         await loadRequests()
@@ -330,7 +330,7 @@ const processRequest = async (r: OvertimeRequest, decision: 'approve' | 'reject'
     })
     if (!ok) return
     try {
-        await api.patch(`/overtime-requests/${r.id}/process`, { decision })
+        await api.patch(`/hrm/overtime-requests/${r.id}/process`, { decision })
         toast.success(`Overtime ${decision === 'approve' ? 'approved' : 'rejected'}.`)
         await loadRequests()
     } catch (err: any) {
@@ -347,7 +347,7 @@ const cancelRequest = async (r: OvertimeRequest) => {
     })
     if (!ok) return
     try {
-        await api.delete(`/overtime-requests/${r.id}`)
+        await api.delete(`/hrm/overtime-requests/${r.id}`)
         toast.info('Overtime request cancelled.')
         await loadRequests()
     } catch (err: any) {

@@ -118,7 +118,10 @@ const submitLogin = async () => {
     try {
         tenantStore.setTenantByHandle(handle.value)
         const success = await authStore.login(email.value, password.value)
-        if (success) router.push('/dashboard')
+        if (success) {
+            const redirect = (router.currentRoute.value.query.redirect as string) || '/dashboard'
+            router.push(redirect)
+        }
     } catch (err: any) {
         errorMsg.value = err.data?.message || err.message || 'Access denied. Please check your credentials.'
     } finally {

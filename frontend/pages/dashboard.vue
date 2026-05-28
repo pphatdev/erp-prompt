@@ -355,7 +355,7 @@
                                 <span class="w-1.5 h-4 rounded-sm bg-(--color-warning)" />
                                 Pending leave requests
                             </h3>
-                            <NuxtLink to="/leaves" class="text-xs font-semibold text-(--color-primary) hover:underline">
+                            <NuxtLink to="/hrm/timeoff/leaves" class="text-xs font-semibold text-(--color-primary) hover:underline">
                                 View all →</NuxtLink>
                         </header>
                         <div v-if="loading" class="p-5 space-y-3">
@@ -522,7 +522,7 @@
                             <span class="w-1.5 h-4 rounded-sm bg-(--color-warning)" />
                             Pending leave requests
                         </h3>
-                        <NuxtLink to="/leaves" class="text-xs font-semibold text-(--color-primary) hover:underline">View
+                        <NuxtLink to="/hrm/timeoff/leaves" class="text-xs font-semibold text-(--color-primary) hover:underline">View
                             all →
                         </NuxtLink>
                     </header>
