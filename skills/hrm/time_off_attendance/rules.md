@@ -31,8 +31,8 @@ These permissions are granted to the standard `employee` role and are paired wit
 | `hrm.leave.write.self` | `POST /leaves`, `DELETE /leaves/{own-pending}` | Service layer asserts `employee_id` matches caller. Can only delete if status is `pending`. |
 | `hrm.attendance.read.self` | `GET /attendance/logs` | Force-filters to caller's own records. |
 | `hrm.attendance.clock.self` | `POST /attendance/clock-in`, `POST /attendance/clock-out` | Allows standard staff to log clock hours. |
-| `hrm.overtime.read.self` | `GET /overtime-requests`, `GET /overtime-requests/{own}` | List filters to caller's `employee_id`. |
-| `hrm.overtime.write.self` | `POST /overtime-requests`, `DELETE /overtime-requests/{own-pending}` | Request hours for authorization. |
+| `hrm.overtime.read.self` | `GET /hrm/overtime-requests`, `GET /hrm/overtime-requests/{own}` | List filters to caller's `employee_id`. |
+| `hrm.overtime.write.self` | `POST /hrm/overtime-requests`, `DELETE /hrm/overtime-requests/{own-pending}` | Request hours for authorization. |
 
 ---
 
@@ -199,7 +199,7 @@ All paths require `auth:api` and the `X-Tenant-Handle` header.
 | **POST** | `/api/v1/attendance/clock-out` | `hrm.attendance.clock.self` | Record check-out (validates active clock-in session) |
 | **GET** | `/api/v1/attendance/logs` | `hrm.attendance.read` or `.read.self` | Fetch logs with date range and employee filters |
 | **POST** | `/api/v1/attendance/reconcile` | `hrm.attendance.write` | Manually trigger the reconciliation process |
-| **GET** | `/api/v1/shifts` | `hrm.shift.read` | List all configured shifts |
-| **POST** | `/api/v1/shifts` | `hrm.shift.write` | Create a shift schedule |
-| **POST** | `/api/v1/overtime-requests` | `hrm.overtime.write.self` | Apply for overtime hours |
-| **PATCH**| `/api/v1/overtime-requests/{id}/process` | `hrm.overtime.write` | Approve or reject a pending overtime request |
+| **GET** | `/api/v1/hrm/shifts` | `hrm.shift.read` | List all configured shifts |
+| **POST** | `/api/v1/hrm/shifts` | `hrm.shift.write` | Create a shift schedule |
+| **POST** | `/api/v1/hrm/overtime-requests` | `hrm.overtime.write.self` | Apply for overtime hours |
+| **PATCH**| `/api/v1/hrm/overtime-requests/{id}/process` | `hrm.overtime.write` | Approve or reject a pending overtime request |

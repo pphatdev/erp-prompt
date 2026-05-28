@@ -1,11 +1,19 @@
 # eApprovals Workflow Rules
 
 ## 1. Permissions (IAM Integration)
-Permissions follow the standard `module.feature.action` pattern defined in [iam.md](../iam.md).
+Permissions follow the standard `module.feature.action` pattern defined in [iam.md](../iam.md), with extended granular controls for individual forms.
+
+### Granular Form Permissions
+eApprovals forms must have their own specific permission controls. These permissions must be controllable by an Admin or a specifically assigned Employee (allowing selection of users from the Employee directory). Each form must explicitly define:
+- **who can request** (Initiate the form)
+- **who can see** (View the form and its data)
+- **who can verify** (Review and validate the request before final approval)
+- **who can reject** (Decline the request)
+- **who can approve** (Finalize and accept the request)
 
 ### Permission Keys:
 - **Module**: `approvals`
-- **Actions**: `read`, `write`, `delete`, `execute` (Approve/Reject)
+- **Actions**: `read` (see), `write` (request), `delete`, `execute` (verify/approve/reject)
 
 ### Feature Matrix:
 | Feature | Read | Write | Execute | Export |

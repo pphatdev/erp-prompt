@@ -48,7 +48,7 @@ Use this skill when developing components, pages, or state management in the Nux
 - **No native browser dialogs**: `confirm()`, `alert()`, and `prompt()` are forbidden in pages/components. They break the design language, can't be themed, and can't be tested via Playwright.
 - **Use `toast.confirm()`**: Destructive or state-changing actions (publish, close, archive, delete, convert) MUST go through the `confirm()` method exposed by `useToast()` (rendered by `components/ConfirmDialog.vue`). It returns a Promise resolving `true` on accept, `false` on cancel/Escape/backdrop.
 - **Tone**: pick `color: 'danger'` for irreversible actions, `'warning'` for compliance/lock actions, `'primary'` for forward/publish actions. Pair with a matching `ti-*` icon.
-- **Example**: see `pages/payroll.vue` (`processPeriod`, `closePeriod`) and `pages/vacancies.vue` (`publish`) for canonical usage.
+- **Example**: see `pages/hrm/payroll.vue` (`processPeriod`, `closePeriod`) and `pages/hrm/recruitments/vacancies.vue` (`publish`) for canonical usage.
 
 ### 7. Row Actions on List Tables (P2)
 - **Single kebab trigger**: Any list table with ≥ 2 row-level actions MUST collapse them into a single 30×30 `action-trigger` button containing `ti-dots-vertical`. Inline icon strips (`<button><i ti-pencil/></button><button><i ti-trash/></button>...`) are forbidden — they don't scale past 3 actions and obscure which buttons are destructive.

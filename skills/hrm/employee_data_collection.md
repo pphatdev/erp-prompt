@@ -252,7 +252,7 @@ This document defines the **requirements, scope, and constraints** for collectin
  | **HRIS** (e.g., BambooHR, Workday) | Central employee database | All HR data (except highly sensitive)    | **SSO, MFA, Role-Based Access**       |
  | **Payroll System**    | Salary processing                    | Payroll, tax, bank details               | **Encrypted API, Audit Logs**         |
  | **Benefits Platform** | Health/retirement enrollment         | Beneficiary, medical data                | **HIPAA-compliant encryption**        |
- | **Time Tracking**     | Attendance/overtime                  | Clock-in/out, leave records               | **Access-controlled logs**            |
+ | **Time Tracking**     | Attendance/hrm/overtime                  | Clock-in/out, leave records               | **Access-controlled logs**            |
  | **Document Management** (e.g., SharePoint) | Secure file storage | Resumes, contracts, medical certs | **Encryption, Version Control**       |
 
 ### **5.2 Data Storage**

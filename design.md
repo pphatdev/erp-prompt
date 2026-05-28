@@ -523,7 +523,7 @@ Every upload transaction must verify binary integrity and maintain full traceabi
 - **Integrity Checksums**: Calculate a `SHA-256` hash of every uploaded file and persist it in the database for auditing and deduplication.
 
 ### 11.4 Resume Upload Endpoint Contract (Reference)
-Reference implementation: `backend/app/Tenants/Modules/HRM/Controllers/ApplicationController@storeResume` + `RecruitmentService@storeResume` + frontend `frontend/pages/applications-new.vue`.
+Reference implementation: `backend/app/Tenants/Modules/HRM/Controllers/ApplicationController@storeResume` + `RecruitmentService@storeResume` + frontend `frontend/pages/hrm/applications/new.vue`.
 
 - **Endpoint** — `POST /applications/resumes` inside `auth:api`. Multipart body field is `file`. Returns `201 { path, original_name, size, mime_type }`.
 - **Validation** — use `extensions:pdf,doc,docx|max:10240` at the FormRequest layer (trusts the original client extension), and re-check MIME inside the service for defense in depth. **Do not use `mimes:` for resumes** — content-based MIME guessing rejects PDFs that browsers tag as `application/octet-stream`.
@@ -535,7 +535,7 @@ Reference implementation: `backend/app/Tenants/Modules/HRM/Controllers/Applicati
 
 ## 12. Multi-Step Wizard Canvas
 
-Reference implementation: `frontend/pages/applications-new.vue` (Add New Candidate → Upload › Review & Edit › Finalize). This canvas is the canonical pattern for any future create-flow that benefits from progressive disclosure (e.g. "New Vacancy", "New Payroll Run", "New Project Onboarding"). Reuse the stepper, sticky footer, and split-pane structure rather than re-rolling them.
+Reference implementation: `frontend/pages/hrm/applications/new.vue` (Add New Candidate → Upload › Review & Edit › Finalize). This canvas is the canonical pattern for any future create-flow that benefits from progressive disclosure (e.g. "New Vacancy", "New Payroll Run", "New Project Onboarding"). Reuse the stepper, sticky footer, and split-pane structure rather than re-rolling them.
 
 ### 12.1 When to Use a Wizard vs. a Modal
 | Use a wizard when | Use a modal/single-page form when |
@@ -682,13 +682,13 @@ Reference implementation: `frontend/pages/applications.vue`. This pattern replac
 
 Adopted across the codebase (kebab dropdown is the only row-actions affordance — no inline button strips):
 - `pages/applications.vue` — View · Edit · Convert to Employee · Delete (also: bulk delete + bulk convert toolbar — §14.3/§14.4).
-- `pages/vacancies.vue` — Edit · View applications · Publish (draft) · Close (open/paused) · Archive.
+- `pages/hrm/recruitments/vacancies.vue` — Edit · View applications · Publish (draft) · Close (open/paused) · Archive.
 - `pages/employees.vue` — Edit · Email · Terminate (≠ terminated). Shared trigger between the table and the grid card.
-- `pages/departments.vue` — Edit · Archive.
-- `pages/positions.vue` — Edit · Remove.
+- `pages/hrm/departments.vue` — Edit · Archive.
+- `pages/hrm/positions.vue` — Edit · Remove.
 - `pages/leave-types.vue` — Edit · Remove.
 - `pages/leaves.vue` — Approve · Reject (when `canApprove`) · Withdraw. Trigger only renders when `status === 'pending'`.
-- `pages/payroll.vue` — View payslips · Process (draft) · Close (processed).
+- `pages/hrm/payroll.vue` — View payslips · Process (draft) · Close (processed).
 - `pages/appraisals.vue` — Edit/view · Submit (draft) · Review (submitted) · Close (reviewed) · Archive (≠ closed).
 - `pages/products.vue` — View · Edit · Delete.
 
