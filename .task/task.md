@@ -166,3 +166,9 @@
 - [ ] Pest tenancy isolation tests (P0)
 - [ ] Vitest component tests
 - [ ] Playwright E2E for critical flows
+
+## Grid Cards Redesign
+> Full task: [`.task/card_redesign/task.md`](./.task/card_redesign/task.md)
+- [x] Redesign 13 frontend pages containing grid cards to align with premium glass-card aesthetic.
+- [x] Correct route link prefixes from `/employees` to `/hrm/employees` across page files.
+
