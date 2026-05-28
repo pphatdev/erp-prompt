@@ -20,7 +20,7 @@ Implementation phases for the HRM module, focusing on workforce management, payr
 ### Phase 3: Payroll Engine & Compensation — DONE (compliance + Policies pending)
 - [x] Migrations for `payroll_periods`, `payslips` (deductions stored in `payslips.deductions` JSON column).
 - [x] `PayrollService` computes gross, flat tax (10%), NSSF (4%), net.
-- [x] Automated Journal Entry posting to FMS on `closePeriod()`. Migration `2024_01_01_000021_add_journal_entry_to_payroll_periods.php` adds nullable `journal_entry_id` + `closed_at`. `PayrollService` now depends on `AccountingService` and posts a balanced accrual journal (Dr Wage Expense / Cr Tax / Cr NSSF / Cr Wages Payable) keyed on `PAYROLL-{period_id}`. Account codes are configurable via `config/payroll.php` (env-overridable `PAYROLL_ACCOUNT_*`). Missing chart codes raise a `DomainException` listing what's needed; the close transaction rolls back so the period stays at `processed` for retry. Net is derived as the balancing figure (`gross - tax - nssf`) to avoid cumulative per-payslip rounding tripping `AccountingService::validateBalancedEntry()`.
+- [x] Automated Journal Entry posting to FMS on `closePeriod()`. Migration `2024_01_01_000021_add_journal_entry_to_payroll_periods.php` adds nullable `journal_entry_id` + `closed_at`. `PayrollService` now depends on `AccountingService` and posts a balanced accrual journal (Dr Wage Expense / Cr Tax / Cr NSSF / Cr Wages Payable) keyed on `PAYROLL-{period_id}`. Account codes are configurable via `config/hrm/payroll.php` (env-overridable `PAYROLL_ACCOUNT_*`). Missing chart codes raise a `DomainException` listing what's needed; the close transaction rolls back so the period stays at `processed` for retry. Net is derived as the balancing figure (`gross - tax - nssf`) to avoid cumulative per-payslip rounding tripping `AccountingService::validateBalancedEntry()`.
 - [ ] `hrm.payroll.*` Policy classes (`PayrollPeriodPolicy`, `PayslipPolicy`).
 
 ### Public Careers Surface — DONE
@@ -94,10 +94,10 @@ app/
     │                 LeaveController, LeaveTypeController,
     │                 PayrollPeriodController, PayslipController,
     │                 JobVacancyController, ApplicationController, AppraisalController
-    ├── Requests/     Store/Update Employee/Department/Position/Leave/LeaveType/PayrollPeriod,
+    ├── Requests/     Store/Update Employee/Department/Position/Leave/LeaveType/hrm/payrollPeriod,
     │                 StoreJobVacancy, StoreApplication, TransitionApplication,
     │                 Store/UpdateAppraisal
-    ├── Resources/    Employee/Department/Position/Leave/LeaveType/PayrollPeriod/Payslip Resource,
+    ├── Resources/    Employee/Department/Position/Leave/LeaveType/hrm/payrollPeriod/Payslip Resource,
     │                 JobVacancy/Application/Appraisal Resource
     └── Services/     EmployeeService, LeaveService, PayrollService,
                       RecruitmentService, PerformanceService
@@ -108,16 +108,16 @@ app/
 | Method | Path                                       | Purpose                              |
 |--------|--------------------------------------------|--------------------------------------|
 | CRUD   | `/employees`                               | Workforce records                    |
-| CRUD   | `/departments`                             | Org units                            |
-| CRUD   | `/positions`                               | Job titles                           |
+| CRUD   | `/hrm/departments`                             | Org units                            |
+| CRUD   | `/hrm/positions`                               | Job titles                           |
 | CRUD   | `/leave-types`                             | Annual allowance catalogue           |
 | RUD    | `/leaves`                                  | Submit & list requests, withdraw     |
 | POST   | `/leaves/{leave}/approve`                  | Approve pending request              |
 | POST   | `/leaves/{leave}/reject`                   | Reject pending request               |
 | GET    | `/employees/{employee}/leave-balance`      | Per-type balance sheet               |
-| CR     | `/payroll-periods`                         | Create & list periods                |
-| POST   | `/payroll-periods/{id}/process`            | Generate payslips for active staff   |
-| POST   | `/payroll-periods/{id}/close`              | Lock period                          |
+| CR     | `/hrm/payroll-periods`                         | Create & list periods                |
+| POST   | `/hrm/payroll-periods/{id}/process`            | Generate payslips for active staff   |
+| POST   | `/hrm/payroll-periods/{id}/close`              | Lock period                          |
 | GET    | `/payslips`, `/payslips/{id}`              | List / view payslip                  |
 | CRUD   | `/job-vacancies`                           | Vacancy listings                     |
 | POST   | `/job-vacancies/{id}/publish`              | Draft → open                         |

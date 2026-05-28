@@ -26,9 +26,9 @@ Slices 1, 3, 5 are independent. Slice 2 depends on 1. Slice 4 depends on 2 + 3.
 | # | Deliverable | Status |
 |---|---|---|
 | C1 | Postman collection — Shifts (7) + Attendance (5) + Overtime Requests (5) sub-folders added under HRM; Leaves body shows `leave_session` and balance description mentions `accrued`. | [x] done |
-| C2 | `/shifts` page — CRUD list + create/edit modal, kebab dropdown row actions. Sidebar entry. | [x] done |
+| C2 | `/hrm/shifts` page — CRUD list + create/edit modal, kebab dropdown row actions. Sidebar entry. | [x] done |
 | C3 | `/attendance` page — list with status/date/employee filters; self-service Clock In / Clock Out buttons using browser geolocation; admin manual reconcile. | [x] done |
-| C4 | `/overtime` page — list + submit modal + kebab approve/reject/cancel. | [x] done |
+| C4 | `/hrm/overtime` page — list + submit modal + kebab approve/reject/cancel. | [x] done |
 | C5 | Leaves page — `leave_session` selector (full_day · morning · afternoon) locks end_date for half-days; days column shows fractional with AM/PM suffix. | [x] done |
 | C6 | `/employees/:id` — new Attendance tab with status tiles + recent log table, lazy-loaded. | [x] done |
 

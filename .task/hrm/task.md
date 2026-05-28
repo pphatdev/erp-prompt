@@ -10,7 +10,7 @@ Stand up the backend API for the HRM module: workforce records, leave workflow, 
 - [x] Models: `Employee`, `Department`, `Position` (UUID, `BelongsToTenant`, `Auditable`)
 - [x] Resources, FormRequests, `EmployeeService`
 - [x] Controllers: `EmployeeController`, `DepartmentController`, `PositionController`
-- [x] Routes: `/api/v1/employees`, `/departments`, `/positions`
+- [x] Routes: `/api/v1/employees`, `/hrm/departments`, `/hrm/positions`
 - [x] Field-level encryption for `base_salary` + `bank_name` / `bank_account_name` / `bank_account_number` (migration `2024_01_01_000020`, Laravel `'encrypted'` cast, account number masked except last 4 digits in `EmployeeResource`)
 - [x] Employee Self-Service detail view: Implement `EmployeePolicy` and register it in `TenantServiceProvider` to allow employees to view their own profile details (`$user->employee?->id === $employee->id`) without administrative `hrm.employee.read` permission.
 
@@ -29,10 +29,10 @@ Stand up the backend API for the HRM module: workforce records, leave workflow, 
 - [x] Models: `PayrollPeriod`, `Payslip`
 - [x] Resources, FormRequest, `PayrollService` (compute earnings + tax/NSSF deductions)
 - [x] Controllers: `PayrollPeriodController`, `PayslipController`
-- [x] Routes: `/api/v1/payroll-periods`, `/payroll-periods/{id}/process|close`, `/payslips`
+- [x] Routes: `/api/v1/hrm/payroll-periods`, `/hrm/payroll-periods/{id}/process|close`, `/payslips`
 - [x] Postman collection updated (`docs/postman/erp_collection.json` → "HRM" folder, 24 requests + 7 new collection variables)
 - [ ] Queue `processPeriod()` for tenants with > 200 employees
-- [x] FMS journal entry posting on `closePeriod()` — migration `2024_01_01_000021` adds `journal_entry_id` + `closed_at`; `PayrollService` aggregates gross/tax/nssf, derives net as the balancing figure, looks up four account codes from `config/payroll.php`, and posts a balanced journal via `AccountingService::postEntry()`. Missing codes ⇒ 422 listing what to create. Reference `PAYROLL-{periodId}` enforces idempotency. `PayrollPeriodResource` exposes `journalEntryId` + `closedAt`.
+- [x] FMS journal entry posting on `closePeriod()` — migration `2024_01_01_000021` adds `journal_entry_id` + `closed_at`; `PayrollService` aggregates gross/tax/nssf, derives net as the balancing figure, looks up four account codes from `config/hrm/payroll.php`, and posts a balanced journal via `AccountingService::postEntry()`. Missing codes ⇒ 422 listing what to create. Reference `PAYROLL-{periodId}` enforces idempotency. `PayrollPeriodResource` exposes `journalEntryId` + `closedAt`.
 - [ ] PDF payslip generator + ESS portal endpoint
 
 ### Configurable status flows (cross-cutting — shipped)

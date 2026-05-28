@@ -142,8 +142,12 @@
 - [ ] Maintenance logs UI
 
 ## eApprovals
+> Full task: [`.task/eapprovals/task.md`](./.task/eapprovals/task.md) | Rule: [`skills/eapprovals/rules.md`](./skills/eapprovals/rules.md)
 - [x] Approval workflows + levels (backend)
 - [x] Approval actions (backend)
+- [x] IAM Permissions seeded (`approvals.*`)
+- [x] Notifications, Escalation, and Delegation logic (backend)
+- [ ] Pest tenancy isolation tests (P0) & State machine integrity (P1)
 - [ ] eApprovals UI page
 
 ## eDocuments / Documents
