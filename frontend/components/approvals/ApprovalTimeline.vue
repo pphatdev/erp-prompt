@@ -55,7 +55,7 @@
                 </div>
                 
                 <!-- Content Card -->
-                <div class="timeline-card timeline-card--pending rounded-xl p-4 border border-dashed border-amber-500/30 bg-amber-500/[0.02]">
+                <div class="timeline-card timeline-card--pending rounded-xl p-4 border border-dashed border-amber-500/30 bg-amber-500/2">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div class="flex items-center gap-2">
                             <span class="badge-pill px-2.5 py-0.5 rounded-full text-xxs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-500">

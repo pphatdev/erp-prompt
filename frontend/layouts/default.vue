@@ -549,8 +549,7 @@ const navGroups = reactive<NavGroup[]>([
         id: 'main',
         label: 'Main',
         items: [
-            { label: 'Dashboard', icon: 'ti-layout-dashboard', route: '/dashboard', operational: true, permission: 'reporting.dashboard.read' },
-            { label: 'Tasks Canvas', icon: 'ti-checklist', route: '/tasks', operational: true, badge: 'New', badgeVariant: 'primary', moduleSlug: 'tasks' }
+            { label: 'Dashboard', icon: 'ti-layout-dashboard', route: '/dashboard', operational: true, permission: 'reporting.dashboard.read' }
         ]
     },
     {

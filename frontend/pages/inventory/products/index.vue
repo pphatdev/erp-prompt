@@ -255,14 +255,18 @@
             <section v-else-if="view === 'grid'"
                 class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <div v-for="p in paginated" :key="p.id"
-                    class="glass-card rounded-xl overflow-hidden group flex flex-col">
-                    <div class="aspect-4/3 flex items-center justify-center text-(--color-primary) overflow-hidden"
+                    class="glass-card rounded-2xl overflow-hidden group flex flex-col relative transition-all duration-150 border border-(--border-color) hover:border-(--color-primary)/40">
+                    
+                    <!-- Glowing shape behind card -->
+                    <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
+
+                    <div class="aspect-4/3 flex items-center justify-center text-(--color-primary) overflow-hidden relative z-10"
                         :class="p.product_type === 'software' ? 'bg-(--color-primary-subtle)' : 'bg-(--bg-muted)'">
-                        <img v-if="p.image_url" :src="p.image_url" :alt="p.name" class="w-full h-full object-cover" />
+                        <img v-if="p.image_url" :src="p.image_url" :alt="p.name" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                         <i v-else :class="['ti', p.product_type === 'software' ? 'ti-cloud' : 'ti-device-laptop']"
-                            class="text-5xl opacity-60" />
+                            class="text-5xl opacity-60 transition-transform duration-300 group-hover:scale-110" />
                     </div>
-                    <div class="p-4 space-y-2 flex-1 flex flex-col">
+                    <div class="p-4 space-y-2 flex-1 flex flex-col relative z-10">
                         <div class="flex items-center justify-between gap-2">
                             <span class="px-2 py-0.5 rounded text-xxs font-mono uppercase"
                                 :class="p.product_type === 'software' ? 'badge-soft-primary' : 'badge-soft-info'">
@@ -275,11 +279,11 @@
                             {{ p.name }}</h3>
                         <p class="text-xxs text-(--text-muted) truncate">{{ p.description || '—' }}</p>
                         <p class="text-xxs text-(--text-muted) font-mono">{{ p.sku }}</p>
-                        <div class="mt-auto flex items-center justify-between pt-2">
+                        <div class="mt-auto flex items-center justify-between pt-2 border-t border-(--border-color)/50">
                             <span class="font-mono font-bold text-(--text-heading)">{{ fmtMoney(p.unit_price) }}</span>
                             <span class="text-xxs" :class="stockClass(p)">stock: {{ p.current_stock }}</span>
                         </div>
-                        <div class="flex justify-end gap-1 mt-1">
+                        <div class="flex justify-end gap-1.5 mt-2">
                             <button class="action-btn" title="Edit" @click="openEdit(p)"><i
                                     class="ti ti-pencil" /></button>
                             <button class="action-btn action-btn-danger" title="Archive" @click="confirmDelete(p)"><i

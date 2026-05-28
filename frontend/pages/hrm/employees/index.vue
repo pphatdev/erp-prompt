@@ -107,7 +107,7 @@
                                             <span v-else>{{ initials(emp) }}</span>
                                         </div>
                                         <div class="min-w-0">
-                                            <NuxtLink :to="`/employees/${emp.id}`"
+                                            <NuxtLink :to="`/hrm/employees/${emp.id}`"
                                                 class="text-xs font-semibold text-(--text-heading) truncate hover:text-(--color-primary) hover:underline underline-offset-2 block">
                                                 {{ emp.fullName }}
                                             </NuxtLink>
@@ -146,13 +146,18 @@
             <section v-else>
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     <article v-for="emp in employees" :key="emp.id"
-                        class="emp-card glass-card rounded-2xl p-5 transition-all"
-                        :class="emp.status === 'terminated' ? 'emp-card--terminated' : ''">
+                        class="emp-card glass-card rounded-2xl p-5 flex flex-col gap-3 group relative overflow-hidden transition-all duration-150 border border-(--border-color) hover:border-(--color-primary)/40 cursor-pointer"
+                        :class="emp.status === 'terminated' ? 'emp-card--terminated' : ''"
+                        @click="navigateToEmployee(emp, $event)">
+                        
+                        <!-- Glowing shape behind card -->
+                        <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
+
                         <!-- Header: avatar + name + kebab -->
-                        <header class="flex items-start justify-between gap-3 mb-4">
+                        <header class="flex items-start justify-between gap-3 mb-1 relative z-10">
                             <div class="flex items-start gap-3 min-w-0">
                                 <div class="relative shrink-0">
-                                    <div class="w-12 h-12 rounded-xl bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold text-sm overflow-hidden"
+                                    <div class="w-12 h-12 rounded-xl bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold text-sm overflow-hidden transition-transform duration-300 group-hover:scale-105"
                                         :title="emp.fullName">
                                         <img v-if="emp.imageUrl" :src="emp.imageUrl" :alt="emp.fullName" class="w-full h-full object-cover" />
                                         <span v-else>{{ initials(emp) }}</span>
@@ -162,11 +167,10 @@
                                         :class="statusDotClass(emp.status)" :title="statusLabel(emp.status)" />
                                 </div>
                                 <div class="min-w-0">
-                                    <NuxtLink :to="`/employees/${emp.id}`"
-                                        class="text-sm font-semibold text-(--text-heading) truncate block hover:text-(--color-primary) hover:underline underline-offset-2"
+                                    <span class="text-sm font-semibold text-(--text-heading) truncate block hover:text-(--color-primary) transition-colors"
                                         :class="emp.status === 'terminated' ? 'opacity-70' : ''">
                                         {{ emp.fullName }}
-                                    </NuxtLink>
+                                    </span>
                                     <p
                                         class="text-xxs uppercase tracking-wider font-bold text-(--color-primary) truncate">
                                         {{ emp.position?.title || '—' }}
@@ -174,23 +178,18 @@
                                 </div>
                             </div>
 
-                            <button v-if="canWrite || emp.status !== 'terminated'" type="button" class="emp-card-kebab"
+                            <button v-if="canWrite || emp.status !== 'terminated'" type="button" class="emp-card-kebab relative z-20"
                                 :class="{ 'emp-card-kebab--open': cardMenu.open && cardMenu.emp?.id === emp.id }"
                                 title="Actions" @click.stop="openCardMenu(emp, $event)">
                                 <i class="ti ti-dots-vertical" />
                             </button>
                         </header>
 
-                        <!-- Body: department / hired / id -->
-                        <dl class="space-y-2 mb-5 text-xs">
+                        <!-- Body: department / id -->
+                        <dl class="space-y-2 mb-3 text-xs relative z-10 flex-1">
                             <div class="flex items-center gap-2 text-(--text-body)">
                                 <i class="ti ti-building text-(--text-muted) text-[15px]" />
                                 <span class="truncate">{{ emp.department?.name || 'Unassigned' }}</span>
-                            </div>
-                            <div class="flex items-center gap-2 text-(--text-body)">
-                                <i class="ti ti-calendar text-(--text-muted) text-[15px]" />
-                                <span class="font-mono text-xxs">{{ emp.hiredAt ? `Hired
-                                    ${formatRelativeDate(emp.hiredAt)}` : 'Hire date —' }}</span>
                             </div>
                             <div class="flex items-center gap-2 text-(--text-body)">
                                 <i class="ti ti-id text-(--text-muted) text-[15px]" />
@@ -198,26 +197,29 @@
                             </div>
                             <div v-if="canSeeSalary" class="flex items-center gap-2 text-(--text-body)">
                                 <i class="ti ti-cash text-(--text-muted) text-[15px]" />
-                                <span class="font-mono text-xxs">{{ emp.baseSalary != null ? formatMoney(emp.baseSalary)
-                                    : '••••' }}</span>
+                                <span class="font-mono text-xxs">{{ emp.baseSalary != null ? formatMoney(emp.baseSalary) : '••••' }}</span>
                             </div>
                         </dl>
 
-                        <!-- Actions -->
-                        <div class="flex items-center gap-2">
-                            <a :href="`mailto:${emp.email}`" class="emp-card-btn flex-1"
-                                :class="emp.status === 'terminated' ? 'emp-card-btn--disabled' : ''"
-                                :aria-disabled="emp.status === 'terminated' ? 'true' : 'false'"
-                                @click="emp.status === 'terminated' && $event.preventDefault()">
-                                <i class="ti ti-mail text-[14px]" />
-                                <span>Email</span>
-                            </a>
-                            <button type="button" class="emp-card-btn flex-1" :disabled="!canWrite"
-                                @click="openEditModal(emp)">
-                                <i class="ti ti-pencil text-[14px]" />
-                                <span>Edit</span>
-                            </button>
-                            <Badge :variant="statusVariant(emp.status)" :dot="true">{{ emp.status }}</Badge>
+                        <!-- Actions / Premium Slide-and-fade Footer -->
+                        <div class="flex items-end justify-between mt-auto pt-3 border-t border-(--border-color)/50 relative z-10">
+                            <div>
+                                <Badge :variant="statusVariant(emp.status)" :dot="true">{{ emp.status }}</Badge>
+                            </div>
+                            
+                            <!-- Hover action replaces hired relative date -->
+                            <div class="relative h-9 flex items-center justify-end shrink-0">
+                                <div class="absolute right-0 flex items-center gap-1.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-(--color-primary)">View Profile</span>
+                                    <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center">
+                                        <i class="ti ti-arrow-right text-xs"></i>
+                                    </div>
+                                </div>
+                                <div class="text-right transition-all duration-300 opacity-100 group-hover:opacity-0 group-hover:translate-x-[-8px]">
+                                    <p class="text-[10px] text-(--text-muted) uppercase tracking-widest font-bold">Hired</p>
+                                    <p class="text-xs text-(--text-body) font-mono">{{ emp.hiredAt ? formatRelativeDate(emp.hiredAt) : '—' }}</p>
+                                </div>
+                            </div>
                         </div>
                     </article>
                 </div>
@@ -231,7 +233,7 @@
             <div v-if="cardMenu.open && cardMenu.emp"
                 class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
                 :style="{ top: cardMenu.y + 'px', left: cardMenu.x + 'px' }" @click.stop>
-                <NuxtLink :to="`/employees/${cardMenu.emp.id}`" class="action-item" @click="closeCardMenu">
+                <NuxtLink :to="`/hrm/employees/${cardMenu.emp.id}`" class="action-item" @click="closeCardMenu">
                     <i class="ti ti-user-circle" /> View profile
                 </NuxtLink>
                 <button class="action-item" @click="cardActionEdit">
@@ -361,7 +363,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '~/composables/useApi'
 import { formatDate } from '~/composables/useDateFormat'
 import { useAuthStore } from '~/stores/auth'
@@ -388,6 +390,7 @@ interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; t
 
 const api = useApi()
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const toast = useToast()
 const canSeeSalary = computed(() => authStore.hasPermission('hrm.payroll.read'))
@@ -504,6 +507,14 @@ const openCardMenu = (emp: Employee, ev: MouseEvent) => {
 }
 
 const closeCardMenu = () => { cardMenu.open = false; cardMenu.emp = null }
+
+const navigateToEmployee = (emp: Employee, event: MouseEvent) => {
+    const target = event.target as HTMLElement
+    if (target.closest('.emp-card-kebab') || target.closest('a') || target.closest('button')) {
+        return
+    }
+    router.push(`/hrm/employees/${emp.id}`)
+}
 
 const cardActionEdit = () => {
     const emp = cardMenu.emp

@@ -36,32 +36,48 @@
 
             <section v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <NuxtLink v-for="inv in filtered" :key="inv.id" :to="`/sales/invoices/${inv.id}`"
-                    class="glass-card rounded-2xl p-5 flex flex-col gap-3 group hover:border-(--color-primary)/40 transition-colors">
-                    <header class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <h3
-                                class="text-sm font-semibold text-(--text-heading) truncate group-hover:text-(--color-primary)">
-                                {{ inv.invoiceNumber }}
-                            </h3>
-                            <p class="text-xxs text-(--text-muted) truncate mt-0.5">{{ inv.customer?.name || '—' }}</p>
-                        </div>
-                        <Badge :variant="statusBadgeVariant(inv.status)">{{ inv.status }}</Badge>
-                    </header>
+                    class="glass-card rounded-2xl p-5 pb-4 flex flex-col gap-3 group hover:border-(--color-primary)/40 transition-all duration-150 relative overflow-hidden min-h-[160px]">
+                    
+                    <!-- Glowing shape behind card -->
+                    <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
 
-                    <div v-if="inv.journalEntryId" class="text-xxs">
-                        <span class="px-2 py-0.5 rounded badge-soft-success font-mono">
-                            <i class="ti ti-book-2" /> Posted to GL
-                        </span>
+                    <div class="space-y-3 relative z-10">
+                        <header class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <h3
+                                    class="text-sm font-semibold text-(--text-heading) truncate group-hover:text-(--color-primary) transition-colors">
+                                    {{ inv.invoiceNumber }}
+                                </h3>
+                                <p class="text-xxs text-(--text-muted) truncate mt-0.5">{{ inv.customer?.name || '—' }}</p>
+                            </div>
+                            <Badge :variant="statusBadgeVariant(inv.status)">{{ inv.status }}</Badge>
+                        </header>
+
+                        <div v-if="inv.journalEntryId" class="text-xxs">
+                            <span class="px-2 py-0.5 rounded badge-soft-success font-mono">
+                                <i class="ti ti-book-2" /> Posted to GL
+                            </span>
+                        </div>
                     </div>
 
-                    <div class="flex items-end justify-between mt-auto pt-3 border-t border-(--border-color)">
+                    <div class="flex items-end justify-between mt-auto pt-3 border-t border-(--border-color)/50 relative z-10">
                         <div>
                             <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
                             <p class="text-base font-semibold text-(--text-heading)">{{ fmt(inv.totalAmount) }}</p>
                         </div>
-                        <div class="text-right">
-                            <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Due</p>
-                            <p class="text-xs text-(--text-body)">{{ inv.dueDate || '—' }}</p>
+                        
+                        <!-- Hover action replaces date info -->
+                        <div class="relative h-9 flex items-center justify-end">
+                            <div class="absolute right-0 flex items-center gap-1.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-(--color-primary)">Open details</span>
+                                <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center">
+                                    <i class="ti ti-arrow-right text-xs"></i>
+                                </div>
+                            </div>
+                            <div class="text-right transition-all duration-300 opacity-100 group-hover:opacity-0 group-hover:translate-x-[-8px]">
+                                <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Due</p>
+                                <p class="text-xs text-(--text-body)">{{ inv.dueDate || '—' }}</p>
+                            </div>
                         </div>
                     </div>
                 </NuxtLink>

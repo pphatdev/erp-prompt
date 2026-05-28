@@ -12,7 +12,7 @@
             <i class="ti ti-user-question text-4xl text-(--text-muted)" />
             <p class="text-sm text-(--text-heading) font-semibold">Employee not found</p>
             <p class="text-xs text-(--text-muted)">It may have been removed or you don't have access.</p>
-            <NuxtLink to="/employees" class="btn btn-soft-primary text-xs mt-2">
+            <NuxtLink to="/hrm/employees" class="btn btn-soft-primary text-xs mt-2">
                 <i class="ti ti-arrow-left" /> Back to employees
             </NuxtLink>
         </div>
@@ -668,7 +668,7 @@ const sumValues = (obj: Record<string, number> | null): number =>
 const openEditOnList = () => {
     // Defer Edit to the list page (existing modal). Pass id via query — the
     // list already pre-fills its search filter from ?search=.
-    router.push({ path: '/employees', query: { search: employee.value!.employeeId } })
+    router.push({ path: '/hrm/employees', query: { search: employee.value!.employeeId } })
 }
 
 // ---- Inline tiny components ----------------------------------------------

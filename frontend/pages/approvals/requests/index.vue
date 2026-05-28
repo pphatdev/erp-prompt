@@ -103,34 +103,42 @@
             <section v-else>
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     <article v-for="req in requests" :key="req.id"
-                        class="glass-card rounded-2xl p-5 transition-all hover:-translate-y-0.5 hover:shadow-(--shadow-md) hover:border-(--color-primary)/30 cursor-pointer"
+                        class="glass-card rounded-2xl p-5 pb-4 flex flex-col gap-3 group hover:border-(--color-primary)/40 transition-all duration-150 relative overflow-hidden min-h-[160px] cursor-pointer"
                         @click="viewDetails(req)">
                         
-                        <header class="flex items-start justify-between gap-3 mb-4">
-                            <div class="flex flex-col min-w-0">
-                                <span class="font-mono font-semibold text-(--color-primary) text-sm">{{ req.id.split('-')[0].toUpperCase() }}</span>
-                                <span class="text-xs text-(--text-muted) truncate mt-0.5">{{ req.requestable_type.split('\\').pop() }}</span>
-                            </div>
-                            <Badge :variant="statusVariant(req.status)" :dot="true">{{ req.status.replace('_', ' ') }}</Badge>
-                        </header>
+                        <!-- Glowing shape behind card -->
+                        <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
 
-                        <dl class="space-y-2 mb-5 text-xs">
-                            <div class="flex items-center gap-2 text-(--text-body)">
-                                <i class="ti ti-sitemap text-(--text-muted) text-[15px]" />
-                                <span class="truncate">{{ req.workflow?.name || 'Standard Approval' }}</span>
-                            </div>
-                            <div class="flex items-center gap-2 text-(--text-body)">
-                                <i class="ti ti-calendar text-(--text-muted) text-[15px]" />
-                                <span class="font-mono text-xxs">{{ formatDate(req.created_at) }}</span>
-                            </div>
-                        </dl>
+                        <div class="space-y-3 relative z-10 flex-1">
+                            <header class="flex items-start justify-between gap-3 mb-2">
+                                <div class="flex flex-col min-w-0">
+                                    <span class="font-mono font-semibold text-(--color-primary) text-sm group-hover:text-primary transition-colors">{{ req.id.split('-')[0].toUpperCase() }}</span>
+                                    <span class="text-xs text-(--text-muted) truncate mt-0.5">{{ req.requestable_type.split('\\').pop() }}</span>
+                                </div>
+                                <Badge :variant="statusVariant(req.status)" :dot="true" class="shrink-0">{{ req.status.replace('_', ' ') }}</Badge>
+                            </header>
+                        </div>
 
-                        <div class="flex items-center gap-2">
-                            <button type="button" class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-(--bg-muted) text-(--text-body) hover:bg-(--color-primary-subtle) hover:text-(--color-primary) transition-colors border border-transparent"
-                                @click.stop="viewDetails(req)">
-                                <i class="ti ti-eye text-[14px]" />
-                                <span>View Details</span>
-                            </button>
+                        <div class="flex items-end justify-between mt-auto pt-3 border-t border-(--border-color)/50 relative z-10">
+                            <!-- Left info: Workflow name -->
+                            <div class="min-w-0 flex-1 mr-4">
+                                <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Workflow</p>
+                                <p class="text-xs font-semibold text-(--text-heading) truncate">{{ req.workflow?.name || 'Standard Approval' }}</p>
+                            </div>
+                            
+                            <!-- Hover action replaces submitted date info -->
+                            <div class="relative h-9 flex items-center justify-end shrink-0">
+                                <div class="absolute right-0 flex items-center gap-1.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-(--color-primary)">Open details</span>
+                                    <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center">
+                                        <i class="ti ti-arrow-right text-xs"></i>
+                                    </div>
+                                </div>
+                                <div class="text-right transition-all duration-300 opacity-100 group-hover:opacity-0 group-hover:translate-x-[-8px]">
+                                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Submitted</p>
+                                    <p class="text-xs text-(--text-body) font-mono">{{ formatDate(req.created_at) }}</p>
+                                </div>
+                            </div>
                         </div>
                     </article>
                 </div>

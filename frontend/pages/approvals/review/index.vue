@@ -99,42 +99,48 @@
             <section v-else>
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     <article v-for="req in requests" :key="req.id"
-                        class="glass-card rounded-2xl p-5 transition-all hover:-translate-y-0.5 hover:shadow-(--shadow-md) hover:border-(--color-primary)/30 cursor-pointer"
+                        class="glass-card rounded-2xl p-5 pb-4 flex flex-col gap-3 group hover:border-(--color-primary)/40 transition-all duration-150 relative overflow-hidden min-h-[160px] cursor-pointer"
                         @click="openActionModal(req)">
                         
-                        <header class="flex items-start justify-between gap-3 mb-4">
-                            <div class="flex items-start gap-3 min-w-0">
-                                <div class="w-10 h-10 rounded-xl bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold text-sm shrink-0 overflow-hidden">
+                        <!-- Glowing shape behind card -->
+                        <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
+
+                        <div class="space-y-3 relative z-10 flex-1">
+                            <header class="flex items-start gap-3 mb-2">
+                                <div class="w-10 h-10 rounded-xl bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden transition-transform duration-300 group-hover:scale-105">
                                     {{ req.requester?.name?.charAt(0) || '?' }}
                                 </div>
-                                <div class="min-w-0">
-                                    <span class="text-sm font-semibold text-(--text-heading) truncate block">
+                                <div class="min-w-0 flex-1">
+                                    <span class="text-sm font-semibold text-(--text-heading) truncate block group-hover:text-primary transition-colors">
                                         {{ req.requester?.name || 'Unknown' }}
                                     </span>
                                     <p class="text-xxs uppercase tracking-wider font-bold text-(--color-primary) truncate">
                                         {{ req.requestable_type.split('\\').pop() }}
                                     </p>
                                 </div>
-                            </div>
-                        </header>
+                            </header>
+                        </div>
 
-                        <dl class="space-y-2 mb-5 text-xs">
-                            <div class="flex items-center gap-2 text-(--text-body)">
-                                <i class="ti ti-id text-(--text-muted) text-[15px]" />
-                                <span class="font-mono text-xxs truncate">{{ req.id.split('-')[0].toUpperCase() }}</span>
+                        <div class="flex items-end justify-between mt-auto pt-3 border-t border-(--border-color)/50 relative z-10">
+                            <!-- Left info: Request ID -->
+                            <div class="min-w-0 flex-1 mr-4">
+                                <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Request ID</p>
+                                <p class="text-xs font-mono font-semibold text-(--text-heading) truncate">#{{ req.id.split('-')[0].toUpperCase() }}</p>
                             </div>
-                            <div class="flex items-center gap-2 text-(--text-body)">
-                                <i class="ti ti-calendar text-(--text-muted) text-[15px]" />
-                                <span class="font-mono text-xxs">{{ formatDate(req.created_at) }}</span>
+                            
+                            <!-- Hover action replaces submitted date info -->
+                            <div class="relative h-9 flex items-center justify-end shrink-0">
+                                <div class="absolute right-0 flex items-center gap-1.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-(--color-primary)">Review Request</span>
+                                    <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center">
+                                        <i class="ti ti-arrow-right text-xs"></i>
+                                    </div>
+                                </div>
+                                <div class="text-right transition-all duration-300 opacity-100 group-hover:opacity-0 group-hover:translate-x-[-8px]">
+                                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Submitted</p>
+                                    <p class="text-xs text-(--text-body) font-mono">{{ formatDate(req.created_at) }}</p>
+                                </div>
                             </div>
-                        </dl>
-
-                        <div class="flex items-center gap-2">
-                            <button type="button" class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-(--color-primary) text-white hover:bg-blue-600 transition-colors border border-transparent shadow-(--shadow-sm)"
-                                @click.stop="openActionModal(req)">
-                                <i class="ti ti-eye text-[14px]" />
-                                <span>Review Request</span>
-                            </button>
                         </div>
                     </article>
                 </div>

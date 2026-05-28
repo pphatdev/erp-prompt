@@ -272,7 +272,7 @@
                         <ol v-else class="relative border-l-2 border-(--border-color) ml-2 space-y-5 pl-5">
                             <li v-for="(exp, idx) in workExperience" :key="idx" class="relative">
                                 <span
-                                    class="absolute -left-[26px] top-1 w-4 h-4 rounded-full bg-(--color-primary) border-2 border-(--bg-card)" />
+                                    class="absolute left-[-26px] top-1 w-4 h-4 rounded-full bg-(--color-primary) border-2 border-(--bg-card)" />
                                 <div class="flex flex-wrap items-baseline justify-between gap-2">
                                     <p class="text-xs font-bold text-(--text-heading)">{{ exp.title || '—' }}</p>
                                     <p class="text-xxs text-(--text-muted) font-mono">{{ exp.period || '—' }}</p>
@@ -370,7 +370,7 @@
                         <p v-else class="text-xxs text-(--text-muted)">
                             Convert this candidate into a full employee record to begin onboarding.
                         </p>
-                        <NuxtLink v-if="app.employeeId" :to="`/employees?id=${app.employeeId}`"
+                        <NuxtLink v-if="app.employeeId" :to="`/hrm/employees/${app.employeeId}`"
                             class="btn btn-soft-primary text-xs w-full justify-center">
                             <i class="ti ti-user-check" /> View employee
                         </NuxtLink>

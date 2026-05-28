@@ -36,44 +36,51 @@
 
             <!-- Contacts Cards Grid -->
             <section v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <article v-for="c in filteredContacts" :key="c.id" class="glass-card rounded-2xl p-5 flex flex-col gap-3 group"
+                <article v-for="c in filteredContacts" :key="c.id" 
+                    class="glass-card rounded-2xl p-5 flex flex-col gap-3 group relative overflow-hidden transition-all duration-150 border border-(--border-color) hover:border-(--color-primary)/40"
                     :class="{ 'ring-1 ring-(--color-primary)/40': c.isPrimary }">
-                    <header class="flex items-start gap-3">
-                        <div class="w-10 h-10 rounded-full bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-bold text-xs shrink-0">
-                            {{ initials(c) }}
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <h3 class="text-sm font-semibold text-(--text-heading) truncate group-hover:text-(--color-primary) transition-colors">
-                                    {{ displayName(c) }}
-                                </h3>
-                                <span v-if="c.isPrimary"
-                                    class="text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide badge-soft-primary inline-flex items-center gap-1">
-                                    <i class="ti ti-star-filled text-[10px]" />Primary
-                                </span>
-                            </div>
-                            <p class="text-xxs text-(--text-muted) truncate font-medium">{{ c.jobTitle || 'Representative' }}</p>
-                        </div>
-                    </header>
+                    
+                    <!-- Glowing shape behind card -->
+                    <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
 
-                    <div class="text-xxs space-y-1.5 border-t border-b border-(--border-color) py-3 my-1">
-                        <div v-if="c.customer" class="flex items-center gap-2 truncate">
-                            <i class="ti ti-building text-(--text-muted) shrink-0" />
-                            <span class="font-semibold text-(--text-heading) truncate">{{ c.customer.name }}</span>
-                        </div>
-                        <div class="flex items-center gap-2 truncate">
-                            <i class="ti ti-mail text-(--text-muted) shrink-0" />
-                            <a v-if="c.email" :href="`mailto:${c.email}`" class="truncate hover:text-(--color-primary)">{{ c.email }}</a>
-                            <span v-else class="text-(--text-muted) italic">No email</span>
-                        </div>
-                        <div class="flex items-center gap-2 truncate">
-                            <i class="ti ti-phone text-(--text-muted) shrink-0" />
-                            <a v-if="c.phone" :href="`tel:${c.phone}`" class="hover:text-(--color-primary)">{{ c.phone }}</a>
-                            <span v-else class="text-(--text-muted) italic">No phone</span>
+                    <div class="space-y-3 relative z-10 flex-1 flex flex-col">
+                        <header class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-bold text-xs shrink-0 transition-transform duration-300 group-hover:scale-105">
+                                {{ initials(c) }}
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="text-sm font-semibold text-(--text-heading) truncate group-hover:text-(--color-primary) transition-colors">
+                                        {{ displayName(c) }}
+                                    </h3>
+                                    <span v-if="c.isPrimary"
+                                        class="text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide badge-soft-primary inline-flex items-center gap-1">
+                                        <i class="ti ti-star-filled text-[10px]" />Primary
+                                    </span>
+                                </div>
+                                <p class="text-xxs text-(--text-muted) truncate font-medium">{{ c.jobTitle || 'Representative' }}</p>
+                            </div>
+                        </header>
+
+                        <div class="text-xxs space-y-1.5 border-t border-b border-(--border-color)/50 py-3 my-1">
+                            <div v-if="c.customer" class="flex items-center gap-2 truncate">
+                                <i class="ti ti-building text-(--text-muted) shrink-0" />
+                                <span class="font-semibold text-(--text-heading) truncate">{{ c.customer.name }}</span>
+                            </div>
+                            <div class="flex items-center gap-2 truncate">
+                                <i class="ti ti-mail text-(--text-muted) shrink-0" />
+                                <a v-if="c.email" :href="`mailto:${c.email}`" class="truncate hover:text-(--color-primary) transition-colors">{{ c.email }}</a>
+                                <span v-else class="text-(--text-muted) italic">No email</span>
+                            </div>
+                            <div class="flex items-center gap-2 truncate">
+                                <i class="ti ti-phone text-(--text-muted) shrink-0" />
+                                <a v-if="c.phone" :href="`tel:${c.phone}`" class="hover:text-(--color-primary) transition-colors">{{ c.phone }}</a>
+                                <span v-else class="text-(--text-muted) italic">No phone</span>
+                            </div>
                         </div>
                     </div>
 
-                    <footer class="mt-auto pt-1 flex items-center justify-end gap-1">
+                    <footer class="mt-auto pt-2 border-t border-(--border-color)/50 flex items-center justify-end gap-1.5 relative z-10">
                         <button type="button" class="action-btn" title="Edit" @click="openEditModal(c)">
                             <i class="ti ti-pencil" />
                         </button>

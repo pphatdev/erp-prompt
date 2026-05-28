@@ -74,35 +74,42 @@
 
             <!-- Grid view -->
             <section v-else-if="viewMode === 'grid'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <article v-for="l in filteredLeads" :key="l.id" class="glass-card rounded-2xl p-5 flex flex-col gap-3 group">
-                    <header class="flex items-start justify-between gap-3">
-                        <div>
-                            <span :class="sourceBadgeClass(l.source)" class="text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                                {{ l.source || 'Direct' }}
-                            </span>
-                            <h3 class="text-sm font-semibold text-(--text-heading) mt-2 group-hover:text-(--color-primary) transition-colors">
-                                {{ l.fullName || l.title || 'Unnamed lead' }}
-                            </h3>
-                            <p v-if="l.email" class="text-xxs text-(--text-muted) mt-0.5 truncate">{{ l.email }}</p>
-                            <p class="text-xxs text-(--text-muted) mt-0.5 flex items-center gap-1">
-                                <i class="ti ti-calendar" /> Captured {{ formatDate(l.createdAt) }}
-                            </p>
-                        </div>
-                        <Badge :variant="crmBadgeVariant(l.status)">{{ l.status }}</Badge>
-                    </header>
+                <article v-for="l in filteredLeads" :key="l.id" 
+                    class="glass-card rounded-2xl p-5 flex flex-col gap-3 group relative overflow-hidden transition-all duration-150 border border-(--border-color) hover:border-(--color-primary)/40">
+                    
+                    <!-- Glowing shape behind card -->
+                    <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
 
-                    <div class="text-xs space-y-1.5 border-t border-b border-(--border-color) py-3 my-1">
-                        <div class="flex justify-between items-center">
-                            <span class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Est. Value</span>
-                            <span class="font-semibold text-(--text-heading)">{{ l.estimatedValue ? formatCurrency(l.estimatedValue) : 'TBD' }}</span>
-                        </div>
-                        <div v-if="l.customer" class="flex justify-between items-center">
-                            <span class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Linked Account</span>
-                            <span class="text-(--color-primary) font-medium">{{ l.customer.name }}</span>
+                    <div class="space-y-3 relative z-10 flex-1 flex flex-col">
+                        <header class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <span :class="sourceBadgeClass(l.source)" class="text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                                    {{ l.source || 'Direct' }}
+                                </span>
+                                <h3 class="text-sm font-semibold text-(--text-heading) mt-2 group-hover:text-(--color-primary) transition-colors truncate">
+                                    {{ l.fullName || l.title || 'Unnamed lead' }}
+                                </h3>
+                                <p v-if="l.email" class="text-xxs text-(--text-muted) mt-0.5 truncate">{{ l.email }}</p>
+                                <p class="text-xxs text-(--text-muted) mt-0.5 flex items-center gap-1">
+                                    <i class="ti ti-calendar" /> Captured {{ formatDate(l.createdAt) }}
+                                </p>
+                            </div>
+                            <Badge :variant="crmBadgeVariant(l.status)" class="shrink-0">{{ l.status }}</Badge>
+                        </header>
+
+                        <div class="text-xs space-y-1.5 border-t border-b border-(--border-color)/50 py-3 my-1">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Est. Value</span>
+                                <span class="font-semibold text-(--text-heading)">{{ l.estimatedValue ? formatCurrency(l.estimatedValue) : 'TBD' }}</span>
+                            </div>
+                            <div v-if="l.customer" class="flex justify-between items-center">
+                                <span class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Linked Account</span>
+                                <span class="text-(--color-primary) font-medium">{{ l.customer.name }}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <footer class="mt-auto pt-1 flex items-center justify-between gap-2">
+                    <footer class="mt-auto pt-2 border-t border-(--border-color)/50 flex items-center justify-between gap-2 relative z-10">
                         <div class="flex gap-1.5">
                             <button v-if="l.status !== 'qualified' && l.status !== 'unqualified'" type="button"
                                 class="btn btn-ghost text-xxs text-(--color-success) py-1 px-2 border border-(--color-success)/30 hover:bg-(--color-success-subtle)"
@@ -115,7 +122,7 @@
                             </span>
                         </div>
 
-                        <div class="flex gap-1">
+                        <div class="flex gap-1.5">
                             <button type="button" class="action-btn" title="Edit Lead" @click="openEditModal(l)">
                                 <i class="ti ti-pencil" />
                             </button>

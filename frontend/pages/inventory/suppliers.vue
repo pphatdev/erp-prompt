@@ -74,62 +74,68 @@
             <!-- Grid view -->
             <section v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <article v-for="s in filteredList" :key="s.id"
-                    class="glass-card rounded-2xl p-5 flex flex-col gap-3 group">
-                    <header class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <p v-if="s.code" class="text-xxs text-(--text-muted) font-mono uppercase tracking-wider">{{ s.code }}</p>
-                            <h3 class="text-sm font-semibold text-(--text-heading) mt-0.5 truncate">{{ s.name }}</h3>
-                            <p v-if="s.contactName" class="text-xxs text-(--text-muted) mt-0.5 truncate">{{ s.contactName }}</p>
-                        </div>
-                        <Badge :variant="s.isActive ? 'success' : 'secondary'">
-                            {{ s.isActive ? 'Active' : 'Inactive' }}
-                        </Badge>
-                    </header>
+                    class="glass-card rounded-2xl p-5 flex flex-col gap-3 group relative overflow-hidden transition-all duration-150 border border-(--border-color) hover:border-(--color-primary)/40">
+                    
+                    <!-- Glowing shape behind card -->
+                    <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
 
-                    <div class="text-xs space-y-1.5 border-t border-b border-(--border-color) py-3 my-1">
-                        <div v-if="s.email" class="flex items-center gap-2 text-(--text-body)">
-                            <i class="ti ti-mail text-(--text-muted)" />
-                            <span class="truncate font-mono text-xxs">{{ s.email }}</span>
-                        </div>
-                        <div v-if="s.phone" class="flex items-center gap-2 text-(--text-body)">
-                            <i class="ti ti-phone text-(--text-muted)" />
-                            <span class="font-mono text-xxs">{{ s.phone }}</span>
-                        </div>
-                        <div v-if="s.website" class="flex items-center gap-2 text-(--text-body)">
-                            <i class="ti ti-world text-(--text-muted)" />
-                            <a :href="s.website" target="_blank" rel="noopener"
-                                class="text-(--color-primary) hover:underline truncate text-xxs">
-                                {{ s.website }}
-                            </a>
-                        </div>
-                    </div>
+                    <div class="space-y-3 relative z-10 flex-1 flex flex-col">
+                        <header class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p v-if="s.code" class="text-xxs text-(--text-muted) font-mono uppercase tracking-wider">{{ s.code }}</p>
+                                <h3 class="text-sm font-semibold text-(--text-heading) mt-0.5 truncate group-hover:text-(--color-primary) transition-colors">{{ s.name }}</h3>
+                                <p v-if="s.contactName" class="text-xxs text-(--text-muted) mt-0.5 truncate font-sans">{{ s.contactName }}</p>
+                            </div>
+                            <Badge :variant="s.isActive ? 'success' : 'secondary'" class="shrink-0">
+                                {{ s.isActive ? 'Active' : 'Inactive' }}
+                            </Badge>
+                        </header>
 
-                    <div class="grid grid-cols-3 gap-2 text-center">
-                        <div>
-                            <p class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Rating</p>
-                            <div class="text-sm mt-1">
-                                <template v-if="s.rating">
-                                    <span v-for="i in 5" :key="i"
-                                        :class="i <= s.rating! ? 'text-(--color-warning)' : 'text-(--text-muted)/30'">★</span>
-                                </template>
-                                <span v-else class="text-(--text-muted) text-xs">—</span>
+                        <div class="text-xs space-y-1.5 border-t border-b border-(--border-color)/50 py-3 my-1">
+                            <div v-if="s.email" class="flex items-center gap-2 text-(--text-body)">
+                                <i class="ti ti-mail text-(--text-muted)" />
+                                <span class="truncate font-mono text-xxs">{{ s.email }}</span>
+                            </div>
+                            <div v-if="s.phone" class="flex items-center gap-2 text-(--text-body)">
+                                <i class="ti ti-phone text-(--text-muted)" />
+                                <span class="font-mono text-xxs">{{ s.phone }}</span>
+                            </div>
+                            <div v-if="s.website" class="flex items-center gap-2 text-(--text-body)">
+                                <i class="ti ti-world text-(--text-muted)" />
+                                <a :href="s.website" target="_blank" rel="noopener"
+                                    class="text-(--color-primary) hover:underline truncate text-xxs">
+                                    {{ s.website }}
+                                </a>
                             </div>
                         </div>
-                        <div>
-                            <p class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Lead Time</p>
-                            <p class="text-sm font-semibold text-(--text-heading) mt-1">
-                                {{ s.leadTimeDays !== null ? `${s.leadTimeDays}d` : '—' }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Terms</p>
-                            <p class="text-xs font-semibold text-(--text-heading) mt-1 truncate">
-                                {{ s.paymentTerms || '—' }}
-                            </p>
+
+                        <div class="grid grid-cols-3 gap-2 text-center mt-auto">
+                            <div>
+                                <p class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Rating</p>
+                                <div class="text-sm mt-1">
+                                    <template v-if="s.rating">
+                                        <span v-for="i in 5" :key="i"
+                                            :class="i <= s.rating! ? 'text-(--color-warning)' : 'text-(--text-muted)/30'">★</span>
+                                    </template>
+                                    <span v-else class="text-(--text-muted) text-xs">—</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Lead Time</p>
+                                <p class="text-sm font-semibold text-(--text-heading) mt-1">
+                                    {{ s.leadTimeDays !== null ? `${s.leadTimeDays}d` : '—' }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-xxs text-(--text-muted) uppercase font-bold tracking-wider">Terms</p>
+                                <p class="text-xs font-semibold text-(--text-heading) mt-1 truncate">
+                                    {{ s.paymentTerms || '—' }}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
-                    <footer class="mt-auto pt-1 flex items-center justify-end gap-1">
+                    <footer class="mt-2 pt-2 border-t border-(--border-color)/50 flex items-center justify-end gap-1.5 relative z-10">
                         <button v-if="canWrite" type="button" class="action-btn" title="Edit"
                             @click="openEditModal(s)">
                             <i class="ti ti-pencil" />

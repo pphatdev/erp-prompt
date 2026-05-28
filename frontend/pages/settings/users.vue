@@ -45,32 +45,37 @@
             <!-- User cards -->
             <section v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <article v-for="user in filteredUsers" :key="user.id"
-                    class="glass-card rounded-2xl p-5 flex flex-col gap-4 group">
-                    <header class="flex items-start justify-between">
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="w-12 h-12 rounded-lg bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold">
-                                {{ user.name.charAt(0).toUpperCase() }}
-                            </div>
-                            <div class="min-w-0">
-                                <h3
-                                    class="text-sm font-semibold text-(--text-heading) group-hover:text-(--color-primary) transition-colors truncate">
-                                    {{ user.name }}</h3>
-                                <p class="text-xxs text-(--text-muted) truncate">{{ user.email }}</p>
-                            </div>
-                        </div>
-                        <Badge :variant="user.is_active ? 'success' : 'danger'" :dot="true">
-                            {{ user.is_active ? 'Active' : 'Inactive' }}
-                        </Badge>
-                    </header>
+                    class="glass-card rounded-2xl p-5 flex flex-col gap-4 group relative overflow-hidden transition-all duration-150 border border-(--border-color) hover:border-(--color-primary)/40">
+                    
+                    <!-- Glowing shape behind card -->
+                    <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
 
-                    <div class="flex flex-wrap gap-1.5">
-                        <Badge v-for="role in user.roles" :key="role.id" variant="secondary">{{ role.name }}</Badge>
-                        <span v-if="!user.roles?.length" class="text-xxs text-(--text-muted) italic">No assigned
-                            roles</span>
+                    <div class="space-y-4 relative z-10 flex-1 flex flex-col">
+                        <header class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div
+                                    class="w-12 h-12 rounded-xl bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-semibold shrink-0 transition-transform duration-300 group-hover:scale-105">
+                                    {{ user.name.charAt(0).toUpperCase() }}
+                                </div>
+                                <div class="min-w-0">
+                                    <h3
+                                        class="text-sm font-semibold text-(--text-heading) group-hover:text-(--color-primary) transition-colors truncate">
+                                        {{ user.name }}</h3>
+                                    <p class="text-xxs text-(--text-muted) truncate">{{ user.email }}</p>
+                                </div>
+                            </div>
+                            <Badge :variant="user.is_active ? 'success' : 'danger'" :dot="true" class="shrink-0">
+                                {{ user.is_active ? 'Active' : 'Inactive' }}
+                            </Badge>
+                        </header>
+
+                        <div class="flex flex-wrap gap-1.5">
+                            <Badge v-for="role in user.roles" :key="role.id" variant="secondary">{{ role.name }}</Badge>
+                            <span v-if="!user.roles?.length" class="text-xxs text-(--text-muted) italic">No assigned roles</span>
+                        </div>
                     </div>
 
-                    <footer class="mt-auto pt-3 border-t border-(--border-color) flex justify-end gap-2">
+                    <footer class="mt-auto pt-3 border-t border-(--border-color)/50 flex justify-end gap-2 relative z-10">
                         <button class="btn btn-ghost text-xs" @click="openEditModal(user)">
                             <i class="ti ti-pencil" />Edit
                         </button>

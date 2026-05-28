@@ -80,93 +80,100 @@
 
             <!-- Cards -->
             <section v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <article v-for="c in filtered" :key="c.id" class="glass-card rounded-2xl p-5 flex flex-col gap-3 group">
-                    <header class="flex items-start justify-between gap-3">
-                        <NuxtLink :to="`/sales/customers/${c.id}`" class="flex items-center gap-3 min-w-0">
-                            <div class="w-11 h-11 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden"
-                                :style="c.brandLogoUrl ? {} : avatarStyle(c)">
-                                <img v-if="c.brandLogoUrl" :src="c.brandLogoUrl" :alt="c.name"
-                                    class="w-full h-full object-contain" />
-                                <span v-else>{{ c.name.charAt(0).toUpperCase() }}</span>
+                <article v-for="c in filtered" :key="c.id" 
+                    class="glass-card rounded-2xl p-5 flex flex-col gap-3 group relative overflow-hidden transition-all duration-150 border border-(--border-color) hover:border-(--color-primary)/40">
+                    
+                    <!-- Glowing shape behind card -->
+                    <div class="absolute -right-8 -top-8 w-20 h-20 rounded-full bg-(--color-primary)/10 blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
+
+                    <div class="space-y-3 relative z-10 flex-1 flex flex-col">
+                        <header class="flex items-start justify-between gap-3">
+                            <NuxtLink :to="`/sales/customers/${c.id}`" class="flex items-center gap-3 min-w-0">
+                                <div class="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden transition-all duration-300 group-hover:scale-105"
+                                    :style="c.brandLogoUrl ? {} : avatarStyle(c)">
+                                    <img v-if="c.brandLogoUrl" :src="c.brandLogoUrl" :alt="c.name"
+                                        class="w-full h-full object-contain" />
+                                    <span v-else>{{ c.name.charAt(0).toUpperCase() }}</span>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3
+                                        class="text-sm font-semibold text-(--text-heading) truncate group-hover:text-(--color-primary) transition-colors">
+                                        {{ c.name }}</h3>
+                                    <p class="text-xxs text-(--text-muted) truncate">{{ c.companyName || c.email }}</p>
+                                </div>
+                            </NuxtLink>
+                            <div class="flex flex-col items-end gap-1 shrink-0">
+                                <Badge :variant="c.status === 'active' ? 'success' : 'secondary'">{{ c.status }}</Badge>
+                                <span :class="typeChipClass(c.customerType)"
+                                    class="text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                                    {{ c.customerType || 'individual' }}
+                                </span>
                             </div>
-                            <div class="min-w-0">
-                                <h3
-                                    class="text-sm font-semibold text-(--text-heading) truncate group-hover:text-(--color-primary) transition-colors">
-                                    {{ c.name }}</h3>
-                                <p class="text-xxs text-(--text-muted) truncate">{{ c.companyName || c.email }}</p>
+                        </header>
+
+                        <dl class="text-xxs space-y-1 text-(--text-body) mt-1">
+                            <div class="flex items-center gap-2 truncate">
+                                <i class="ti ti-mail text-(--text-muted) shrink-0" />
+                                <span class="truncate">{{ c.email }}</span>
                             </div>
-                        </NuxtLink>
-                        <div class="flex flex-col items-end gap-1 shrink-0">
-                            <Badge :variant="c.status === 'active' ? 'success' : 'secondary'">{{ c.status }}</Badge>
-                            <span :class="typeChipClass(c.customerType)"
+                            <div v-if="c.phone" class="flex items-center gap-2 truncate">
+                                <i class="ti ti-phone text-(--text-muted) shrink-0" />
+                                <span class="truncate">{{ c.phone }}</span>
+                            </div>
+                            <div v-if="c.billingCity || c.billingCountry" class="flex items-center gap-2 truncate">
+                                <i class="ti ti-map-pin text-(--text-muted) shrink-0" />
+                                <span class="truncate">{{ [c.billingCity, c.billingCountry].filter(Boolean).join(', ')
+                                    }}</span>
+                            </div>
+                            <div v-else-if="c.address" class="flex items-center gap-2 truncate">
+                                <i class="ti ti-map-pin text-(--text-muted) shrink-0" />
+                                <span class="truncate">{{ c.address }}</span>
+                            </div>
+                        </dl>
+
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            <span v-if="c.tier && c.tier !== 'standard'" :class="tierChipClass(c.tier)"
                                 class="text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                                {{ c.customerType || 'individual' }}
+                                {{ c.tier }}
+                            </span>
+                            <span v-if="c.industry"
+                                class="text-xxs px-1.5 py-0.5 rounded bg-(--bg-muted) text-(--text-muted)">
+                                {{ c.industry }}
+                            </span>
+                            <span v-if="c.externalCode"
+                                class="text-xxs px-1.5 py-0.5 rounded bg-(--bg-muted) text-(--text-muted) font-mono">
+                                {{ c.externalCode }}
                             </span>
                         </div>
-                    </header>
 
-                    <dl class="text-xxs space-y-1 text-(--text-body)">
-                        <div class="flex items-center gap-2 truncate">
-                            <i class="ti ti-mail text-(--text-muted) shrink-0" />
-                            <span class="truncate">{{ c.email }}</span>
-                        </div>
-                        <div v-if="c.phone" class="flex items-center gap-2 truncate">
-                            <i class="ti ti-phone text-(--text-muted) shrink-0" />
-                            <span class="truncate">{{ c.phone }}</span>
-                        </div>
-                        <div v-if="c.billingCity || c.billingCountry" class="flex items-center gap-2 truncate">
-                            <i class="ti ti-map-pin text-(--text-muted) shrink-0" />
-                            <span class="truncate">{{ [c.billingCity, c.billingCountry].filter(Boolean).join(', ')
-                                }}</span>
-                        </div>
-                        <div v-else-if="c.address" class="flex items-center gap-2 truncate">
-                            <i class="ti ti-map-pin text-(--text-muted) shrink-0" />
-                            <span class="truncate">{{ c.address }}</span>
-                        </div>
-                    </dl>
-
-                    <div class="flex flex-wrap gap-1">
-                        <span v-if="c.tier && c.tier !== 'standard'" :class="tierChipClass(c.tier)"
-                            class="text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                            {{ c.tier }}
-                        </span>
-                        <span v-if="c.industry"
-                            class="text-xxs px-1.5 py-0.5 rounded bg-(--bg-muted) text-(--text-muted)">
-                            {{ c.industry }}
-                        </span>
-                        <span v-if="c.externalCode"
-                            class="text-xxs px-1.5 py-0.5 rounded bg-(--bg-muted) text-(--text-muted) font-mono">
-                            {{ c.externalCode }}
-                        </span>
-                    </div>
-
-                    <div v-if="c.customerType === 'tenant'" class="rounded-lg p-3 text-xxs space-y-1.5"
-                        :class="c.provisionedSubdomain ? 'bg-(--color-success)/10 border border-(--color-success)/30' : 'bg-(--bg-muted) border border-(--border-color)'">
-                        <div class="flex items-center gap-1.5 font-bold"
-                            :class="c.provisionedSubdomain ? 'text-(--color-success)' : 'text-(--text-muted)'">
-                            <i :class="c.provisionedSubdomain ? 'ti ti-circle-check-filled' : 'ti ti-server-off'" />
-                            {{ c.provisionedSubdomain ? 'Live' : 'Not provisioned' }}
-                        </div>
-                        <a v-if="c.provisionedSubdomain" :href="`https://${c.provisionedSubdomain}`" target="_blank"
-                            rel="noopener"
-                            class="flex items-center gap-1 text-(--color-primary) hover:underline font-mono"
-                            @click.stop>
-                            <i class="ti ti-external-link" />
-                            {{ c.provisionedSubdomain }}
-                        </a>
-                        <div v-else-if="c.tenantHandle" class="flex items-center gap-1 text-(--text-muted)">
-                            <i class="ti ti-at" />
-                            <span class="font-mono">{{ c.tenantHandle }}</span>
+                        <div v-if="c.customerType === 'tenant'" class="rounded-lg p-3 text-xxs space-y-1.5 mt-auto"
+                            :class="c.provisionedSubdomain ? 'bg-(--color-success)/10 border border-(--color-success)/30' : 'bg-(--bg-muted) border border-(--border-color)'">
+                            <div class="flex items-center gap-1.5 font-bold"
+                                :class="c.provisionedSubdomain ? 'text-(--color-success)' : 'text-(--text-muted)'">
+                                <i :class="c.provisionedSubdomain ? 'ti ti-circle-check-filled' : 'ti ti-server-off'" />
+                                {{ c.provisionedSubdomain ? 'Live' : 'Not provisioned' }}
+                            </div>
+                            <a v-if="c.provisionedSubdomain" :href="`https://${c.provisionedSubdomain}`" target="_blank"
+                                rel="noopener"
+                                class="flex items-center gap-1 text-(--color-primary) hover:underline font-mono"
+                                @click.stop>
+                                <i class="ti ti-external-link" />
+                                {{ c.provisionedSubdomain }}
+                            </a>
+                            <div v-else-if="c.tenantHandle" class="flex items-center gap-1 text-(--text-muted)">
+                                <i class="ti ti-at" />
+                                <span class="font-mono">{{ c.tenantHandle }}</span>
+                            </div>
                         </div>
                     </div>
 
                     <footer
-                        class="mt-auto pt-3 border-t border-(--border-color) flex items-center justify-between gap-2">
+                        class="mt-3 pt-3 border-t border-(--border-color)/50 flex items-center justify-between gap-2 relative z-10">
                         <NuxtLink :to="`/sales/quotations?customer_id=${c.id}`"
-                            class="text-xxs text-(--color-primary) hover:underline">
+                            class="text-xxs text-(--color-primary) hover:underline font-semibold flex items-center gap-1">
                             <i class="ti ti-file-text" /> New quote
                         </NuxtLink>
-                        <div class="flex gap-1">
+                        <div class="flex gap-1.5">
                             <NuxtLink :to="`/sales/customers/${c.id}/edit`" class="action-btn" title="Edit"><i
                                     class="ti ti-pencil" /></NuxtLink>
                             <button type="button" class="action-btn action-btn-danger" title="Archive"
