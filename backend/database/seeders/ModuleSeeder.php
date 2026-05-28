@@ -40,7 +40,6 @@ class ModuleSeeder extends Seeder
     private array $definitions = [
         // Main
         ['slug' => 'dashboard',    'prefix' => 'DASH',   'name' => 'Dashboard',          'icon' => 'ti-layout-dashboard', 'route' => '/dashboard', 'group' => 'main', 'sort_order' => 1, 'is_core' => true],
-        ['slug' => 'tasks',        'prefix' => 'TASK',   'name' => 'Tasks Canvas',        'icon' => 'ti-checklist',        'route' => '/tasks',     'group' => 'main', 'sort_order' => 2],
 
         // Self-service
         ['slug' => 'my-profile',    'prefix' => 'MYPR', 'name' => 'My Profile',    'icon' => 'ti-user-circle',    'route' => '#',           'group' => 'self-service', 'sort_order' => 1, 'is_core' => true],
@@ -129,6 +128,10 @@ class ModuleSeeder extends Seeder
 
     public function run(): void
     {
+        // Delete modules that are no longer defined
+        $slugs = array_column($this->definitions, 'slug');
+        Module::whereNotIn('slug', $slugs)->delete();
+
         $idMap = [];
         $pending = $this->definitions;
 

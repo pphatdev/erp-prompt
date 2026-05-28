@@ -385,7 +385,7 @@ class RecruitmentService
      * conversion. Kept as a class constant so a future "tenant-configurable
      * prefix" feature can swap the source without touching every call site.
      */
-    public const EMPLOYEE_ID_PREFIX = 'T2T';
+    public const EMPLOYEE_ID_PREFIX = 'TT';
 
     /**
      * Minimum width of the numeric component (zero-padded). The format grows

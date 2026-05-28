@@ -136,7 +136,7 @@ class SettingService
                 'group' => 'numbering',
                 'type' => 'string',
                 'label' => 'Employee ID prefix',
-                'value' => 'T2T-'
+                'value' => 'TT-'
             ],
             [
                 'key' => 'numbering.candidate_code_prefix',
