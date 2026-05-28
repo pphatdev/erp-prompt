@@ -131,6 +131,16 @@ class TenantDatabaseSeeder extends Seeder
             ['name' => 'Read Exchange Rates',   'slug' => 'fms.exchange_rate.read',   'module' => 'fms', 'feature' => 'exchange_rate', 'action' => 'read'],
             ['name' => 'Write Exchange Rates',  'slug' => 'fms.exchange_rate.write',  'module' => 'fms', 'feature' => 'exchange_rate', 'action' => 'write'],
             ['name' => 'Delete Exchange Rates', 'slug' => 'fms.exchange_rate.delete', 'module' => 'fms', 'feature' => 'exchange_rate', 'action' => 'delete'],
+
+            // eApprovals
+            ['name' => 'Read Approval Requests',   'slug' => 'approvals.requests.read',   'module' => 'approvals', 'feature' => 'requests', 'action' => 'read'],
+            ['name' => 'Write Approval Requests',  'slug' => 'approvals.requests.write',  'module' => 'approvals', 'feature' => 'requests', 'action' => 'write'],
+            ['name' => 'Export Approval Requests', 'slug' => 'approvals.requests.export', 'module' => 'approvals', 'feature' => 'requests', 'action' => 'export'],
+            ['name' => 'Read Approval Actions',    'slug' => 'approvals.actions.read',    'module' => 'approvals', 'feature' => 'actions',  'action' => 'read'],
+            ['name' => 'Execute Approval Actions', 'slug' => 'approvals.actions.execute', 'module' => 'approvals', 'feature' => 'actions',  'action' => 'execute'],
+            ['name' => 'Read Approval Workflows',  'slug' => 'approvals.workflows.read',  'module' => 'approvals', 'feature' => 'workflows','action' => 'read'],
+            ['name' => 'Write Approval Workflows', 'slug' => 'approvals.workflows.write', 'module' => 'approvals', 'feature' => 'workflows','action' => 'write'],
+            ['name' => 'Delete Approval Workflows','slug' => 'approvals.workflows.delete','module' => 'approvals', 'feature' => 'workflows','action' => 'delete'],
         ];
 
         foreach ($permissions as $permission) {
@@ -238,6 +248,26 @@ class TenantDatabaseSeeder extends Seeder
         app(\App\Tenants\Modules\Settings\Services\SettingService::class)->ensureDefaults();
 
         if (\Illuminate\Support\Facades\Schema::hasTable('employees')) {
+            // Seed Admin Employee
+            $adminEmployee = \App\Models\Tenant\Employee::where('email', 'admin@example.com')
+                ->first();
+
+            if (!$adminEmployee) {
+                $employeeId = app(\App\Tenants\Modules\HRM\Services\RecruitmentService::class)
+                    ->generateNextEmployeeId();
+
+                \App\Models\Tenant\Employee::create([
+                    'email'       => 'admin@example.com',
+                    'employee_id' => $employeeId,
+                    'first_name'  => 'System',
+                    'last_name'   => 'Administrator',
+                    'user_id'     => $adminUser->id,
+                    'status'      => 'active',
+                    'hired_at'    => now()->subYears(2)->toDateString(), // Hired 2 years ago for plenty of leave balance
+                ]);
+            }
+
+            // Seed Base Employee
             $employee = \App\Models\Tenant\Employee::where('email', 'role.base@tanent.com')
                 ->first();
 
@@ -253,13 +283,30 @@ class TenantDatabaseSeeder extends Seeder
                     'last_name'   => 'Employee',
                     'user_id'     => $employeeUser->id,
                     'status'      => 'active',
-                    'hired_at'    => now()->toDateString(),
+                    'hired_at'    => now()->subYears(1)->toDateString(), // Hired 1 year ago for plenty of leave balance
                 ]);
             }
         }
 
+        // Seed default Leave Types
+        $defaultLeaveTypes = [
+            ['name' => 'Annual Leave', 'annual_allowance' => 12],
+            ['name' => 'Sick Leave',   'annual_allowance' => 14],
+            ['name' => 'Unpaid Leave', 'annual_allowance' => 30],
+        ];
+
+        foreach ($defaultLeaveTypes as $type) {
+            \App\Models\Tenant\LeaveType::updateOrCreate(
+                ['name' => $type['name']],
+                $type
+            );
+        }
+
         // Seed default workflow statuses for every HRM module
         $this->seedWorkflowStatuses();
+
+        // Seed default approval workflows and levels
+        $this->seedApprovalWorkflows();
 
         // Seed the minimal Chart of Accounts required for FMS operations
         $this->seedChartOfAccounts();
@@ -427,6 +474,79 @@ class TenantDatabaseSeeder extends Seeder
                     ['module' => $module, 'key' => $row['key']],
                     array_merge($row, ['module' => $module])
                 );
+            }
+        }
+    }
+
+    /**
+     * Idempotent seed of default approval workflows and levels.
+     */
+    private function seedApprovalWorkflows(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('approval_workflows')) {
+            return;
+        }
+
+        // 1. Leave Approval Workflow
+        $leaveWorkflow = \App\Models\Tenant\ApprovalWorkflow::updateOrCreate([
+            'module' => 'hrm',
+            'type' => 'leave',
+        ], [
+            'name' => 'Leave Approval Workflow',
+            'module' => 'hrm',
+            'type' => 'leave',
+        ]);
+
+        $leaveWorkflow->levels()->updateOrCreate([
+            'sequence' => 1,
+        ], [
+            'sequence' => 1,
+            'approver_role' => 'admin',
+        ]);
+
+        // 2. Purchase Order Approval Workflow
+        $poWorkflow = \App\Models\Tenant\ApprovalWorkflow::updateOrCreate([
+            'module' => 'inventory',
+            'type' => 'purchase_order',
+        ], [
+            'name' => 'PO Approval Workflow',
+            'module' => 'inventory',
+            'type' => 'purchase_order',
+        ]);
+
+        $poWorkflow->levels()->updateOrCreate([
+            'sequence' => 1,
+        ], [
+            'sequence' => 1,
+            'approver_role' => 'admin',
+        ]);
+
+        // Back-heal existing pending leaves that have no ApprovalRequest
+        if (\Illuminate\Support\Facades\Schema::hasTable('leaves') && \Illuminate\Support\Facades\Schema::hasTable('approval_requests')) {
+            $pendingLeaves = \App\Models\Tenant\Leave::where('status', 'pending')->get();
+            $adminUser = \App\Models\Tenant\User::where('email', 'admin@example.com')->first();
+            
+            foreach ($pendingLeaves as $leave) {
+                $hasRequest = \App\Models\Tenant\ApprovalRequest::where('requestable_type', \App\Models\Tenant\Leave::class)
+                    ->where('requestable_id', $leave->id)
+                    ->exists();
+                    
+                if (!$hasRequest) {
+                    // Find the user associated with this leave's employee
+                    $requesterId = $leave->employee?->user_id ?? $adminUser?->id;
+                    if ($requesterId) {
+                        try {
+                            app(\App\Tenants\Modules\Approvals\Services\ApprovalService::class)->submitRequest(
+                                workflowId: $leaveWorkflow->id,
+                                requesterId: (string) $requesterId,
+                                requestableType: \App\Models\Tenant\Leave::class,
+                                requestableId: (string) $leave->id,
+                            );
+                        } catch (\Exception $e) {
+                            // Suppress exceptions during seeding
+                        }
+                    }
+                }
             }
         }
     }

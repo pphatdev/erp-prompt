@@ -100,7 +100,7 @@ class LeaveService
     }
 
     /**
-     * Manual approve path used by the legacy /leaves/{leave}/approve endpoint.
+     * Manual approve path used by the legacy /hrm/timeoff/leaves/{leave}/approve endpoint.
      * Blocked when an eApprovals request is active — clients must drive the
      * decision through /approval-requests/{id}/process instead.
      */

@@ -216,9 +216,16 @@ Route::middleware([
         Route::post('/leaves/{leave}/reject', [LeaveController::class, 'reject']);
         Route::get('/employees/{employee}/leave-balance', [LeaveController::class, 'balance']);
 
+        // Aliases for /hrm/timeoff/leaves used by the frontend listing and action page
+        Route::get('/hrm/timeoff/leaves', [LeaveController::class, 'index']);
+        Route::post('/hrm/timeoff/leaves', [LeaveController::class, 'store']);
+        Route::delete('/hrm/timeoff/leaves/{leave}', [LeaveController::class, 'destroy']);
+        Route::post('/hrm/timeoff/leaves/{leave}/approve', [LeaveController::class, 'approve']);
+        Route::post('/hrm/timeoff/leaves/{leave}/reject', [LeaveController::class, 'reject']);
+
         // HRM Module — Time Off & Attendance, Slice 1: Shifts + EmployeeShifts
         Route::apiResource('shifts', ShiftController::class);
-        Route::post('/shifts/{shift}/assignments', [ShiftController::class, 'assign']);
+        Route::post('/hrm/shifts/{shift}/assignments', [ShiftController::class, 'assign']);
         Route::get('/employees/{employee}/shift-assignments', [ShiftController::class, 'assignmentsForEmployee']);
 
         // HRM Module — Time Off & Attendance, Slice 2: Attendance logs
@@ -233,14 +240,14 @@ Route::middleware([
         Route::apiResource('overtime-requests', OvertimeRequestController::class)
             ->parameters(['overtime-requests' => 'overtimeRequest'])
             ->only(['index', 'store', 'show', 'destroy']);
-        Route::patch('/overtime-requests/{overtimeRequest}/process', [OvertimeRequestController::class, 'process']);
+        Route::patch('/hrm/overtime-requests/{overtimeRequest}/process', [OvertimeRequestController::class, 'process']);
 
         // HRM Module — Phase 3: Payroll
         Route::apiResource('payroll-periods', PayrollPeriodController::class)
             ->parameters(['payroll-periods' => 'payrollPeriod'])
             ->only(['index', 'store', 'show']);
-        Route::post('/payroll-periods/{payrollPeriod}/process', [PayrollPeriodController::class, 'process']);
-        Route::post('/payroll-periods/{payrollPeriod}/close', [PayrollPeriodController::class, 'close']);
+        Route::post('/hrm/payroll-periods/{payrollPeriod}/process', [PayrollPeriodController::class, 'process']);
+        Route::post('/hrm/payroll-periods/{payrollPeriod}/close', [PayrollPeriodController::class, 'close']);
         Route::apiResource('payslips', PayslipController::class)->only(['index', 'show']);
 
         // HRM Module — Phase 4A: Recruitment
@@ -278,6 +285,8 @@ Route::middleware([
 
         // eApprovals Module
         Route::apiResource('approval-workflows', WorkflowController::class);
+        Route::get('/approval-requests', [ApprovalActionController::class, 'index']);
+        Route::get('/approval-requests/{approvalRequest}', [ApprovalActionController::class, 'show']);
         Route::post('/approval-requests/{approvalRequest}/process', [ApprovalActionController::class, 'process']);
 
         // eDocuments Module

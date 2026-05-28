@@ -256,7 +256,7 @@ class PayrollService
         if (!empty($missing)) {
             throw new DomainException(
                 'Cannot close payroll: FMS chart of accounts is missing required codes: '
-                . implode(', ', $missing) . '. Configure them in /api/v1/accounts or override config/payroll.php.'
+                . implode(', ', $missing) . '. Configure them in /api/v1/accounts or override config/hrm/payroll.php.'
             );
         }
 

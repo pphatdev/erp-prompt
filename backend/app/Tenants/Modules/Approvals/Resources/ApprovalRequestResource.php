@@ -23,7 +23,17 @@ class ApprovalRequestResource extends JsonResource
             'requestable_type' => $this->requestable_type,
             'requestable_id' => $this->requestable_id,
             'status' => $this->status,
-            'history' => $this->whenLoaded('history'), // Could create an ApprovalHistoryResource
+            'history' => $this->whenLoaded('history'),
+            'workflow' => $this->whenLoaded('workflow'),
+            'requestable' => $this->whenLoaded('requestable', function () {
+                if ($this->requestable instanceof \App\Models\Tenant\Leave) {
+                    return new \App\Tenants\Modules\HRM\Resources\LeaveResource($this->requestable);
+                }
+                if ($this->requestable instanceof \App\Models\Tenant\PurchaseOrder) {
+                    return new \App\Tenants\Modules\Inventory\Resources\PurchaseOrderResource($this->requestable);
+                }
+                return $this->requestable;
+            }),
             'created_at' => $this->created_at->toIso8601String(),
             'updated_at' => $this->updated_at->toIso8601String(),
         ];

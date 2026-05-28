@@ -44,9 +44,9 @@ class ModuleSeeder extends Seeder
 
         // Self-service
         ['slug' => 'my-profile',    'prefix' => 'MYPR', 'name' => 'My Profile',    'icon' => 'ti-user-circle',    'route' => '#',           'group' => 'self-service', 'sort_order' => 1, 'is_core' => true],
-        ['slug' => 'my-leaves',     'prefix' => 'MYLS', 'name' => 'My Leaves',     'icon' => 'ti-calendar-event', 'route' => '/leaves',     'group' => 'self-service', 'sort_order' => 2],
+        ['slug' => 'my-leaves',     'prefix' => 'MYLS', 'name' => 'My Leaves',     'icon' => 'ti-calendar-event', 'route' => '/hrm/timeoff/leaves',     'group' => 'self-service', 'sort_order' => 2],
         ['slug' => 'my-payslips',   'prefix' => 'MYPS', 'name' => 'My Payslips',   'icon' => 'ti-cash',           'route' => '#',           'group' => 'self-service', 'sort_order' => 3],
-        ['slug' => 'my-appraisals', 'prefix' => 'MYAP', 'name' => 'My Appraisals', 'icon' => 'ti-clipboard-list', 'route' => '/appraisals', 'group' => 'self-service', 'sort_order' => 4],
+        ['slug' => 'my-appraisals', 'prefix' => 'MYAP', 'name' => 'My Appraisals', 'icon' => 'ti-clipboard-list', 'route' => '/hrm/appraisals', 'group' => 'self-service', 'sort_order' => 4],
 
         // Apps: Ecommerce
         ['slug' => 'ecommerce',      'prefix' => 'ECO',  'name' => 'Ecommerce',  'icon' => 'ti-shopping-cart',  'route' => null, 'group' => 'apps', 'sort_order' => 1],
@@ -89,19 +89,18 @@ class ModuleSeeder extends Seeder
 
         // Apps: HRM
         ['slug' => 'hrm',              'prefix' => 'HRM',    'name' => 'Human Resource', 'icon' => 'ti-users',          'route' => null,           'group' => 'apps', 'sort_order' => 6],
-        ['slug' => 'hrm-employees',    'prefix' => 'HRME',   'name' => 'Employees',      'icon' => 'ti-user-circle',    'route' => '/employees',   'group' => 'apps', 'sort_order' => 1,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-departments',  'prefix' => 'HRMD',   'name' => 'Departments',    'icon' => 'ti-building',       'route' => '/departments', 'group' => 'apps', 'sort_order' => 2,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-positions',    'prefix' => 'HRMPOS', 'name' => 'Positions',      'icon' => 'ti-briefcase',      'route' => '/positions',   'group' => 'apps', 'sort_order' => 3,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-leaves',       'prefix' => 'HRMLV',  'name' => 'Leave Requests', 'icon' => 'ti-calendar-event', 'route' => '/leaves',      'group' => 'apps', 'sort_order' => 4,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-leave-types',  'prefix' => 'HRMLT',  'name' => 'Leave Types',    'icon' => 'ti-list',           'route' => '/leave-types', 'group' => 'apps', 'sort_order' => 5,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-shifts',       'prefix' => 'HRMSF',  'name' => 'Shifts',         'icon' => 'ti-clock-hour-8',   'route' => '/shifts',      'group' => 'apps', 'sort_order' => 6,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-attendance',   'prefix' => 'HRMAT',  'name' => 'Attendance',     'icon' => 'ti-fingerprint',    'route' => '/attendance',  'group' => 'apps', 'sort_order' => 7,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-overtime',     'prefix' => 'HRMOT',  'name' => 'Overtime',       'icon' => 'ti-clock-up',       'route' => '/overtime',    'group' => 'apps', 'sort_order' => 8,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-payroll',      'prefix' => 'HRMPA',  'name' => 'Payroll',        'icon' => 'ti-cash',           'route' => '/payroll',     'group' => 'apps', 'sort_order' => 9,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-vacancies',    'prefix' => 'HRMVC',  'name' => 'Vacancies',      'icon' => 'ti-briefcase-2',    'route' => '/vacancies',   'group' => 'apps', 'sort_order' => 10, 'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-applications', 'prefix' => 'HRMAP',  'name' => 'Applications',   'icon' => 'ti-user-search',    'route' => '/applications','group' => 'apps', 'sort_order' => 11, 'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-candidates',   'prefix' => 'HRMCD',  'name' => 'Candidates',     'icon' => 'ti-layout-kanban',  'route' => '/candidates',  'group' => 'apps', 'sort_order' => 12, 'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-appraisals',   'prefix' => 'HRMPR',  'name' => 'Appraisals',     'icon' => 'ti-clipboard-list', 'route' => '/appraisals',  'group' => 'apps', 'sort_order' => 13, 'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-employees',    'prefix' => 'HRME',   'name' => 'Employees',      'icon' => 'ti-user-circle',    'route' => '/hrm/employees',   'group' => 'apps', 'sort_order' => 1,  'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-departments',  'prefix' => 'HRMD',   'name' => 'Departments',    'icon' => 'ti-building',       'route' => '/hrm/departments', 'group' => 'apps', 'sort_order' => 2,  'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-positions',    'prefix' => 'HRMPOS', 'name' => 'Positions',      'icon' => 'ti-briefcase',      'route' => '/hrm/positions',   'group' => 'apps', 'sort_order' => 3,  'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-leaves',       'prefix' => 'HRMLV',  'name' => 'Leave Requests', 'icon' => 'ti-calendar-event', 'route' => '/hrm/timeoff/leaves',      'group' => 'apps', 'sort_order' => 4,  'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-shifts',       'prefix' => 'HRMSF',  'name' => 'Shifts',         'icon' => 'ti-clock-hour-8',   'route' => '/hrm/timeoff/shifts',      'group' => 'apps', 'sort_order' => 6,  'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-attendance',   'prefix' => 'HRMAT',  'name' => 'Attendance',     'icon' => 'ti-fingerprint',    'route' => '/hrm/timeoff/attendance',  'group' => 'apps', 'sort_order' => 7,  'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-overtime',     'prefix' => 'HRMOT',  'name' => 'Overtime',       'icon' => 'ti-clock-up',       'route' => '/hrm/timeoff/overtime',    'group' => 'apps', 'sort_order' => 8,  'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-payroll',      'prefix' => 'HRMPA',  'name' => 'Payroll',        'icon' => 'ti-cash',           'route' => '/hrm/payroll',     'group' => 'apps', 'sort_order' => 9,  'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-vacancies',    'prefix' => 'HRMVC',  'name' => 'Vacancies',      'icon' => 'ti-briefcase-2',    'route' => '/hrm/recruitments/vacancies',   'group' => 'apps', 'sort_order' => 10, 'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-applications', 'prefix' => 'HRMAP',  'name' => 'Applications',   'icon' => 'ti-user-search',    'route' => '/hrm/recruitments/applications','group' => 'apps', 'sort_order' => 11, 'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-candidates',   'prefix' => 'HRMCD',  'name' => 'Candidates',     'icon' => 'ti-layout-kanban',  'route' => '/hrm/recruitments/candidates',  'group' => 'apps', 'sort_order' => 12, 'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-appraisals',   'prefix' => 'HRMPR',  'name' => 'Appraisals',     'icon' => 'ti-clipboard-list', 'route' => '/hrm/appraisals',  'group' => 'apps', 'sort_order' => 13, 'parent_slug' => 'hrm'],
 
         // Apps: standalone
         ['slug' => 'fleets',     'prefix' => 'FLT',  'name' => 'Fleets',             'icon' => 'ti-truck',        'route' => '#', 'group' => 'apps', 'sort_order' => 7],
@@ -110,11 +109,22 @@ class ModuleSeeder extends Seeder
         ['slug' => 'edocuments', 'prefix' => 'EDOC', 'name' => 'eDocuments',         'icon' => 'ti-file-text',    'route' => '#', 'group' => 'apps', 'sort_order' => 10],
         ['slug' => 'reporting',  'prefix' => 'RPT',  'name' => 'Reports & Analytics','icon' => 'ti-chart-bar',    'route' => '#', 'group' => 'apps', 'sort_order' => 11],
 
-        // Core: Settings
-        ['slug' => 'settings',        'prefix' => 'SET',  'name' => 'Settings',       'icon' => 'ti-shield-lock',  'route' => null,        'group' => 'apps', 'sort_order' => 12, 'is_core' => true],
-        ['slug' => 'settings-users',  'prefix' => 'SETU', 'name' => 'User Directory', 'icon' => 'ti-users-group',  'route' => '/users',    'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings'],
-        ['slug' => 'settings-roles',  'prefix' => 'SETR', 'name' => 'Roles Matrix',   'icon' => 'ti-shield-check', 'route' => '/roles',    'group' => 'apps', 'sort_order' => 2, 'is_core' => true, 'parent_slug' => 'settings'],
-        ['slug' => 'settings-config', 'prefix' => 'SETC', 'name' => 'Configuration',  'icon' => 'ti-settings',     'route' => '/settings', 'group' => 'apps', 'sort_order' => 3, 'is_core' => true, 'parent_slug' => 'settings'],
+        // Core: Configurations
+        ['slug' => 'settings-apps',   'prefix' => 'SETA', 'name' => 'Apps Management', 'icon' => 'ti-box',        'route' => null,        'group' => 'apps', 'sort_order' => 12, 'is_core' => true],
+        ['slug' => 'settings-apps-hrm', 'prefix' => 'SETAH', 'name' => 'Human Resource', 'icon' => 'ti-users',   'route' => null, 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps'],
+        ['slug' => 'settings-apps-hrm-leave-types', 'prefix' => 'SETAHL', 'name' => 'Leave Types', 'icon' => 'ti-list', 'route' => '/settings/apps/hrm/leave-types', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-hrm'],
+        
+        ['slug' => 'settings-users',  'prefix' => 'SETU', 'name' => 'User Directory', 'icon' => 'ti-users-group',  'route' => '/settings/users',    'group' => 'apps', 'sort_order' => 13, 'is_core' => true],
+        ['slug' => 'settings-roles',  'prefix' => 'SETR', 'name' => 'Roles Matrix',   'icon' => 'ti-shield-check', 'route' => '/settings/roles',    'group' => 'apps', 'sort_order' => 14, 'is_core' => true],
+        
+        ['slug' => 'settings-config', 'prefix' => 'SETC', 'name' => 'Configuration',  'icon' => 'ti-settings',     'route' => null, 'group' => 'apps', 'sort_order' => 15, 'is_core' => true],
+        ['slug' => 'settings-config-branding', 'prefix' => 'SETCB', 'name' => 'Branding', 'icon' => 'ti-palette', 'route' => '/settings/configuration/branding', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-config'],
+        ['slug' => 'settings-config-locale', 'prefix' => 'SETCL', 'name' => 'Locale', 'icon' => 'ti-language', 'route' => '/settings/configuration/locale', 'group' => 'apps', 'sort_order' => 2, 'is_core' => true, 'parent_slug' => 'settings-config'],
+        ['slug' => 'settings-config-notifications', 'prefix' => 'SETCN', 'name' => 'Notifications', 'icon' => 'ti-bell', 'route' => '/settings/configuration/notifications', 'group' => 'apps', 'sort_order' => 3, 'is_core' => true, 'parent_slug' => 'settings-config'],
+        ['slug' => 'settings-config-security', 'prefix' => 'SETCS', 'name' => 'Security', 'icon' => 'ti-shield-lock', 'route' => '/settings/configuration/security', 'group' => 'apps', 'sort_order' => 4, 'is_core' => true, 'parent_slug' => 'settings-config'],
+        ['slug' => 'settings-config-modules', 'prefix' => 'SETCM', 'name' => 'Modules', 'icon' => 'ti-puzzle', 'route' => '/settings/configuration/modules', 'group' => 'apps', 'sort_order' => 5, 'is_core' => true, 'parent_slug' => 'settings-config'],
+        ['slug' => 'settings-config-numbering', 'prefix' => 'SETCNO', 'name' => 'Numbering', 'icon' => 'ti-hash', 'route' => '/settings/configuration/numbering', 'group' => 'apps', 'sort_order' => 6, 'is_core' => true, 'parent_slug' => 'settings-config'],
+        ['slug' => 'settings-config-platform', 'prefix' => 'SETCP', 'name' => 'Platform', 'icon' => 'ti-server', 'route' => '/settings/configuration/platform', 'group' => 'apps', 'sort_order' => 7, 'is_core' => true, 'parent_slug' => 'settings-config'],
     ];
 
     public function run(): void
