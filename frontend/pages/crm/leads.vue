@@ -137,21 +137,21 @@
             <!-- List view -->
             <section v-else class="glass-card rounded-2xl overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-xs">
-                        <thead class="bg-(--bg-muted) text-xxs uppercase tracking-widest font-bold text-(--text-muted)">
-                            <tr>
-                                <th class="text-left px-4 py-3">Lead</th>
-                                <th class="text-left px-2 py-3 hidden md:table-cell">Contact</th>
-                                <th class="text-left px-2 py-3 hidden lg:table-cell">Type</th>
-                                <th class="text-left px-2 py-3 hidden lg:table-cell">Source</th>
-                                <th class="text-right px-2 py-3 hidden md:table-cell">Est. Value</th>
-                                <th class="text-left px-2 py-3">Status</th>
-                                <th class="text-right px-4 py-3 w-32">Actions</th>
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                                <th class="px-4 py-3 font-semibold">Lead</th>
+                                <th class="px-4 py-3 font-semibold hidden md:table-cell">Contact</th>
+                                <th class="px-4 py-3 font-semibold hidden lg:table-cell">Type</th>
+                                <th class="px-4 py-3 font-semibold hidden lg:table-cell">Source</th>
+                                <th class="px-4 py-3 font-semibold text-right hidden md:table-cell">Est. Value</th>
+                                <th class="px-4 py-3 font-semibold">Status</th>
+                                <th class="px-4 py-3 font-semibold text-right w-32">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y divide-(--border-color)">
                             <tr v-for="l in filteredLeads" :key="l.id"
-                                class="border-t border-(--border-color)/60 hover:bg-(--bg-muted)/40 transition-colors">
+                                class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-4 py-3">
                                     <p class="text-sm font-semibold text-(--text-heading) leading-tight">
                                         {{ l.fullName || l.title || 'Unnamed lead' }}
@@ -160,28 +160,28 @@
                                         <i class="ti ti-calendar" />{{ formatDate(l.createdAt) }}
                                     </p>
                                 </td>
-                                <td class="px-2 py-3 hidden md:table-cell">
+                                <td class="px-4 py-3 hidden md:table-cell">
                                     <p v-if="l.email" class="font-mono">{{ l.email }}</p>
                                     <p v-if="l.phone" class="text-xxs text-(--text-muted) font-mono mt-0.5">{{ l.phone }}</p>
                                     <p v-if="!l.email && !l.phone" class="text-(--text-muted)">—</p>
                                 </td>
-                                <td class="px-2 py-3 hidden lg:table-cell">
+                                <td class="px-4 py-3 hidden lg:table-cell">
                                     <span class="text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide badge-soft-secondary">
                                         {{ l.customerType || 'business' }}
                                     </span>
                                 </td>
-                                <td class="px-2 py-3 hidden lg:table-cell">
+                                <td class="px-4 py-3 hidden lg:table-cell">
                                     <span :class="sourceBadgeClass(l.source)" class="text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
                                         {{ l.source || 'Direct' }}
                                     </span>
                                 </td>
-                                <td class="px-2 py-3 text-right font-mono hidden md:table-cell">
+                                <td class="px-4 py-3 text-right font-mono hidden md:table-cell">
                                     <span v-if="l.estimatedValue" class="font-semibold text-(--text-heading)">
                                         {{ formatCurrency(l.estimatedValue) }}
                                     </span>
                                     <span v-else class="text-(--text-muted)">TBD</span>
                                 </td>
-                                <td class="px-2 py-3">
+                                <td class="px-4 py-3">
                                     <Badge :variant="crmBadgeVariant(l.status)">{{ l.status }}</Badge>
                                 </td>
                                 <td class="px-4 py-3 text-right">

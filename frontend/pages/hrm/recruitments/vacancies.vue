@@ -63,11 +63,64 @@
             </div>
 
             <section v-else class="glass-card rounded-2xl overflow-hidden">
+                <!-- Bulk action toolbar (visible while drafts are checked) -->
+                <transition name="bulkbar">
+                    <div v-if="canWrite && selectedCount > 0" class="bulk-toolbar">
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="font-semibold text-(--color-primary)">{{ selectedCount }} selected</span>
+                            <span class="text-(--text-muted)">·</span>
+                            <button type="button"
+                                class="text-(--text-muted) hover:text-(--text-heading) underline-offset-2 hover:underline"
+                                @click="clearSelection">
+                                Clear
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" class="btn btn-soft-primary text-xs px-3 py-1.5"
+                                :disabled="bulkPublishing || bulkClosing || bulkArchiving || selectedPublishable.length === 0"
+                                :title="selectedPublishable.length === 0 ? 'No draft rows in the selection' : 'Open (publish) the draft rows in your selection'"
+                                @click="bulkPublish">
+                                <i :class="['ti', bulkPublishing ? 'ti-loader animate-spin' : 'ti-send']" />
+                                {{ bulkPublishing
+                                    ? 'Opening...'
+                                    : `Open ${selectedPublishable.length}` }}
+                            </button>
+                            <button type="button"
+                                class="btn btn-ghost text-xs px-3 py-1.5 text-(--color-warning) hover:bg-(--color-warning-subtle) hover:text-(--color-warning)"
+                                :disabled="bulkPublishing || bulkClosing || bulkArchiving || selectedCloseable.length === 0"
+                                :title="selectedCloseable.length === 0 ? 'No open/paused rows in the selection' : 'Close the open/paused rows in your selection'"
+                                @click="bulkClose">
+                                <i :class="['ti', bulkClosing ? 'ti-loader animate-spin' : 'ti-lock']" />
+                                {{ bulkClosing
+                                    ? 'Closing...'
+                                    : `Close ${selectedCloseable.length}` }}
+                            </button>
+                            <button type="button"
+                                class="btn btn-ghost text-xs px-3 py-1.5 text-(--color-danger) hover:bg-(--color-danger-subtle) hover:text-(--color-danger)"
+                                :disabled="bulkPublishing || bulkClosing || bulkArchiving || selectedArchivable.length === 0"
+                                :title="selectedArchivable.length === 0 ? 'Nothing to archive' : 'Archive the selected rows'"
+                                @click="bulkArchive">
+                                <i :class="['ti', bulkArchiving ? 'ti-loader animate-spin' : 'ti-trash']" />
+                                {{ bulkArchiving
+                                    ? 'Archiving...'
+                                    : `Archive ${selectedArchivable.length}` }}
+                            </button>
+                        </div>
+                    </div>
+                </transition>
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
                             <tr
                                 class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                                <th v-if="canWrite" class="pl-4 pr-1 py-3 w-8">
+                                    <input type="checkbox" class="row-checkbox" :checked="allSelectableSelected"
+                                        :indeterminate.prop="someSelectableSelected && !allSelectableSelected"
+                                        :disabled="selectableRows.length === 0"
+                                        :title="selectableRows.length === 0 ? 'No rows on this page' : 'Select all rows'"
+                                        @change="toggleSelectAll">
+                                </th>
                                 <th class="px-4 py-3 font-semibold">Title</th>
                                 <th class="px-4 py-3 font-semibold">Department</th>
                                 <th class="px-4 py-3 font-semibold">Location</th>
@@ -79,7 +132,12 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-(--border-color)">
-                            <tr v-for="v in vacancies" :key="v.id" class="hover:bg-(--bg-muted) transition-colors">
+                            <tr v-for="v in vacancies" :key="v.id" class="transition-colors"
+                                :class="selectedIds.has(v.id) ? 'bg-(--color-primary-subtle)/30' : 'hover:bg-(--bg-muted)'">
+                                <td v-if="canWrite" class="pl-4 pr-1 py-3 w-8">
+                                    <input type="checkbox" class="row-checkbox" :checked="selectedIds.has(v.id)"
+                                        @change="toggleRow(v)">
+                                </td>
                                 <td class="px-4 py-3">
                                     <div class="text-xs font-semibold text-(--text-heading)">{{ v.title }}</div>
                                     <div class="text-xxs text-(--text-muted) font-mono">{{ formatDate(v.postedAt) }}
@@ -96,7 +154,7 @@
                                     <span v-else class="text-(--text-muted)">—</span>
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs text-right">
-                                    <NuxtLink :to="`/applications?vacancyId=${v.id}`"
+                                    <NuxtLink :to="`/hrm/recruitments/applications?vacancyId=${v.id}`"
                                         class="text-(--color-primary) hover:underline">
                                         {{ v.applicationCount ?? 0 }}
                                     </NuxtLink>
@@ -227,7 +285,7 @@
                 <button class="action-item" @click="actionEdit">
                     <i class="ti ti-pencil" /> Edit
                 </button>
-                <NuxtLink :to="`/applications?vacancyId=${actionMenu.vacancy.id}`" class="action-item"
+                <NuxtLink :to="`/hrm/recruitments/applications?vacancyId=${actionMenu.vacancy.id}`" class="action-item"
                     @click="closeActionMenu">
                     <i class="ti ti-users" /> View applications
                 </NuxtLink>
@@ -322,6 +380,168 @@ const form = reactive({
     position_id: ''
 })
 
+// --- Bulk selection -------------------------------------------------------
+// Every vacancy is selectable because Archive applies to any status. The
+// three bulk buttons each compute their own eligible subset and disable when
+// the selection has no matching rows. Selection persists across pagination/
+// filter changes so users can build a batch.
+const selectedIds = ref<Set<string>>(new Set())
+const bulkPublishing = ref(false)
+const bulkClosing = ref(false)
+const bulkArchiving = ref(false)
+
+const isSelectable = (_v: Vacancy) => true
+
+const selectableRows = computed(() => vacancies.value)
+
+const selectedVacancies = computed(() =>
+    vacancies.value.filter(v => selectedIds.value.has(v.id))
+)
+const selectedPublishable = computed(() =>
+    selectedVacancies.value.filter(v => v.status === 'draft')
+)
+const selectedCloseable = computed(() =>
+    selectedVacancies.value.filter(v => v.status === 'open' || v.status === 'paused')
+)
+const selectedArchivable = computed(() => selectedVacancies.value)
+
+const selectedCount = computed(() => selectedIds.value.size)
+
+const allSelectableSelected = computed(() =>
+    selectableRows.value.length > 0 &&
+    selectableRows.value.every(v => selectedIds.value.has(v.id))
+)
+
+const someSelectableSelected = computed(() =>
+    selectableRows.value.some(v => selectedIds.value.has(v.id))
+)
+
+const toggleRow = (v: Vacancy) => {
+    const next = new Set(selectedIds.value)
+    if (next.has(v.id)) next.delete(v.id)
+    else next.add(v.id)
+    selectedIds.value = next
+}
+
+const toggleSelectAll = () => {
+    const next = new Set(selectedIds.value)
+    if (allSelectableSelected.value) {
+        selectableRows.value.forEach(v => next.delete(v.id))
+    } else {
+        selectableRows.value.forEach(v => next.add(v.id))
+    }
+    selectedIds.value = next
+}
+
+const clearSelection = () => { selectedIds.value = new Set() }
+
+// Shared executor: fan out per-id calls via Promise.allSettled, surface
+// success/partial-failure via toast, drop processed ids from the selection.
+type BulkOp = {
+    ids: string[]
+    perform: (id: string) => Promise<unknown>
+    pastTense: string                       // e.g. 'opened', 'closed', 'archived'
+    failureTitle: string                    // toast title on hard error
+}
+
+const runBulk = async ({ ids, perform, pastTense, failureTitle }: BulkOp) => {
+    try {
+        const results = await Promise.allSettled(ids.map(perform))
+        const successes = results.filter(r => r.status === 'fulfilled').length
+        const failures = results.length - successes
+        ids.forEach(id => selectedIds.value.delete(id))
+        await loadVacancies()
+        if (failures > 0) {
+            toast.info(`Bulk ${pastTense} completed`, `${successes} ${pastTense} · ${failures} failed`)
+        } else {
+            toast.success(
+                `Bulk ${pastTense} complete`,
+                `${successes} vacanc${successes === 1 ? 'y' : 'ies'} ${pastTense}.`
+            )
+        }
+    } catch (err: any) {
+        toast.error(failureTitle, err?.data?.message)
+    }
+}
+
+const bulkPublish = async () => {
+    if (bulkPublishing.value) return
+    const ids = selectedPublishable.value.map(v => v.id)
+    if (ids.length === 0) return
+    const ok = await toast.confirm({
+        title: `Open ${ids.length} draft vacanc${ids.length === 1 ? 'y' : 'ies'}?`,
+        description: 'Each selected draft will become open and immediately visible to candidates. You can pause or close them later.',
+        confirmLabel: 'Open all',
+        color: 'primary',
+        icon: 'ti-send'
+    })
+    if (!ok) return
+
+    bulkPublishing.value = true
+    try {
+        await runBulk({
+            ids,
+            perform: id => api.post(`/job-vacancies/${id}/publish`),
+            pastTense: 'opened',
+            failureTitle: 'Bulk open failed.'
+        })
+    } finally {
+        bulkPublishing.value = false
+    }
+}
+
+const bulkClose = async () => {
+    if (bulkClosing.value) return
+    const ids = selectedCloseable.value.map(v => v.id)
+    if (ids.length === 0) return
+    const ok = await toast.confirm({
+        title: `Close ${ids.length} vacanc${ids.length === 1 ? 'y' : 'ies'}?`,
+        description: 'Each will stop accepting new applications. To mark a single vacancy as "filled" instead, use the per-row action.',
+        confirmLabel: 'Close all',
+        color: 'warning',
+        icon: 'ti-lock'
+    })
+    if (!ok) return
+
+    bulkClosing.value = true
+    try {
+        await runBulk({
+            ids,
+            perform: id => api.post(`/job-vacancies/${id}/close`, { reason: 'closed' }),
+            pastTense: 'closed',
+            failureTitle: 'Bulk close failed.'
+        })
+    } finally {
+        bulkClosing.value = false
+    }
+}
+
+const bulkArchive = async () => {
+    if (bulkArchiving.value) return
+    const ids = selectedArchivable.value.map(v => v.id)
+    if (ids.length === 0) return
+    const ok = await toast.confirm({
+        title: `Archive ${ids.length} vacanc${ids.length === 1 ? 'y' : 'ies'}?`,
+        description: 'Archived vacancies are removed from the active list. Existing applications remain linked and searchable.',
+        confirmLabel: 'Archive all',
+        color: 'danger',
+        icon: 'ti-trash'
+    })
+    if (!ok) return
+
+    bulkArchiving.value = true
+    try {
+        await runBulk({
+            ids,
+            perform: id => api.delete(`/job-vacancies/${id}`),
+            pastTense: 'archived',
+            failureTitle: 'Bulk archive failed.'
+        })
+    } finally {
+        bulkArchiving.value = false
+    }
+}
+
 const statusVariant = (s: string): 'primary' | 'success' | 'warning' | 'danger' | 'secondary' => {
     if (s === 'open') return 'success'
     if (s === 'paused') return 'warning'
@@ -336,8 +556,8 @@ const formatMoney = (n: number) =>
 const loadLookups = async () => {
     try {
         const [d, p] = await Promise.all([
-            api.get<Paginated<{ id: string; name: string }>>('/hrm/departments?limit=100'),
-            api.get<Paginated<{ id: string; title: string }>>('/hrm/positions?limit=100')
+            api.get<Paginated<{ id: string; name: string }>>('/departments?limit=100'),
+            api.get<Paginated<{ id: string; title: string }>>('/positions?limit=100')
         ])
         departments.value = d.data
         positions.value = p.data
@@ -617,5 +837,58 @@ onMounted(async () => {
 
 .action-item-danger:hover {
     background: var(--color-danger-subtle);
+}
+
+.row-checkbox {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-card);
+    accent-color: var(--color-primary);
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+
+.row-checkbox:hover:not(:disabled) {
+    border-color: var(--color-primary);
+}
+
+.row-checkbox:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.row-checkbox:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(var(--color-primary-rgb) / 0.2);
+}
+
+.bulk-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.625rem 1rem;
+    background: var(--color-primary-subtle);
+    border-bottom: 1px solid rgb(var(--color-primary-rgb) / 0.2);
+}
+
+.bulkbar-enter-active,
+.bulkbar-leave-active {
+    transition: opacity 0.15s ease, max-height 0.2s ease;
+    overflow: hidden;
+}
+
+.bulkbar-enter-from,
+.bulkbar-leave-to {
+    opacity: 0;
+    max-height: 0;
+}
+
+.bulkbar-enter-to,
+.bulkbar-leave-from {
+    opacity: 1;
+    max-height: 60px;
 }
 </style>

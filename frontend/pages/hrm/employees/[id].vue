@@ -250,8 +250,8 @@
                             <tr v-for="lv in leaves.list" :key="lv.id" class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-5 py-2.5 text-xs">{{ lv.leaveType?.name || '—' }}</td>
                                 <td class="px-5 py-2.5 text-xs font-mono">
-                                    <div>{{ lv.startDate }}</div>
-                                    <div class="text-(--text-muted) text-xxs">→ {{ lv.endDate }}</div>
+                                    <div>{{ formatDate(lv.startDate) }}</div>
+                                    <div class="text-(--text-muted) text-xxs">→ {{ formatDate(lv.endDate) }}</div>
                                 </td>
                                 <td class="px-5 py-2.5 font-mono text-xs text-right">{{ lv.days }}</td>
                                 <td class="px-5 py-2.5 text-xs text-(--text-body) max-w-[260px] truncate"
@@ -297,7 +297,7 @@
                                 <div class="font-semibold text-(--text-heading)">{{ ps.payrollPeriod?.name || '—' }}
                                 </div>
                                 <div v-if="ps.payrollPeriod" class="text-xxs text-(--text-muted) font-mono">
-                                    {{ ps.payrollPeriod.startDate }} → {{ ps.payrollPeriod.endDate }}
+                                    {{ formatDate(ps.payrollPeriod.startDate) }} → {{ formatDate(ps.payrollPeriod.endDate) }}
                                 </div>
                             </td>
                             <td class="px-5 py-2.5 font-mono text-xs text-right">
@@ -343,8 +343,8 @@
                         <tr v-for="a in appraisals.list" :key="a.id" class="hover:bg-(--bg-muted) transition-colors">
                             <td class="px-5 py-2.5 font-mono text-xs">{{ a.cycle }}</td>
                             <td class="px-5 py-2.5 text-xxs font-mono">
-                                <div>{{ a.periodStart }}</div>
-                                <div class="text-(--text-muted)">→ {{ a.periodEnd }}</div>
+                                <div>{{ formatDate(a.periodStart) }}</div>
+                                <div class="text-(--text-muted)">→ {{ formatDate(a.periodEnd) }}</div>
                             </td>
                             <td class="px-5 py-2.5 text-xs">{{ a.reviewer?.fullName || '—' }}</td>
                             <td class="px-5 py-2.5 font-mono text-xs text-right">

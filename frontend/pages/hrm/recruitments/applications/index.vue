@@ -11,7 +11,7 @@
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <NuxtLink to="/candidates" class="btn btn-ghost text-xs" title="Board view">
+                    <NuxtLink to="/hrm/recruitments/candidates" class="btn btn-ghost text-xs" title="Board view">
                         <i class="ti ti-layout-kanban" />Board view
                     </NuxtLink>
                     <NuxtLink to="/hrm/applications/new" class="btn btn-primary text-xs">
@@ -44,6 +44,7 @@
                             <option :value="''">All status</option>
                             <option value="applied">Applied</option>
                             <option value="screening">Screening</option>
+                            <option value="shortlisted">Shortlisted</option>
                             <option value="interview">Interview</option>
                             <option value="offer">Offer</option>
                             <option value="hired">Hired</option>
@@ -139,7 +140,7 @@
                                         }}</span>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <NuxtLink :to="`/candidates/${a.id}`"
+                                    <NuxtLink :to="`/hrm/recruitments/candidates/${a.id}`"
                                         class="text-xs font-semibold text-(--text-heading) hover:text-(--color-primary) hover:underline underline-offset-2">
                                         {{ a.applicantName }}
                                     </NuxtLink>
@@ -440,8 +441,8 @@
                         </div>
                     </dl>
 
-                    <!-- Hired → employee conversion. Shown only for hired applications;
-               flips to a View employee link once the link is established. -->
+                    <!-- Hired → appointment request flow. Shown only for hired applications;
+               flips between Request / Pending review / View employee. -->
                     <div v-if="isHired(detailsApp)"
                         class="mt-5 pt-4 border-t border-(--border-color) flex items-center justify-between gap-3">
                         <div class="text-xxs text-(--text-muted) flex-1">
@@ -449,20 +450,29 @@
                                 class="text-(--color-success) font-semibold inline-flex items-center gap-1.5">
                                 <i class="ti ti-circle-check" /> Linked to employee
                             </p>
+                            <p v-else-if="detailsApp?.pendingAppointmentRequest"
+                                class="text-(--color-warning) font-semibold inline-flex items-center gap-1.5">
+                                <i class="ti ti-hourglass-high" /> Appointment pending HR approval
+                            </p>
                             <p v-else>
-                                Create the Employee record for this hire.<br>
-                                Department, position, and base salary will be copied from the vacancy.
+                                Submit an appointment request for HR approval. Once approved,
+                                the Employee record is created from the candidate profile.
                             </p>
                         </div>
                         <NuxtLink v-if="isConverted(detailsApp)" :to="`/employees?id=${detailsApp!.employeeId}`"
                             class="btn btn-soft-primary text-xs">
                             <i class="ti ti-user-check" /> View employee
                         </NuxtLink>
-                        <button v-else-if="canConvert" type="button" class="btn btn-primary text-xs"
-                            :disabled="converting" @click="convertFromDetails">
-                            <i :class="['ti', converting ? 'ti-loader animate-spin' : 'ti-user-plus']" />
-                            {{ converting ? 'Converting...' : 'Convert to Employee' }}
-                        </button>
+                        <NuxtLink v-else-if="detailsApp?.pendingAppointmentRequest"
+                            :to="`/approvals/requests/${detailsApp?.pendingAppointmentRequest?.id}`"
+                            class="btn btn-soft-warning text-xs">
+                            <i class="ti ti-eye" /> View request
+                        </NuxtLink>
+                        <NuxtLink v-else-if="canWrite"
+                            :to="`/approvals/forms/employee-appointment?applicationId=${detailsApp?.id}`"
+                            class="btn btn-primary text-xs">
+                            <i class="ti ti-send" /> Request Appointment
+                        </NuxtLink>
                     </div>
                 </div>
             </div>
@@ -485,9 +495,16 @@
                     <button v-if="isConverted(actionMenu.app)" class="action-item" @click="actionViewEmployee">
                         <i class="ti ti-user-check" /> View employee
                     </button>
-                    <button v-else-if="canConvert" class="action-item action-item-primary" @click="actionConvert">
-                        <i class="ti ti-user-plus" /> Convert to Employee
-                    </button>
+                    <NuxtLink v-else-if="actionMenu.app.pendingAppointmentRequest"
+                        :to="`/approvals/requests/${actionMenu.app.pendingAppointmentRequest.id}`"
+                        class="action-item action-item-warning" @click="closeActionMenu">
+                        <i class="ti ti-hourglass-high" /> View pending appointment
+                    </NuxtLink>
+                    <NuxtLink v-else-if="canWrite"
+                        :to="`/approvals/forms/employee-appointment?applicationId=${actionMenu.app.id}`"
+                        class="action-item action-item-primary" @click="closeActionMenu">
+                        <i class="ti ti-send" /> Request Appointment
+                    </NuxtLink>
                 </template>
                 <template v-if="canDelete(actionMenu.app)">
                     <hr class="my-1 border-(--border-color)" />
@@ -511,7 +528,7 @@ import { useToast } from '~/composables/useToast'
 interface VacancyLite { id: string; title: string }
 interface EmployeeLite { id: string; employeeId: string; fullName: string }
 
-type ApplicationStatus = 'applied' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
+type ApplicationStatus = 'applied' | 'screening' | 'shortlisted' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
 
 interface Application {
     id: string
@@ -534,6 +551,7 @@ interface Application {
     appliedAt: string | null
     vacancy?: VacancyLite
     referrer?: EmployeeLite
+    pendingAppointmentRequest?: { id: string; status: string; createdAt: string } | null
 }
 interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; total: number; totalPages: number } }
 
@@ -679,6 +697,7 @@ const statusVariant = (s: ApplicationStatus): 'primary' | 'success' | 'warning' 
     switch (s) {
         case 'applied': return 'secondary'
         case 'screening': return 'info'
+        case 'shortlisted': return 'primary'
         case 'interview': return 'warning'
         case 'offer': return 'primary'
         case 'hired': return 'success'
@@ -852,7 +871,7 @@ const closeActionMenu = () => {
 const actionOpenProfile = () => {
     const app = actionMenu.app
     closeActionMenu()
-    if (app) router.push(`/candidates/${app.id}`)
+    if (app) router.push(`/hrm/recruitments/candidates/${app.id}`)
 }
 
 const actionView = () => {
@@ -887,78 +906,11 @@ const actionDelete = async () => {
     }
 }
 
-// ---- Hire → Employee conversion ------------------------------------------
-const converting = ref(false)
-
-interface ConvertedEmployee { id: string; employeeId?: string; fullName?: string }
-interface ConvertResponse {
-    data: ConvertedEmployee
-    created: boolean
-    linkedExisting: boolean
-}
-
-const convertApplicationToEmployee = async (app: Application): Promise<boolean> => {
-    if (!isHired(app) || isConverted(app)) return false
-    const ok = await toast.confirm({
-        title: `Convert ${app.applicantName} to an employee?`,
-        description: 'Creates an Employee record using the vacancy’s department, position, and expected salary. If an Employee with the same email already exists, the application links to that one instead.',
-        confirmLabel: 'Convert',
-        color: 'primary',
-        icon: 'ti-user-plus'
-    })
-    if (!ok) return false
-    converting.value = true
-    try {
-        const res = await api.post<ConvertResponse>(`/applications/${app.id}/convert-to-employee`)
-        const emp = res.data
-        const empCode = emp.employeeId || emp.id
-
-        const openEmployeeOnList = () => router.push({ path: '/employees', query: { search: empCode } })
-
-        if (res.linkedExisting) {
-            toast.warning(
-                'Linked to existing employee',
-                `${app.applicantName}'s email is already on file as ${emp.fullName || empCode}. No new employee row was created.`,
-                { duration: 10000, actionLabel: 'View on employee list', onAction: openEmployeeOnList }
-            )
-        } else {
-            toast.success(
-                'Employee created',
-                `${app.applicantName} is now on the employee list as ${empCode}.`,
-                { duration: 10000, actionLabel: 'View on employee list', onAction: openEmployeeOnList }
-            )
-        }
-
-        await loadApplications()
-        if (detailsApp.value?.id === app.id) {
-            detailsApp.value = { ...detailsApp.value!, employeeId: emp.id }
-        }
-        return true
-    } catch (err: any) {
-        toast.error('Conversion failed.', err?.data?.message)
-        return false
-    } finally {
-        converting.value = false
-    }
-}
-
-const actionConvert = async () => {
-    const app = actionMenu.app
-    closeActionMenu()
-    if (!app) return
-    await convertApplicationToEmployee(app)
-}
-
 const actionViewEmployee = () => {
     const app = actionMenu.app
     closeActionMenu()
     if (!app?.employeeId) return
     router.push(`/employees?id=${app.employeeId}`)
-}
-
-const convertFromDetails = async () => {
-    if (!detailsApp.value) return
-    await convertApplicationToEmployee(detailsApp.value)
 }
 
 const bulkDelete = async () => {

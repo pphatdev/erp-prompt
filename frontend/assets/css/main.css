@@ -732,5 +732,9 @@ select.form-control {
 
 
 .kanban-column {
-    min-height: calc(100vh - 22rem);
+    height: calc(100vh - 22rem);
+}
+
+.kanban-list  {
+    @apply overflow-y-auto;
 }

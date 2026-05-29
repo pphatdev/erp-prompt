@@ -632,7 +632,7 @@ const hydrateFromLead = () => {
     if (!form.leadId) return
     const lead = leads.value.find(l => l.id === form.leadId)
     if (!lead) return
-    if (!form.title) form.title = lead.title
+    if (!form.title) form.title = lead.title || ''
     if (!form.estimatedValue && lead.estimatedValue) form.estimatedValue = lead.estimatedValue
     if (!form.customerId && lead.customerId) form.customerId = lead.customerId
 }

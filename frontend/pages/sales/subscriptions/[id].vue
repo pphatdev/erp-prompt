@@ -60,11 +60,11 @@
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Start</p>
-                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ sub.startDate || '—' }}</p>
+                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ formatDate(sub.startDate) }}</p>
                 </div>
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">End</p>
-                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ sub.endDate || 'Open-ended' }}</p>
+                    <p class="text-base font-semibold text-(--text-heading) mt-1">{{ sub.endDate ? formatDate(sub.endDate) : 'Open-ended' }}</p>
                 </div>
             </section>
 
@@ -82,7 +82,7 @@
                             <i class="ti ti-external-link shrink-0" />{{ sub.liveAccessUrl }}
                         </a>
                         <p v-if="sub.provisionedAt" class="text-xxs text-(--text-muted) mt-1.5">
-                            Provisioned at {{ formatDate(sub.provisionedAt) }}
+                            Provisioned at {{ formatDateTime(sub.provisionedAt) }}
                         </p>
                     </div>
                     <button class="btn btn-ghost text-xxs shrink-0" :disabled="copying" @click="copyAccessUrl">
@@ -245,6 +245,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSales, statusBadgeVariant } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
+import { useDateFormat } from '~/composables/useDateFormat'
 import type { BillingCycle, ProductLite, Subscription } from '~/types/sales'
 import SubscriptionCountdown from '~/components/sales/SubscriptionCountdown.vue'
 
@@ -286,7 +287,7 @@ const changePlanTargetId = ref('')
 const catalogue = ref<ProductLite[]>([])
 
 const fmt = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v || 0)
-const formatDate = (iso: string) => new Date(iso).toLocaleString()
+const { formatDate, formatDateTime } = useDateFormat()
 
 const load = async () => {
     loading.value = true

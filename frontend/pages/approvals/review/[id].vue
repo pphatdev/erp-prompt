@@ -54,7 +54,7 @@
                     <div class="glass-card rounded-2xl p-5">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-(--text-muted) mb-4">Requester Details</h3>
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
+                            <div class="w-10 h-10 rounded-xl bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center font-bold text-sm shrink-0">
                                 {{ request.requester?.name?.charAt(0) || '?' }}
                             </div>
                             <div class="min-w-0">
@@ -90,13 +90,13 @@
                                 <div class="flex flex-col">
                                     <span class="text-xs text-(--text-muted) font-medium">Start Date</span>
                                     <span class="font-mono font-semibold text-(--text-heading) mt-1">
-                                        {{ request.requestable.startDate || '—' }}
+                                        {{ formatDate(request.requestable.startDate) }}
                                     </span>
                                 </div>
                                 <div class="flex flex-col">
                                     <span class="text-xs text-(--text-muted) font-medium">End Date</span>
                                     <span class="font-mono font-semibold text-(--text-heading) mt-1">
-                                        {{ request.requestable.endDate || '—' }}
+                                        {{ formatDate(request.requestable.endDate) }}
                                     </span>
                                 </div>
                                 <div class="flex flex-col">
@@ -175,9 +175,9 @@
                             <!-- Generic Fallback -->
                             <div v-else-if="request.requestable" class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 text-sm">
                                 <div v-for="(val, key) in displayPayload" :key="key" class="flex flex-col">
-                                    <span class="text-xs text-(--text-muted) capitalize">{{ String(key).replace(/_/g, ' ') }}</span>
+                                    <span class="text-xs text-(--text-muted) capitalize">{{ displayKey(String(key)) }}</span>
                                     <span class="font-semibold text-(--text-heading) mt-1">
-                                        {{ typeof val === 'object' ? JSON.stringify(val) : val }}
+                                        {{ displayValue(String(key), val) }}
                                     </span>
                                 </div>
                             </div>
@@ -242,7 +242,8 @@
                 <div class="lg:col-span-4 space-y-6">
                     <div class="glass-card rounded-2xl p-6">
                         <h2 class="text-sm font-bold uppercase tracking-wider text-(--text-muted) mb-5">Approval Progress</h2>
-                        <ApprovalTimeline :history="request.history || []" :current-level="currentLevel" />
+                        <ApprovalTimeline :history="request.history || []" :current-level="currentLevel"
+                            :requester="request.requester" :submitted-at="request.created_at" />
                     </div>
                 </div>
 
@@ -256,6 +257,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApprovals, type ApprovalRequest } from '~/composables/useApprovals'
 import { useBreadcrumbOverride } from '~/composables/useBreadcrumbOverride'
+import { useDateFormat } from '~/composables/useDateFormat'
 import { useToast } from '~/composables/useToast'
 import ApprovalTimeline from '~/components/approvals/ApprovalTimeline.vue'
 import Badge from '~/components/Badge.vue'
@@ -264,6 +266,7 @@ const route = useRoute()
 const router = useRouter()
 const { getRequest, processAction } = useApprovals()
 const breadcrumb = useBreadcrumbOverride()
+const { formatDate, formatDateTime } = useDateFormat()
 const toast = useToast()
 
 const loading = ref(true)
@@ -295,8 +298,90 @@ const displayPayload = computed(() => {
     delete obj.created_at
     delete obj.updated_at
     delete obj.deleted_at
+    // Eager-loaded relation objects — their resolved values already render
+    // under the corresponding *Id row via displayValue(), so suppress the raw
+    // JSON dumps here.
+    delete obj.department
+    delete obj.position
+    delete obj.manager
+    delete obj.employee
+    delete obj.reviewer
+    delete obj.application
+    delete obj.requester
+    delete obj.vacancy
+    delete obj.referrer
+    delete obj.leaveType
     return obj
 })
+
+/**
+ * Per-key label overrides. Keys not listed fall back to the original
+ * camelCase/underscore transform applied in the template.
+ */
+const PAYLOAD_LABELS: Record<string, string> = {
+    applicationId:   'Application Id',
+    candidateCode:   'Candidate Code',
+    employeeId:      'Employee Id',
+    submittedBy:     'Submitted By',
+    firstName:       'First Name',
+    lastName:        'Last Name',
+    fullName:        'Full Name',
+    email:           'Email',
+    phone:           'Phone',
+    departmentId:    'Department',
+    positionId:      'Position',
+    managerId:       'Manager',
+    startDate:       'Start Date',
+    baseSalary:      'Base Salary',
+    employmentType:  'Employment Type',
+    notes:           'Notes',
+    status:          'Status',
+    processedAt:     'Processed At',
+    createdAt:       'Created At',
+    updatedAt:       'Updated At',
+}
+
+const displayKey = (key: string): string =>
+    PAYLOAD_LABELS[key] ?? key.replace(/_/g, ' ')
+
+/**
+ * Per-key overrides for the generic payload renderer. Resolves UUIDs to the
+ * project's standard codes / names, and dates to the project's datetime
+ * format. Everything else falls through to the raw value.
+ */
+const displayValue = (key: string, val: any): string => {
+    if (val == null) return '—'
+    const req: any = request.value?.requestable
+    if (key === 'applicationId') {
+        return req?.candidateCode || req?.application?.candidateCode || '—'
+    }
+    if (key === 'submittedBy') {
+        return request.value?.requester?.name || '—'
+    }
+    if (key === 'employeeId') {
+        return req?.employee?.employeeId || '—'
+    }
+    if (key === 'reviewerId') {
+        return req?.reviewer?.employeeId || '—'
+    }
+    if (key === 'departmentId') {
+        return req?.department?.name || '—'
+    }
+    if (key === 'positionId') {
+        return req?.position?.title || '—'
+    }
+    if (key === 'managerId') {
+        return req?.manager?.fullName || '—'
+    }
+    if (/(At|_at)$/.test(key)) {
+        return formatDateTime(val)
+    }
+    if (/(Date|_date)$/.test(key) || key === 'periodStart' || key === 'periodEnd' || key === 'hiredAt') {
+        return formatDate(val)
+    }
+    if (typeof val === 'object') return JSON.stringify(val)
+    return String(val)
+}
 
 const statusVariant = (s: string): 'success' | 'warning' | 'danger' | 'info' => {
     if (s === 'approved') return 'success'

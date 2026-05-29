@@ -54,7 +54,7 @@
                     </div>
 
                     <div
-                        class="md:col-span-4 flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
+                        class="md:col-span-4 flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1 overflow-x-auto">
                         <button v-for="s in (['', 'active', 'on_leave', 'terminated'] as const)" :key="s || 'all'"
                             class="flex-1 px-3 py-1 rounded text-xxs uppercase tracking-widest font-bold transition-colors"
                             :class="filters.status === s ? 'bg-(--bg-card) text-(--color-primary) shadow-(--shadow-sm)' : 'text-(--text-muted) hover:text-(--text-heading)'"
@@ -211,7 +211,7 @@
                             <div class="relative h-9 flex items-center justify-end shrink-0">
                                 <div class="absolute right-0 flex items-center gap-1.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0">
                                     <span class="text-[10px] font-bold uppercase tracking-wider text-(--color-primary)">View Profile</span>
-                                    <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center">
+                                    <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center shrink-0">
                                         <i class="ti ti-arrow-right text-xs"></i>
                                     </div>
                                 </div>
@@ -531,8 +531,8 @@ const cardActionTerminate = async () => {
 const loadLookups = async () => {
     try {
         const [d, p] = await Promise.all([
-            api.get<Paginated<{ id: string; name: string }>>('/hrm/departments?limit=100'),
-            api.get<Paginated<{ id: string; title: string }>>('/hrm/positions?limit=100')
+            api.get<Paginated<{ id: string; name: string }>>('/departments?limit=100'),
+            api.get<Paginated<{ id: string; title: string }>>('/positions?limit=100')
         ])
         departments.value = d.data
         positions.value = p.data
@@ -741,9 +741,7 @@ onMounted(async () => {
 }
 
 .emp-card:hover {
-    transform: translateY(-2px);
     border-color: rgb(var(--color-primary-rgb) / 0.25);
-    box-shadow: var(--shadow-md), 0 0 0 1px rgb(var(--color-primary-rgb) / 0.06) inset;
 }
 
 .emp-card--terminated {

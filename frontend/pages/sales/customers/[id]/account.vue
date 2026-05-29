@@ -78,7 +78,7 @@
                             </div>
                             <div>
                                 <dt class="text-(--text-muted) uppercase tracking-widest font-bold">Ends</dt>
-                                <dd class="text-(--text-body) mt-0.5">{{ sub.endDate || '—' }}</dd>
+                                <dd class="text-(--text-body) mt-0.5">{{ formatDate(sub.endDate) }}</dd>
                             </div>
                         </dl>
 
@@ -237,6 +237,7 @@ import { useRoute } from 'vue-router'
 import { useSales, statusBadgeVariant } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
 import { useBreadcrumbOverride } from '~/composables/useBreadcrumbOverride'
+import { useDateFormat } from '~/composables/useDateFormat'
 import type { BillingCycle, Customer, ProductLite, Subscription } from '~/types/sales'
 import SubscriptionCountdown from '~/components/sales/SubscriptionCountdown.vue'
 
@@ -244,6 +245,7 @@ const route = useRoute()
 const sales = useSales()
 const toast = useToast()
 const crumb = useBreadcrumbOverride()
+const { formatDate } = useDateFormat()
 
 const customer = ref<Customer | null>(null)
 const subs = ref<Subscription[]>([])

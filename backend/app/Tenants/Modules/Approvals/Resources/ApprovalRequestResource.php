@@ -23,7 +23,15 @@ class ApprovalRequestResource extends JsonResource
             'requestable_type' => $this->requestable_type,
             'requestable_id' => $this->requestable_id,
             'status' => $this->status,
-            'history' => $this->whenLoaded('history'),
+            // Map history items so each approver runs through UserResource and
+            // picks up the employee sub-object (the timeline renders the code).
+            'history' => $this->whenLoaded('history', fn () => $this->history->map(fn ($h) => [
+                'id' => $h->id,
+                'action' => $h->action,
+                'comment' => $h->comment,
+                'created_at' => $h->created_at?->toIso8601String(),
+                'approver' => $h->approver ? new UserResource($h->approver) : null,
+            ])),
             'workflow' => $this->whenLoaded('workflow'),
             'requestable' => $this->whenLoaded('requestable', function () {
                 if ($this->requestable instanceof \App\Models\Tenant\Leave) {
@@ -31,6 +39,12 @@ class ApprovalRequestResource extends JsonResource
                 }
                 if ($this->requestable instanceof \App\Models\Tenant\PurchaseOrder) {
                     return new \App\Tenants\Modules\Inventory\Resources\PurchaseOrderResource($this->requestable);
+                }
+                if ($this->requestable instanceof \App\Models\Tenant\EmployeeAppointment) {
+                    return new \App\Tenants\Modules\HRM\Resources\EmployeeAppointmentResource($this->requestable);
+                }
+                if ($this->requestable instanceof \App\Models\Tenant\Appraisal) {
+                    return new \App\Tenants\Modules\HRM\Resources\AppraisalResource($this->requestable);
                 }
                 return $this->requestable;
             }),

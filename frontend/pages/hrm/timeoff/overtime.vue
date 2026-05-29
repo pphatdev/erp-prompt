@@ -7,9 +7,9 @@
                     <p class="text-xs text-(--text-muted) mt-1">Submit overtime hours and track approval. Approved hours
                         feed into the next payroll period.</p>
                 </div>
-                <button v-if="canSubmit" class="btn btn-primary text-xs" @click="openSubmitModal">
-                    <i class="ti ti-plus" />New request
-                </button>
+                <NuxtLink v-if="canSubmit" to="/approvals/forms/overtime" class="btn btn-primary text-xs">
+                    <i class="ti ti-external-link" />Submit via eApprovals
+                </NuxtLink>
             </header>
 
             <section class="glass-card rounded-xl p-4">
@@ -22,7 +22,7 @@
                         </select>
                     </div>
                     <div
-                        class="md:col-span-4 flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
+                        class="md:col-span-4 flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1 overflow-x-auto">
                         <button v-for="s in (['', 'pending', 'approved', 'rejected', 'cancelled'] as const)"
                             :key="s || 'all'"
                             class="flex-1 px-3 py-1 rounded text-xxs uppercase tracking-widest font-bold transition-colors"
@@ -106,64 +106,6 @@
                     @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadRequests() }" />
             </section>
 
-            <!-- Submit modal -->
-            <div v-if="showSubmitModal"
-                class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <div class="glass-card rounded-2xl w-full max-w-lg p-6 shadow-(--shadow-lg) bg-(--bg-card)">
-                    <header class="flex items-center justify-between mb-5">
-                        <h3 class="text-base font-semibold text-(--text-heading)">New overtime request</h3>
-                        <button class="topbar-btn" @click="showSubmitModal = false"><i class="ti ti-x" /></button>
-                    </header>
-
-                    <form class="space-y-4" @submit.prevent="submit">
-                        <div v-if="isAdmin">
-                            <label class="form-label form-label-required">Employee</label>
-                            <select v-model="form.employee_id" required class="form-control">
-                                <option value="" disabled>Select employee...</option>
-                                <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{
-                                    e.employeeId }})</option>
-                            </select>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="form-label form-label-required">Date</label>
-                                <input v-model="form.date" type="date" required class="form-control" />
-                            </div>
-                            <div>
-                                <label class="form-label form-label-required">Hours</label>
-                                <input v-model.number="form.hours" type="number" step="0.25" min="0.25" max="16"
-                                    required class="form-control font-mono" />
-                            </div>
-                        </div>
-                        <div>
-                            <label class="form-label">Rate multiplier</label>
-                            <select v-model.number="form.rate_multiplier" class="form-control">
-                                <option :value="1.5">1.5x (weekday)</option>
-                                <option :value="2.0">2.0x (weekend)</option>
-                                <option :value="3.0">3.0x (holiday)</option>
-                            </select>
-                            <p class="text-xxs text-(--text-muted) mt-1">Weekend dates are auto-promoted to 2.0x
-                                server-side.</p>
-                        </div>
-                        <div>
-                            <label class="form-label">Reason</label>
-                            <textarea v-model="form.reason" rows="3" class="form-control"
-                                placeholder="Production support, release window, etc." />
-                        </div>
-
-                        <div v-if="formError" class="form-error">{{ formError }}</div>
-
-                        <footer class="pt-4 border-t border-(--border-color) flex justify-end gap-2">
-                            <button type="button" class="btn btn-ghost text-xs"
-                                @click="showSubmitModal = false">Cancel</button>
-                            <button type="submit" class="btn btn-primary text-xs" :disabled="saving">
-                                <i class="ti ti-send" />{{ saving ? 'Submitting...' : 'Submit' }}
-                            </button>
-                        </footer>
-                    </form>
-                </div>
-            </div>
-
             <!-- Action dropdown -->
             <div v-if="actionMenu.open && actionMenu.request"
                 class="fixed z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[180px]"
@@ -228,17 +170,6 @@ const filters = reactive({
     to: ''
 })
 
-const showSubmitModal = ref(false)
-const saving = ref(false)
-const formError = ref<string | null>(null)
-const form = reactive({
-    employee_id: '',
-    date: '',
-    hours: 1.0 as number | null,
-    rate_multiplier: 1.5 as number | null,
-    reason: ''
-})
-
 const actionMenu = reactive({
     open: false,
     x: 0,
@@ -288,36 +219,6 @@ watch(() => [filters.employeeId, filters.status, filters.from, filters.to], () =
     pagination.page = 1
     loadRequests()
 })
-
-const openSubmitModal = () => {
-    Object.assign(form, {
-        employee_id: isAdmin.value ? '' : (authStore.user as any)?.employee?.id || '',
-        date: '',
-        hours: 1.0,
-        rate_multiplier: 1.5,
-        reason: ''
-    })
-    formError.value = null
-    showSubmitModal.value = true
-}
-
-const submit = async () => {
-    saving.value = true
-    formError.value = null
-    try {
-        const payload: Record<string, any> = { ...form }
-        if (!payload.employee_id) delete payload.employee_id   // server force-fills for self-service callers
-        if (!payload.reason) payload.reason = null
-        await api.post('/hrm/overtime-requests', payload)
-        showSubmitModal.value = false
-        toast.success('Overtime request submitted', 'Awaiting approval.')
-        await loadRequests()
-    } catch (err: any) {
-        formError.value = err?.data?.message || 'Failed to submit overtime request.'
-    } finally {
-        saving.value = false
-    }
-}
 
 const processRequest = async (r: OvertimeRequest, decision: 'approve' | 'reject') => {
     const ok = await toast.confirm({
@@ -380,22 +281,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.topbar-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    color: var(--text-muted);
-    cursor: pointer;
-}
-
-.topbar-btn:hover {
-    background: var(--bg-muted);
-    color: var(--text-heading);
-}
-
 .action-trigger {
     display: inline-flex;
     align-items: center;

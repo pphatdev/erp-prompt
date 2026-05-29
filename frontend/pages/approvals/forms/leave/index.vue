@@ -150,7 +150,6 @@
 import { ref, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '~/composables/useApi'
-import { useAuthStore } from '~/stores/auth'
 
 interface EmployeeLite { id: string; employeeId: string; fullName: string }
 interface LeaveType { id: string; name: string; annualAllowance: number }
@@ -158,7 +157,6 @@ interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; t
 
 const router = useRouter()
 const api = useApi()
-const authStore = useAuthStore()
 
 const employees = ref<EmployeeLite[]>([])
 const leaveTypes = ref<LeaveType[]>([])
@@ -250,11 +248,7 @@ const submitForm = async () => {
         // If there's an attachment, handle it here (requires multipart/form-data upload endpoint)
         // ...
         
-        if (authStore.hasPermission('approvals.requests.read')) {
-            router.push('/approvals/requests')
-        } else {
-            router.push('/hrm/timeoff/leaves')
-        }
+        router.push('/approvals/requests')
     } catch (err: any) {
         console.error('Error submitting form:', err)
         formError.value = err.data?.message || 'Failed to submit leave request.'

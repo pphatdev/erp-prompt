@@ -7,9 +7,9 @@
                     <p class="text-xs text-(--text-muted) mt-1">Cycle reviews with ratings, strengths, growth areas, and
                         OKR goals.</p>
                 </div>
-                <button v-if="canWrite" class="btn btn-primary text-xs" @click="openCreateModal">
-                    <i class="ti ti-plus" />New appraisal
-                </button>
+                <NuxtLink v-if="canWrite" to="/approvals/forms/appraisal" class="btn btn-primary text-xs">
+                    <i class="ti ti-external-link" />Submit via eApprovals
+                </NuxtLink>
             </header>
 
             <!-- Filters -->
@@ -77,8 +77,8 @@
                                 <td class="px-4 py-3 text-xs">{{ a.reviewer?.fullName || '—' }}</td>
                                 <td class="px-4 py-3 font-mono text-xs">{{ a.cycle }}</td>
                                 <td class="px-4 py-3 text-xxs font-mono">
-                                    <div>{{ a.periodStart }}</div>
-                                    <div class="text-(--text-muted)">→ {{ a.periodEnd }}</div>
+                                    <div>{{ formatDate(a.periodStart) }}</div>
+                                    <div class="text-(--text-muted)">→ {{ formatDate(a.periodEnd) }}</div>
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs text-right">
                                     <span v-if="a.overallRating != null" class="font-semibold"
@@ -114,16 +114,14 @@
                 <div
                     class="glass-card rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-(--shadow-lg) bg-(--bg-card)">
                     <header class="flex items-center justify-between mb-5">
-                        <h3 class="text-base font-semibold text-(--text-heading)">
-                            {{ editing ? 'Edit appraisal' : 'New appraisal' }}
-                        </h3>
+                        <h3 class="text-base font-semibold text-(--text-heading)">Edit appraisal</h3>
                         <button class="topbar-btn" @click="closeModal"><i class="ti ti-x" /></button>
                     </header>
 
                     <form class="form-grid" @submit.prevent="saveAppraisal">
                         <div>
                             <label class="form-label form-label-required">Employee</label>
-                            <select v-model="form.employee_id" required class="form-control" :disabled="!!editing">
+                            <select v-model="form.employee_id" required class="form-control" disabled>
                                 <option value="" disabled>Select employee...</option>
                                 <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{
                                     e.employeeId }})</option>
@@ -294,6 +292,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useApi } from '~/composables/useApi'
 import { useAuthStore } from '~/stores/auth'
+import { useDateFormat } from '~/composables/useDateFormat'
 import { useToast } from '~/composables/useToast'
 
 interface EmployeeLite { id: string; employeeId: string; fullName: string }
@@ -324,6 +323,7 @@ interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; t
 const api = useApi()
 const authStore = useAuthStore()
 const toast = useToast()
+const { formatDate } = useDateFormat()
 const canWrite = computed(() => authStore.hasPermission('hrm.performance.write'))
 
 const appraisals = ref<Appraisal[]>([])
@@ -421,17 +421,6 @@ watch(() => [filters.employeeId, filters.cycle, filters.status], () => {
     }, 300)
 })
 
-const resetForm = () => {
-    Object.assign(form, {
-        employee_id: '', reviewer_id: '', cycle: '',
-        period_start: '', period_end: '',
-        strengths: '', improvements: '', goals: []
-    })
-    formError.value = null
-}
-
-const openCreateModal = () => { editing.value = null; resetForm(); showModal.value = true }
-
 const openEditModal = (a: Appraisal) => {
     editing.value = a
     Object.assign(form, {
@@ -454,6 +443,7 @@ const addGoal = () => { form.goals.push({ title: '', status: 'pending', due: '' 
 const removeGoal = (idx: number) => { form.goals.splice(idx, 1) }
 
 const saveAppraisal = async () => {
+    if (!editing.value) return
     saving.value = true
     formError.value = null
     try {
@@ -471,12 +461,7 @@ const saveAppraisal = async () => {
             }))
         }
 
-        if (editing.value) {
-            await api.put(`/appraisals/${editing.value.id}`, payload)
-        } else {
-            payload.employee_id = form.employee_id
-            await api.post('/appraisals', payload)
-        }
+        await api.put(`/appraisals/${editing.value.id}`, payload)
         showModal.value = false
         await loadAppraisals()
     } catch (err: any) {

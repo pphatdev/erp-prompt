@@ -68,6 +68,7 @@ use App\Policies\UserPolicy;
 use App\Policies\WarehousePolicy;
 use App\Tenants\Modules\Approvals\Events\ApprovalRequestFinalized;
 use App\Tenants\Modules\Crm\Events\LeadQualified;
+use App\Tenants\Modules\HRM\Listeners\SyncEmployeeAppointmentFromApproval;
 use App\Tenants\Modules\HRM\Listeners\SyncLeaveFromApproval;
 use App\Tenants\Modules\Inventory\Events\ProductWentBelowMinimumStock;
 use App\Tenants\Modules\Inventory\Listeners\RecordLowStockAlert;
@@ -131,6 +132,7 @@ class TenantServiceProvider extends ServiceProvider
         });
 
         Event::listen(ApprovalRequestFinalized::class, SyncLeaveFromApproval::class);
+        Event::listen(ApprovalRequestFinalized::class, SyncEmployeeAppointmentFromApproval::class);
         Event::listen(ApprovalRequestFinalized::class, SyncPurchaseOrderFromApproval::class);
         Event::listen(LeadQualified::class, HandleLeadQualified::class);
         Event::listen(ProductWentBelowMinimumStock::class, RecordLowStockAlert::class);

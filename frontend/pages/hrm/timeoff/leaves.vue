@@ -86,8 +86,8 @@
                                 </td>
                                 <td class="px-4 py-3 text-xs">{{ lv.leaveType?.name || '—' }}</td>
                                 <td class="px-4 py-3 text-xs font-mono">
-                                    <div>{{ lv.startDate }}</div>
-                                    <div class="text-(--text-muted) text-xxs">→ {{ lv.endDate }}</div>
+                                    <div>{{ formatDate(lv.startDate) }}</div>
+                                    <div class="text-(--text-muted) text-xxs">→ {{ formatDate(lv.endDate) }}</div>
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs text-right">
                                     {{ lv.days.toFixed(1).replace(/\.0$/, '') }}
@@ -184,6 +184,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useApi } from '~/composables/useApi'
 import { useAuthStore } from '~/stores/auth'
+import { useDateFormat } from '~/composables/useDateFormat'
 import { useToast } from '~/composables/useToast'
 
 interface EmployeeLite { id: string; employeeId: string; fullName: string }
@@ -216,6 +217,7 @@ interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; t
 const api = useApi()
 const authStore = useAuthStore()
 const toast = useToast()
+const { formatDate } = useDateFormat()
 const canApprove = computed(() => authStore.hasPermission('hrm.leave.write'))
 
 const leaves = ref<Leave[]>([])

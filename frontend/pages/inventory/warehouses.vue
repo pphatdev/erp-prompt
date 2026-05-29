@@ -63,40 +63,40 @@
             <!-- Table -->
             <section v-else class="glass-card rounded-2xl overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-xs">
-                        <thead class="bg-(--bg-muted) text-xxs uppercase tracking-widest font-bold text-(--text-muted)">
-                            <tr>
-                                <th class="text-left px-4 py-3">Warehouse</th>
-                                <th class="text-left px-2 py-3 hidden md:table-cell">Location</th>
-                                <th class="text-left px-2 py-3 hidden lg:table-cell">Manager</th>
-                                <th class="text-right px-2 py-3 hidden md:table-cell">Capacity</th>
-                                <th class="text-left px-2 py-3">Status</th>
-                                <th class="text-right px-4 py-3 w-32">Actions</th>
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                                <th class="px-4 py-3 font-semibold">Warehouse</th>
+                                <th class="px-4 py-3 font-semibold hidden md:table-cell">Location</th>
+                                <th class="px-4 py-3 font-semibold hidden lg:table-cell">Manager</th>
+                                <th class="px-4 py-3 font-semibold text-right hidden md:table-cell">Capacity</th>
+                                <th class="px-4 py-3 font-semibold">Status</th>
+                                <th class="px-4 py-3 font-semibold text-right w-32">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y divide-(--border-color)">
                             <tr v-for="w in filteredList" :key="w.id"
-                                class="border-t border-(--border-color)/60 hover:bg-(--bg-muted)/40 transition-colors">
+                                class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-4 py-3">
                                     <p class="text-sm font-semibold text-(--text-heading) leading-tight">{{ w.name }}</p>
                                     <p class="text-xxs text-(--text-muted) font-mono mt-0.5">{{ w.code }}</p>
                                 </td>
-                                <td class="px-2 py-3 hidden md:table-cell">
+                                <td class="px-4 py-3 hidden md:table-cell">
                                     <p v-if="w.city || w.country">
                                         {{ [w.city, w.country].filter(Boolean).join(', ') }}
                                     </p>
                                     <p v-else-if="w.location">{{ w.location }}</p>
                                     <p v-else class="text-(--text-muted)">—</p>
                                 </td>
-                                <td class="px-2 py-3 hidden lg:table-cell">
+                                <td class="px-4 py-3 hidden lg:table-cell">
                                     <span v-if="w.manager">{{ w.manager.name }}</span>
                                     <span v-else class="text-(--text-muted)">Unassigned</span>
                                 </td>
-                                <td class="px-2 py-3 text-right font-mono hidden md:table-cell">
+                                <td class="px-4 py-3 text-right font-mono hidden md:table-cell">
                                     <span v-if="w.capacity !== null" class="font-semibold">{{ w.capacity.toLocaleString() }}</span>
                                     <span v-else class="text-(--text-muted)">—</span>
                                 </td>
-                                <td class="px-2 py-3">
+                                <td class="px-4 py-3">
                                     <Badge :variant="w.isActive ? 'success' : 'secondary'">
                                         {{ w.isActive ? 'Active' : 'Inactive' }}
                                     </Badge>

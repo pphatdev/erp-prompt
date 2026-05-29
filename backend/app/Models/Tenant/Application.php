@@ -9,6 +9,7 @@ use App\Models\Traits\BelongsToTenant;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -68,6 +69,25 @@ class Application extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'employee_id');
+    }
+
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(EmployeeAppointment::class);
+    }
+
+    /**
+     * Pending appointment requests, newest first. Modeled as HasMany rather
+     * than `hasOne()->latestOfMany('created_at')` because Laravel's
+     * latestOfMany always adds a `MAX(primary_key)` tie-breaker, which
+     * Postgres rejects on UUID PKs (no max(uuid) function). Callers pick
+     * the first row via Collection::first().
+     */
+    public function pendingAppointments(): HasMany
+    {
+        return $this->hasMany(EmployeeAppointment::class)
+            ->where('status', EmployeeAppointment::STATUS_PENDING)
+            ->orderByDesc('created_at');
     }
 
     protected static function boot(): void

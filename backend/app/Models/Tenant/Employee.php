@@ -22,6 +22,7 @@ class Employee extends Model
         'user_id',
         'department_id',
         'position_id',
+        'manager_id',
         'employee_id',
         'first_name',
         'last_name',
@@ -34,6 +35,7 @@ class Employee extends Model
         'bank_account_name',
         'bank_account_number',
         'status',
+        'employment_type',
         'tenant_id',
     ];
 
@@ -60,6 +62,11 @@ class Employee extends Model
     public function position(): BelongsTo
     {
         return $this->belongsTo(Position::class);
+    }
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'manager_id');
     }
 
     public function applications(): HasMany

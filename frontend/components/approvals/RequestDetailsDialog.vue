@@ -160,7 +160,8 @@
                         <!-- Timeline -->
                         <div>
                             <h3 class="text-sm font-semibold mb-3">Approval Timeline</h3>
-                            <ApprovalTimeline :history="request.history || []" :current-level="currentLevel" />
+                            <ApprovalTimeline :history="request.history || []" :current-level="currentLevel"
+                                :requester="request.requester" :submitted-at="request.created_at" />
                         </div>
 
                         <!-- Action Area (if approver mode) -->

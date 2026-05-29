@@ -11,6 +11,7 @@ use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class RecruitmentService
@@ -99,7 +100,11 @@ class RecruitmentService
      */
     public function buildApplicationQuery(array $filters = []): Builder
     {
-        $query = Application::query()->with(['vacancy', 'referrer']);
+        $with = ['vacancy', 'referrer'];
+        if (Schema::hasTable('employee_appointments')) {
+            $with[] = 'pendingAppointments';
+        }
+        $query = Application::query()->with($with);
 
         if (!empty($filters['jobVacancyId'])) {
             $query->where('job_vacancy_id', $filters['jobVacancyId']);
@@ -326,7 +331,7 @@ class RecruitmentService
      *
      * @return array{employee: \App\Models\Tenant\Employee, created: bool, linkedExisting: bool}
      */
-    public function convertToEmployee(Application $application): array
+    public function convertToEmployee(Application $application, array $overrides = []): array
     {
         if ($application->status !== 'hired') {
             throw new DomainException('Only hired applications can be converted to employees.');
@@ -341,30 +346,40 @@ class RecruitmentService
             // and re-create. The link will be repointed below.
         }
 
-        return DB::transaction(function () use ($application) {
+        return DB::transaction(function () use ($application, $overrides) {
             $application->loadMissing('vacancy');
 
             $parts = preg_split('/\s+/', trim($application->applicant_name)) ?: [];
-            $firstName = (string) (array_shift($parts) ?: 'Hire');
-            $lastName  = implode(' ', $parts) ?: 'Hired';
+            $firstName = (string) ($overrides['first_name'] ?? array_shift($parts) ?: 'Hire');
+            $lastName  = (string) ($overrides['last_name']  ?? (implode(' ', $parts) ?: 'Hired'));
 
             $existing = \App\Models\Tenant\Employee::where('email', $application->applicant_email)->first();
             $linkedExisting = (bool) $existing;
             $employee = $existing;
 
             if (!$employee) {
-                $employee = \App\Models\Tenant\Employee::create([
+                $payload = [
                     'employee_id'   => $this->generateNextEmployeeId(),
                     'first_name'    => $firstName,
                     'last_name'     => $lastName,
                     'email'         => $application->applicant_email,
-                    'phone'         => $application->applicant_phone,
-                    'hired_at'      => now()->toDateString(),
-                    'base_salary'   => $application->expected_salary,
-                    'department_id' => $application->vacancy?->department_id,
-                    'position_id'   => $application->vacancy?->position_id,
+                    'phone'         => $overrides['phone']         ?? $application->applicant_phone,
+                    'hired_at'      => $overrides['hired_at']      ?? now()->toDateString(),
+                    'base_salary'   => $overrides['base_salary']   ?? $application->expected_salary,
+                    'department_id' => $overrides['department_id'] ?? $application->vacancy?->department_id,
+                    'position_id'   => $overrides['position_id']   ?? $application->vacancy?->position_id,
                     'status'        => 'active',
-                ]);
+                ];
+                // Only emit the newer columns if the tenant has migrated them —
+                // legacy tenants without the appointment migration still get a
+                // working conversion via the admin bulk shortcut.
+                if (Schema::hasColumn('employees', 'manager_id')) {
+                    $payload['manager_id'] = $overrides['manager_id'] ?? null;
+                }
+                if (Schema::hasColumn('employees', 'employment_type')) {
+                    $payload['employment_type'] = $overrides['employment_type'] ?? 'full_time';
+                }
+                $employee = \App\Models\Tenant\Employee::create($payload);
             }
 
             $application->update([

@@ -72,7 +72,12 @@ class ApplicationController extends Controller
     {
         $this->authorize('view', $application);
 
-        return new ApplicationResource($application->load(['vacancy', 'referrer']));
+        $relations = ['vacancy', 'referrer'];
+        if (\Illuminate\Support\Facades\Schema::hasTable('employee_appointments')) {
+            $relations[] = 'pendingAppointments';
+        }
+
+        return new ApplicationResource($application->load($relations));
     }
 
     public function update(UpdateApplicationRequest $request, Application $application): ApplicationResource

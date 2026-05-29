@@ -83,48 +83,48 @@
             <!-- Table -->
             <section v-else class="glass-card rounded-2xl overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-xs">
-                        <thead class="bg-(--bg-muted) text-xxs uppercase tracking-widest font-bold text-(--text-muted)">
-                            <tr>
-                                <th class="text-left px-4 py-3">PO #</th>
-                                <th class="text-left px-2 py-3">Supplier</th>
-                                <th class="text-left px-2 py-3 hidden md:table-cell">Warehouse</th>
-                                <th class="text-left px-2 py-3 hidden lg:table-cell">Ordered</th>
-                                <th class="text-left px-2 py-3 hidden lg:table-cell">Expected</th>
-                                <th class="text-right px-2 py-3">Total</th>
-                                <th class="text-left px-2 py-3">Status</th>
-                                <th class="text-right px-4 py-3 w-44">Actions</th>
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                                <th class="px-4 py-3 font-semibold">PO #</th>
+                                <th class="px-4 py-3 font-semibold">Supplier</th>
+                                <th class="px-4 py-3 font-semibold hidden md:table-cell">Warehouse</th>
+                                <th class="px-4 py-3 font-semibold hidden lg:table-cell">Ordered</th>
+                                <th class="px-4 py-3 font-semibold hidden lg:table-cell">Expected</th>
+                                <th class="px-4 py-3 font-semibold text-right">Total</th>
+                                <th class="px-4 py-3 font-semibold">Status</th>
+                                <th class="px-4 py-3 font-semibold text-right w-44">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y divide-(--border-color)">
                             <tr v-for="po in filteredList" :key="po.id"
-                                class="border-t border-(--border-color)/60 hover:bg-(--bg-muted)/40 transition-colors">
+                                class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-4 py-3">
                                     <NuxtLink :to="`/inventory/purchase-orders/${po.id}`"
                                         class="font-mono font-semibold text-(--text-heading) hover:text-(--color-primary)">
                                         {{ po.poNumber }}
                                     </NuxtLink>
                                 </td>
-                                <td class="px-2 py-3">
+                                <td class="px-4 py-3">
                                     <span v-if="po.supplier">{{ po.supplier.name }}</span>
                                     <span v-else class="text-(--text-muted)">—</span>
                                 </td>
-                                <td class="px-2 py-3 hidden md:table-cell">
+                                <td class="px-4 py-3 hidden md:table-cell">
                                     <span v-if="po.warehouse">{{ po.warehouse.name }}</span>
                                     <span v-else class="text-(--text-muted)">—</span>
                                 </td>
-                                <td class="px-2 py-3 hidden lg:table-cell">
+                                <td class="px-4 py-3 hidden lg:table-cell">
                                     <span v-if="po.orderDate">{{ formatDate(po.orderDate) }}</span>
                                     <span v-else class="text-(--text-muted)">—</span>
                                 </td>
-                                <td class="px-2 py-3 hidden lg:table-cell">
+                                <td class="px-4 py-3 hidden lg:table-cell">
                                     <span v-if="po.expectedAt">{{ formatDate(po.expectedAt) }}</span>
                                     <span v-else class="text-(--text-muted)">—</span>
                                 </td>
-                                <td class="px-2 py-3 text-right font-mono font-semibold">
+                                <td class="px-4 py-3 text-right font-mono font-semibold">
                                     {{ formatCurrency(po.totalAmount) }}
                                 </td>
-                                <td class="px-2 py-3">
+                                <td class="px-4 py-3">
                                     <Badge :variant="poStatusBadgeVariant(po.status)">{{ po.status }}</Badge>
                                 </td>
                                 <td class="px-4 py-3 text-right">

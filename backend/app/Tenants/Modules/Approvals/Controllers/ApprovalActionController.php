@@ -28,59 +28,23 @@ class ApprovalActionController extends Controller
     {
         $user = $request->user();
 
-        // Self-heal: ensure default Leave workflow exists
-        $leaveWorkflow = \App\Models\Tenant\ApprovalWorkflow::where('module', 'hrm')
-            ->where('type', 'leave')
-            ->first();
-            
-        if (!$leaveWorkflow) {
-            $leaveWorkflow = \App\Models\Tenant\ApprovalWorkflow::create([
-                'name' => 'Leave Approval Workflow',
-                'module' => 'hrm',
-                'type' => 'leave',
-            ]);
-            $leaveWorkflow->levels()->create([
-                'sequence' => 1,
-                'approver_role' => 'admin',
-            ]);
-        }
-
-        // Self-heal: Back-fill missing ApprovalRequests for pending leaves
-        if (class_exists(\App\Models\Tenant\Leave::class)) {
-            $pendingLeaves = \App\Models\Tenant\Leave::where('status', 'pending')->get();
-            foreach ($pendingLeaves as $leave) {
-                $hasRequest = \App\Models\Tenant\ApprovalRequest::where('requestable_type', \App\Models\Tenant\Leave::class)
-                    ->where('requestable_id', $leave->id)
-                    ->exists();
-                    
-                if (!$hasRequest) {
-                    $requesterId = $leave->employee?->user_id ?? $user->id;
-                    if ($requesterId) {
-                        try {
-                            app(\App\Tenants\Modules\Approvals\Services\ApprovalService::class)->submitRequest(
-                                workflowId: $leaveWorkflow->id,
-                                requesterId: (string) $requesterId,
-                                requestableType: \App\Models\Tenant\Leave::class,
-                                requestableId: (string) $leave->id,
-                            );
-                        } catch (\Exception $e) {
-                            // Ignore any errors to prevent index route from failing
-                        }
-                    }
-                }
-            }
-        }
+        // Self-heal: ensure default HRM workflows exist and back-fill missing
+        // ApprovalRequests so freshly-submitted forms (and any rows created
+        // before a workflow was wired) show up under My Requests.
+        $this->ensureHrmWorkflowsAndBackfill($user);
         
         $query = ApprovalRequest::query()
             ->with([
                 'workflow.levels',
-                'requester',
+                'requester.employee',
                 'currentLevel',
-                'history',
+                'history.approver.employee',
                 'requestable' => function ($morphTo) {
                     $morphTo->morphWith([
                         \App\Models\Tenant\Leave::class => ['leaveType', 'employee'],
-                        \App\Models\Tenant\PurchaseOrder::class => ['supplier', 'warehouse', 'items.product']
+                        \App\Models\Tenant\PurchaseOrder::class => ['supplier', 'warehouse', 'items.product'],
+                        \App\Models\Tenant\EmployeeAppointment::class => ['department', 'position', 'manager', 'application', 'employee'],
+                        \App\Models\Tenant\Appraisal::class => ['employee', 'reviewer'],
                     ]);
                 }
             ]);
@@ -141,14 +105,15 @@ class ApprovalActionController extends Controller
         }
 
         return new ApprovalRequestResource($approvalRequest->load([
-            'requester', 
-            'history', 
-            'workflow.levels', 
+            'requester.employee',
+            'history.approver.employee',
+            'workflow.levels',
             'currentLevel', 
             'requestable' => function ($morphTo) {
                 $morphTo->morphWith([
                     \App\Models\Tenant\Leave::class => ['leaveType', 'employee'],
-                    \App\Models\Tenant\PurchaseOrder::class => ['supplier', 'warehouse', 'items.product']
+                    \App\Models\Tenant\PurchaseOrder::class => ['supplier', 'warehouse', 'items.product'],
+                    \App\Models\Tenant\EmployeeAppointment::class => ['department', 'position', 'manager', 'application', 'employee'],
                 ]);
             }
         ]));
@@ -176,16 +141,93 @@ class ApprovalActionController extends Controller
         );
 
         return new ApprovalRequestResource($processedRequest->load([
-            'requester', 
-            'history', 
-            'workflow.levels', 
-            'currentLevel', 
+            'requester.employee',
+            'history.approver.employee',
+            'workflow.levels',
+            'currentLevel',
             'requestable' => function ($morphTo) {
                 $morphTo->morphWith([
                     \App\Models\Tenant\Leave::class => ['leaveType', 'employee'],
-                    \App\Models\Tenant\PurchaseOrder::class => ['supplier', 'warehouse', 'items.product']
+                    \App\Models\Tenant\PurchaseOrder::class => ['supplier', 'warehouse', 'items.product'],
+                    \App\Models\Tenant\EmployeeAppointment::class => ['department', 'position', 'manager', 'application', 'employee'],
                 ]);
             }
         ]));
+    }
+
+    /**
+     * Ensure default HRM workflows (leave, overtime, appraisal) exist and
+     * back-fill ApprovalRequests for any pre-existing rows that pre-date the
+     * workflow being wired. Keeps My Requests usable without manual config.
+     */
+    protected function ensureHrmWorkflowsAndBackfill(\App\Models\Tenant\User $user): void
+    {
+        $sources = [
+            ['type' => 'leave',                'name' => 'Leave Approval Workflow',                'model' => \App\Models\Tenant\Leave::class,                'pendingStatuses' => ['pending']],
+            ['type' => 'overtime',             'name' => 'Overtime Approval Workflow',             'model' => \App\Models\Tenant\OvertimeRequest::class,      'pendingStatuses' => ['pending']],
+            ['type' => 'appraisal',            'name' => 'Appraisal Approval Workflow',            'model' => \App\Models\Tenant\Appraisal::class,            'pendingStatuses' => ['draft', 'submitted']],
+            ['type' => 'employee_appointment', 'name' => 'Employee Appointment Approval Workflow', 'model' => \App\Models\Tenant\EmployeeAppointment::class,  'pendingStatuses' => ['pending']],
+        ];
+
+        $service = app(\App\Tenants\Modules\Approvals\Services\ApprovalService::class);
+
+        foreach ($sources as $source) {
+            if (!class_exists($source['model'])) {
+                continue;
+            }
+
+            // Skip if the tenant hasn't migrated the source table yet. Keeps
+            // /approval-requests usable across tenants on different migration
+            // generations.
+            $table = (new $source['model'])->getTable();
+            if (!\Illuminate\Support\Facades\Schema::hasTable($table)) {
+                continue;
+            }
+
+            $workflow = \App\Models\Tenant\ApprovalWorkflow::where('module', 'hrm')
+                ->where('type', $source['type'])
+                ->first();
+
+            if (!$workflow) {
+                $workflow = \App\Models\Tenant\ApprovalWorkflow::create([
+                    'name' => $source['name'],
+                    'module' => 'hrm',
+                    'type' => $source['type'],
+                ]);
+                $workflow->levels()->create([
+                    'sequence' => 1,
+                    'approver_role' => 'admin',
+                ]);
+            }
+
+            $pending = $source['model']::whereIn('status', $source['pendingStatuses'])->get();
+            foreach ($pending as $row) {
+                $hasRequest = \App\Models\Tenant\ApprovalRequest::where('requestable_type', $source['model'])
+                    ->where('requestable_id', $row->id)
+                    ->exists();
+
+                if ($hasRequest) {
+                    continue;
+                }
+
+                $requesterId = $row->submitted_by
+                    ?? $row->employee?->user_id
+                    ?? $user->id;
+                if (!$requesterId) {
+                    continue;
+                }
+
+                try {
+                    $service->submitRequest(
+                        workflowId: $workflow->id,
+                        requesterId: (string) $requesterId,
+                        requestableType: $source['model'],
+                        requestableId: (string) $row->id,
+                    );
+                } catch (\Exception $e) {
+                    // Ignore — keep the index endpoint resilient.
+                }
+            }
+        }
     }
 }

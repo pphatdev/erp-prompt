@@ -560,7 +560,7 @@
                     @click="goToStep(activeStep - 1)">
                     <i class="ti ti-arrow-left" /> Back
                 </button>
-                <NuxtLink v-else to="/applications" class="btn btn-ghost text-xs">
+                <NuxtLink v-else to="/hrm/recruitments/applications" class="btn btn-ghost text-xs">
                     <i class="ti ti-arrow-left" /> Back to applications
                 </NuxtLink>
 
@@ -814,7 +814,7 @@ const loadLookups = async () => {
 
 const discard = () => {
     if (!confirm('Discard this candidate? All entered data will be lost.')) return
-    router.push('/applications')
+    router.push('/hrm/recruitments/applications')
 }
 
 const submit = async () => {
@@ -835,7 +835,7 @@ const submit = async () => {
 
         await api.post('/applications', payload)
         toast.success('Candidate added', `${form.applicant_name} is now in the Applied column.`)
-        router.push({ path: '/candidates', query: { vacancyId: form.job_vacancy_id } })
+        router.push({ path: '/hrm/recruitments/candidates', query: { vacancyId: form.job_vacancy_id } })
     } catch (err: any) {
         submitError.value = err?.data?.message || 'Failed to submit application.'
     } finally {

@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace App\Tenants\Modules\HRM\Services;
 
 use App\Models\Tenant\Appraisal;
+use App\Models\Tenant\ApprovalWorkflow;
+use App\Tenants\Modules\Approvals\Services\ApprovalService;
 use App\Tenants\Modules\IAM\Services\WorkflowStatusService;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class PerformanceService
 {
-    public function __construct(private readonly WorkflowStatusService $statuses)
-    {
+    public function __construct(
+        private readonly WorkflowStatusService $statuses,
+        private readonly ApprovalService $approvals,
+    ) {
     }
 
 
@@ -46,7 +51,32 @@ class PerformanceService
     {
         $data['status'] = $this->statuses->initialFor('hrm.appraisal');
 
-        return DB::transaction(fn () => Appraisal::create($data));
+        return DB::transaction(function () use ($data) {
+            $appraisal = Appraisal::create($data);
+
+            $workflow = $this->appraisalWorkflow();
+            $requesterId = Auth::id() ?? $appraisal->employee?->user_id;
+
+            if ($workflow && $requesterId) {
+                $this->approvals->submitRequest(
+                    workflowId: $workflow->id,
+                    requesterId: (string) $requesterId,
+                    requestableType: Appraisal::class,
+                    requestableId: (string) $appraisal->id,
+                );
+            }
+
+            return $appraisal;
+        });
+    }
+
+    private function appraisalWorkflow(): ?ApprovalWorkflow
+    {
+        return ApprovalWorkflow::query()
+            ->where('module', 'hrm')
+            ->where('type', 'appraisal')
+            ->orderBy('created_at')
+            ->first();
     }
 
     public function updateAppraisal(Appraisal $appraisal, array $data): Appraisal

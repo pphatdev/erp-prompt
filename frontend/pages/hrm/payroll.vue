@@ -49,8 +49,8 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-xs font-mono">
-                                    <div>{{ p.startDate }}</div>
-                                    <div class="text-(--text-muted) text-xxs">→ {{ p.endDate }}</div>
+                                    <div>{{ formatDate(p.startDate) }}</div>
+                                    <div class="text-(--text-muted) text-xxs">→ {{ formatDate(p.endDate) }}</div>
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs text-right">{{ p.payslipCount ?? 0 }}</td>
                                 <td class="px-4 py-3">
@@ -131,8 +131,8 @@
                         <div>
                             <h3 class="text-base font-semibold text-(--text-heading)">Payslips · {{ activePeriod?.name
                                 }}</h3>
-                            <p class="text-xxs text-(--text-muted) mt-1">{{ activePeriod?.startDate }} → {{
-                                activePeriod?.endDate }}</p>
+                            <p class="text-xxs text-(--text-muted) mt-1">{{ formatDate(activePeriod?.startDate) }} → {{
+                                formatDate(activePeriod?.endDate) }}</p>
                         </div>
                         <button class="topbar-btn" @click="showPayslipsModal = false"><i class="ti ti-x" /></button>
                     </header>
@@ -213,6 +213,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useApi } from '~/composables/useApi'
 import { useAuthStore } from '~/stores/auth'
+import { useDateFormat } from '~/composables/useDateFormat'
 import { useToast } from '~/composables/useToast'
 
 interface PayrollPeriod {
@@ -239,6 +240,7 @@ interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; t
 const api = useApi()
 const authStore = useAuthStore()
 const toast = useToast()
+const { formatDate } = useDateFormat()
 const canWrite = computed(() => authStore.hasPermission('hrm.payroll.write'))
 const canReadPayroll = computed(() => authStore.hasPermission('hrm.payroll.read'))
 

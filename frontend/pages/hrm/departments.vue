@@ -170,7 +170,7 @@ const filtered = computed(() => {
 const loadDepartments = async () => {
     loading.value = true
     try {
-        const res = await api.get<Paginated<Department>>(`/hrm/departments?page=${pagination.page}&limit=${pagination.limit}`)
+        const res = await api.get<Paginated<Department>>(`/departments?page=${pagination.page}&limit=${pagination.limit}`)
         departments.value = res.data
         pagination.total = res.pagination.total
         pagination.totalPages = res.pagination.totalPages
@@ -198,9 +198,9 @@ const saveDepartment = async () => {
     formError.value = null
     try {
         if (editing.value) {
-            await api.put(`/hrm/departments/${editing.value.id}`, form)
+            await api.put(`/departments/${editing.value.id}`, form)
         } else {
-            await api.post('/hrm/departments', form)
+            await api.post('/departments', form)
         }
         showModal.value = false
         await loadDepartments()
@@ -214,7 +214,7 @@ const saveDepartment = async () => {
 const removeDepartment = async (d: Department) => {
     if (!confirm(`Archive department "${d.name}"? Employees assigned to it will become unassigned.`)) return
     try {
-        await api.delete(`/hrm/departments/${d.id}`)
+        await api.delete(`/departments/${d.id}`)
         await loadDepartments()
     } catch (err: any) {
         console.error('Failed to archive department', err)

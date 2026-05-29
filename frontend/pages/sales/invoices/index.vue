@@ -70,7 +70,7 @@
                         <div class="relative h-9 flex items-center justify-end">
                             <div class="absolute right-0 flex items-center gap-1.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0">
                                 <span class="text-[10px] font-bold uppercase tracking-wider text-(--color-primary)">Open details</span>
-                                <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center">
+                                <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center shrink-0">
                                     <i class="ti ti-arrow-right text-xs"></i>
                                 </div>
                             </div>

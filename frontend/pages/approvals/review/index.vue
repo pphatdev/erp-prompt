@@ -78,7 +78,7 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">
-                                    {{ formatDate(req.created_at) }}
+                                    {{ formatDateTime(req.created_at) }}
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <button class="btn btn-primary btn-sm text-xs" @click.stop="openActionModal(req)">
@@ -132,13 +132,13 @@
                             <div class="relative h-9 flex items-center justify-end shrink-0">
                                 <div class="absolute right-0 flex items-center gap-1.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0">
                                     <span class="text-[10px] font-bold uppercase tracking-wider text-(--color-primary)">Review Request</span>
-                                    <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center">
+                                    <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center shrink-0">
                                         <i class="ti ti-arrow-right text-xs"></i>
                                     </div>
                                 </div>
                                 <div class="text-right transition-all duration-300 opacity-100 group-hover:opacity-0 group-hover:translate-x-[-8px]">
                                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Submitted</p>
-                                    <p class="text-xs text-(--text-body) font-mono">{{ formatDate(req.created_at) }}</p>
+                                    <p class="text-xs text-(--text-body) font-mono">{{ formatDateTime(req.created_at) }}</p>
                                 </div>
                             </div>
                         </div>
@@ -163,7 +163,7 @@ import Pagination from '~/components/Pagination.vue'
 
 const router = useRouter()
 const { getRequests } = useApprovals()
-const { formatDate } = useDateFormat()
+const { formatDateTime } = useDateFormat()
 
 type View = 'table' | 'grid'
 const VIEW_KEY = 'approvals.review.view'

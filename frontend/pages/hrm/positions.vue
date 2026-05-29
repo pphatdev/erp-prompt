@@ -172,7 +172,7 @@ const filtered = computed(() => {
 const loadPositions = async () => {
     loading.value = true
     try {
-        const res = await api.get<Paginated<Position>>(`/hrm/positions?page=${pagination.page}&limit=${pagination.limit}`)
+        const res = await api.get<Paginated<Position>>(`/positions?page=${pagination.page}&limit=${pagination.limit}`)
         positions.value = res.data
         pagination.total = res.pagination.total
         pagination.totalPages = res.pagination.totalPages
@@ -201,9 +201,9 @@ const savePosition = async () => {
     try {
         const payload = { title: form.title, level: form.level || null }
         if (editing.value) {
-            await api.put(`/hrm/positions/${editing.value.id}`, payload)
+            await api.put(`/positions/${editing.value.id}`, payload)
         } else {
-            await api.post('/hrm/positions', payload)
+            await api.post('/positions', payload)
         }
         showModal.value = false
         await loadPositions()
@@ -217,7 +217,7 @@ const savePosition = async () => {
 const removePosition = async (p: Position) => {
     if (!confirm(`Remove position "${p.title}"? Employees currently assigned will become unassigned.`)) return
     try {
-        await api.delete(`/hrm/positions/${p.id}`)
+        await api.delete(`/positions/${p.id}`)
         await loadPositions()
     } catch (err: any) {
         console.error('Failed to remove position', err)

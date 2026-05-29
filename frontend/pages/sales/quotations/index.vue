@@ -85,7 +85,7 @@
                         <div class="relative h-9 flex items-center justify-end">
                             <div class="absolute right-0 flex items-center gap-1.5 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0">
                                 <span class="text-[10px] font-bold uppercase tracking-wider text-(--color-primary)">Open details</span>
-                                <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center">
+                                <div class="w-6 h-6 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center shrink-0">
                                     <i class="ti ti-arrow-right text-xs"></i>
                                 </div>
                             </div>
@@ -101,21 +101,21 @@
             <!-- List view -->
             <section v-else class="glass-card rounded-2xl overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-xs">
-                        <thead class="bg-(--bg-muted) text-xxs uppercase tracking-widest font-bold text-(--text-muted)">
-                            <tr>
-                                <th class="text-left px-4 py-3">Quote #</th>
-                                <th class="text-left px-2 py-3 hidden md:table-cell">Customer</th>
-                                <th class="text-left px-2 py-3 hidden lg:table-cell">Quote date</th>
-                                <th class="text-left px-2 py-3 hidden lg:table-cell">Due</th>
-                                <th class="text-right px-2 py-3">Total</th>
-                                <th class="text-left px-2 py-3">Status</th>
-                                <th class="text-right px-4 py-3 w-16"></th>
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                                <th class="px-4 py-3 font-semibold">Quote #</th>
+                                <th class="px-4 py-3 font-semibold hidden md:table-cell">Customer</th>
+                                <th class="px-4 py-3 font-semibold hidden lg:table-cell">Quote date</th>
+                                <th class="px-4 py-3 font-semibold hidden lg:table-cell">Due</th>
+                                <th class="px-4 py-3 font-semibold text-right">Total</th>
+                                <th class="px-4 py-3 font-semibold">Status</th>
+                                <th class="px-4 py-3 font-semibold text-right w-16"></th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y divide-(--border-color)">
                             <tr v-for="q in filtered" :key="q.id"
-                                class="border-t border-(--border-color)/60 hover:bg-(--bg-muted)/40 transition-colors cursor-pointer"
+                                class="hover:bg-(--bg-muted) transition-colors cursor-pointer"
                                 @click="$router.push(`/sales/quotations/${q.id}`)">
                                 <td class="px-4 py-3">
                                     <p class="font-mono font-semibold text-(--text-heading)">{{ q.quoteNumber }}</p>
@@ -123,20 +123,20 @@
                                         <i class="ti ti-target" />From Opportunity
                                     </p>
                                 </td>
-                                <td class="px-2 py-3 hidden md:table-cell">
+                                <td class="px-4 py-3 hidden md:table-cell">
                                     <span v-if="q.customer?.name" class="text-(--text-body)">{{ q.customer.name }}</span>
                                     <span v-else class="text-(--text-muted) italic">No account yet</span>
                                 </td>
-                                <td class="px-2 py-3 hidden lg:table-cell font-mono text-(--text-body)">
+                                <td class="px-4 py-3 hidden lg:table-cell font-mono text-(--text-body)">
                                     {{ q.quoteDate || '—' }}
                                 </td>
-                                <td class="px-2 py-3 hidden lg:table-cell font-mono text-(--text-body)">
+                                <td class="px-4 py-3 hidden lg:table-cell font-mono text-(--text-body)">
                                     {{ q.dueDate || '—' }}
                                 </td>
-                                <td class="px-2 py-3 text-right font-mono font-semibold text-(--text-heading)">
+                                <td class="px-4 py-3 text-right font-mono font-semibold text-(--text-heading)">
                                     {{ fmt(q.totalAmount) }}
                                 </td>
-                                <td class="px-2 py-3">
+                                <td class="px-4 py-3">
                                     <Badge :variant="statusBadgeVariant(q.status)">{{ q.status }}</Badge>
                                 </td>
                                 <td class="px-4 py-3 text-right">

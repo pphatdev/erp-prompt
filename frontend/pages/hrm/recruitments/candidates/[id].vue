@@ -12,7 +12,7 @@
             <i class="ti ti-user-question text-4xl text-(--text-muted)" />
             <p class="text-sm text-(--text-heading) font-semibold">Candidate not found</p>
             <p class="text-xs text-(--text-muted)">It may have been removed or you don't have access.</p>
-            <NuxtLink to="/candidates" class="btn btn-soft-primary text-xs mt-2">
+            <NuxtLink to="/hrm/recruitments/candidates" class="btn btn-soft-primary text-xs mt-2">
                 <i class="ti ti-arrow-left" /> Back to pipeline
             </NuxtLink>
         </div>
@@ -21,7 +21,7 @@
         <div v-else class="space-y-6">
             <!-- Breadcrumb -->
             <nav class="text-xxs text-(--text-muted) flex items-center gap-1.5">
-                <NuxtLink to="/candidates" class="hover:text-(--color-primary)">Candidates</NuxtLink>
+                <NuxtLink to="/hrm/recruitments/candidates" class="hover:text-(--color-primary)">Candidates</NuxtLink>
                 <i class="ti ti-chevron-right text-[10px]" />
                 <span class="text-(--text-body) truncate max-w-[260px]">{{ app.applicantName }}</span>
             </nav>
@@ -166,7 +166,8 @@
                             <div>
                                 <p class="text-xxs uppercase tracking-widest font-bold text-(--text-muted) mb-2">Target
                                     vacancy</p>
-                                <NuxtLink v-if="app.vacancy" :to="`/candidates?vacancyId=${app.vacancy.id}`"
+                                <NuxtLink v-if="app.vacancy"
+                                    :to="`/hrm/recruitments/applications?vacancyId=${app.vacancy.id}`"
                                     class="flex items-center gap-3 p-3 rounded-lg bg-(--bg-muted) border border-(--border-color) hover:border-(--color-primary)/40 transition-colors">
                                     <span
                                         class="w-10 h-10 rounded-lg bg-(--color-primary-subtle) text-(--color-primary) inline-flex items-center justify-center shrink-0">
@@ -349,7 +350,7 @@
                             <li v-for="event in timeline" :key="event.key" class="relative pl-8">
                                 <span
                                     class="absolute left-0 top-0.5 w-6 h-6 rounded-full inline-flex items-center justify-center border-2"
-                                    :class="event.done ? 'bg-(--color-primary-subtle) border-(--color-primary)/40 text-(--color-primary)' : 'bg-(--bg-muted) border-(--border-color) text-(--text-muted)'">
+                                    :class="event.done ? 'bg-(--color-primary) border-(--color-primary) text-white' : 'bg-(--bg-muted) border-(--border-color) text-(--text-muted)'">
                                     <i :class="['ti text-[12px]', event.icon]" />
                                 </span>
                                 <p class="text-xs font-semibold text-(--text-heading)">{{ event.label }}</p>
@@ -367,12 +368,25 @@
                         <p v-if="app.employeeId" class="text-xxs text-(--text-muted)">
                             This candidate is linked to an employee record.
                         </p>
+                        <p v-else-if="app.pendingAppointmentRequest" class="text-xxs text-(--text-muted)">
+                            An appointment request is awaiting HR approval. The employee record will be created once approved.
+                        </p>
                         <p v-else class="text-xxs text-(--text-muted)">
-                            Convert this candidate into a full employee record to begin onboarding.
+                            Submit an appointment request for HR approval. Once approved, the employee record is created from the data below.
                         </p>
                         <NuxtLink v-if="app.employeeId" :to="`/hrm/employees/${app.employeeId}`"
                             class="btn btn-soft-primary text-xs w-full justify-center">
                             <i class="ti ti-user-check" /> View employee
+                        </NuxtLink>
+                        <NuxtLink v-else-if="app.pendingAppointmentRequest"
+                            :to="`/approvals/requests/${app.pendingAppointmentRequest.id}`"
+                            class="btn btn-soft-warning text-xs w-full justify-center">
+                            <i class="ti ti-hourglass-high" /> View pending request
+                        </NuxtLink>
+                        <NuxtLink v-else-if="canWrite"
+                            :to="`/approvals/forms/employee-appointment?applicationId=${app.id}`"
+                            class="btn btn-primary text-xs w-full justify-center">
+                            <i class="ti ti-send" /> Request Appointment of Employee
                         </NuxtLink>
                     </article>
                 </div>
@@ -394,7 +408,7 @@ definePageMeta({
     breadcrumb: 'Candidate Profile'
 })
 
-type ApplicationStatus = 'applied' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
+type ApplicationStatus = 'applied' | 'screening' | 'shortlisted' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
 
 interface VacancyLite { id: string; title: string }
 interface ReferrerLite { id: string; employeeId: string; fullName: string }
@@ -424,11 +438,13 @@ interface Application {
     vacancy?: VacancyLite
     referrer?: ReferrerLite
     referrerEmployeeId?: string | null
+    pendingAppointmentRequest?: { id: string; status: string; createdAt: string } | null
 }
 
 const STATUS_FLOW: Record<ApplicationStatus, ApplicationStatus[]> = {
     applied: ['screening', 'rejected', 'withdrawn'],
-    screening: ['interview', 'rejected', 'withdrawn'],
+    screening: ['shortlisted', 'interview', 'rejected', 'withdrawn'],
+    shortlisted: ['interview', 'rejected', 'withdrawn'],
     interview: ['offer', 'rejected', 'withdrawn'],
     offer: ['hired', 'rejected', 'withdrawn'],
     hired: [],
@@ -437,7 +453,7 @@ const STATUS_FLOW: Record<ApplicationStatus, ApplicationStatus[]> = {
 }
 
 const STAGE_INDEX: Record<ApplicationStatus, number> = {
-    applied: 0, screening: 1, interview: 2, offer: 3, hired: 4,
+    applied: 0, screening: 1, shortlisted: 2, interview: 3, offer: 4, hired: 5,
     rejected: -1, withdrawn: -1
 }
 
@@ -497,7 +513,7 @@ const relativeTime = (iso: string | null): string => {
 
 const statusLabel = (s: ApplicationStatus): string => {
     const labels: Record<ApplicationStatus, string> = {
-        applied: 'Applied', screening: 'Screening', interview: 'Interview',
+        applied: 'Applied', screening: 'Screening', shortlisted: 'Shortlisted', interview: 'Interview',
         offer: 'Offer sent', hired: 'Hired', rejected: 'Rejected', withdrawn: 'Withdrawn'
     }
     return labels[s]
@@ -507,6 +523,7 @@ const statusVariant = (s: ApplicationStatus): 'primary' | 'success' | 'warning' 
     switch (s) {
         case 'applied': return 'secondary'
         case 'screening': return 'info'
+        case 'shortlisted': return 'primary'
         case 'interview': return 'warning'
         case 'offer': return 'primary'
         case 'hired': return 'success'
@@ -657,7 +674,7 @@ const copyEmail = async () => {
 
 const goToEdit = () => {
     if (!app.value) return
-    navigateTo(`/applications?id=${app.value.id}`)
+    navigateTo(`/hrm/recruitments/applications?id=${app.value.id}`)
 }
 
 onMounted(loadCandidate)

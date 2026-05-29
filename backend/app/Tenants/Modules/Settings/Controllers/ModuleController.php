@@ -19,7 +19,14 @@ class ModuleController extends Controller
      */
     public function index(): JsonResponse
     {
-        $modules = Module::with(['children' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')])
+        // 3 levels deep — HRM now has groups → sub-groups → leaves
+        // (e.g. hrm > hrm-employees > hrm-employees-list). The sidebar's
+        // sort logic walks all three, so they all need to ship here.
+        $childOrder = fn ($q) => $q->where('is_active', true)->orderBy('sort_order');
+        $modules = Module::with([
+            'children'          => $childOrder,
+            'children.children' => $childOrder,
+        ])
             ->whereNull('parent_id')
             ->where('is_active', true)
             ->orderBy('group')
@@ -48,8 +55,12 @@ class ModuleController extends Controller
      */
     public function allForManagement(): JsonResponse
     {
+        // The HRM tree is now 3 levels deep (e.g. hrm > hrm-employees > hrm-employees-list).
+        // Eager-load grandchildren explicitly so the management UI can paint them.
         $modules = Module::with([
-            'children'          => fn ($q) => $q->orderBy('sort_order'),
+            'children'                   => fn ($q) => $q->orderBy('sort_order'),
+            'children.children'          => fn ($q) => $q->orderBy('sort_order'),
+            'children.children.products',
             'children.products',
             'products',
         ])

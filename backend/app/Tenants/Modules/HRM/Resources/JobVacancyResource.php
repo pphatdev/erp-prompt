@@ -14,6 +14,8 @@ class JobVacancyResource extends JsonResource
         return [
             'id' => $this->id,
             'title' => $this->title,
+            'departmentId' => $this->department_id,
+            'positionId' => $this->position_id,
             'description' => $this->description,
             'location' => $this->location,
             'employmentType' => $this->employment_type,

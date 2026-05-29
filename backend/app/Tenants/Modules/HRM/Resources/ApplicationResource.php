@@ -19,6 +19,10 @@ class ApplicationResource extends JsonResource
             $candidateCode = $prefix . $matches[1];
         }
 
+        $pendingAppointment = $this->relationLoaded('pendingAppointments')
+            ? $this->pendingAppointments->first()
+            : null;
+
         return [
             'id' => $this->id,
             'candidateCode' => $candidateCode,
@@ -41,6 +45,11 @@ class ApplicationResource extends JsonResource
             'status' => $this->status,
             'appliedAt' => optional($this->applied_at)->toIso8601String(),
             'convertedAt' => optional($this->converted_at)->toIso8601String(),
+            'pendingAppointmentRequest' => $pendingAppointment ? [
+                'id'        => $pendingAppointment->id,
+                'status'    => $pendingAppointment->status,
+                'createdAt' => optional($pendingAppointment->created_at)->toIso8601String(),
+            ] : null,
             'vacancy' => $this->whenLoaded('vacancy', fn () => $this->vacancy ? new JobVacancyResource($this->vacancy) : null),
             'referrer' => $this->whenLoaded('referrer', fn () => $this->referrer ? new EmployeeResource($this->referrer) : null),
             'employee' => $this->whenLoaded('employee', fn () => $this->employee ? new EmployeeResource($this->employee) : null),

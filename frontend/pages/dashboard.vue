@@ -383,7 +383,7 @@
                                         <td
                                             class="px-5 py-3 text-xs text-right font-mono font-semibold text-(--text-heading)">
                                             {{ l.days }}d</td>
-                                        <td class="px-5 py-3 text-xs text-(--text-muted) font-mono">{{ l.start_date ?? '—' }}</td>
+                                        <td class="px-5 py-3 text-xs text-(--text-muted) font-mono">{{ formatDate(l.start_date) }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -552,8 +552,7 @@
                                         class="px-5 py-3 text-xs text-right font-mono font-semibold text-(--text-heading)">
                                         {{ l.days }}d
                                     </td>
-                                    <td class="px-5 py-3 text-xs text-(--text-muted) font-mono">{{ l.start_date ?? '—'
-                                        }}</td>
+                                    <td class="px-5 py-3 text-xs text-(--text-muted) font-mono">{{ formatDate(l.start_date) }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -570,8 +569,10 @@
 import { computed, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useTenantStore } from '~/stores/tenant'
+import { useDateFormat } from '~/composables/useDateFormat'
 
 const authStore = useAuthStore()
+const { formatDate } = useDateFormat()
 const tenantStore = useTenantStore()
 
 const { summary, loading, error, load, hasModule, revenueBars, headcountBars, formatCurrency } = useDashboard()

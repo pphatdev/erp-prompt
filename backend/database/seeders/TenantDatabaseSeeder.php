@@ -247,6 +247,15 @@ class TenantDatabaseSeeder extends Seeder
         // Must run BEFORE creating the base employee so generateNextEmployeeId() reads the right prefix.
         app(\App\Tenants\Modules\Settings\Services\SettingService::class)->ensureDefaults();
 
+        // Seed workforce taxonomies (departments + positions) before employees so
+        // future seed iterations can link admin/base to one of them if desired.
+        $this->seedDepartments();
+        $this->seedPositions();
+        // Shift templates + vacancies don't need employees, but vacancies do need
+        // departments/positions — so they slot in here, after seedPositions.
+        $this->seedShifts();
+        $this->seedVacancies();
+
         if (\Illuminate\Support\Facades\Schema::hasTable('employees')) {
             // Seed Admin Employee
             $adminEmployee = \App\Models\Tenant\Employee::where('email', 'admin@example.com')
@@ -287,6 +296,10 @@ class TenantDatabaseSeeder extends Seeder
                 ]);
             }
         }
+
+        // Applications + appraisals depend on the employees rows just created.
+        $this->seedApplications();
+        $this->seedAppraisalCycles();
 
         // Seed default Leave Types
         $defaultLeaveTypes = [
@@ -343,6 +356,254 @@ class TenantDatabaseSeeder extends Seeder
                     'updated_at'             => now(),
                 ]
             );
+        }
+    }
+
+    /**
+     * Idempotent seed of starter Departments. Keyed on `code` (unique within
+     * the tenant DB). Uses withTrashed()+restore() because Department uses
+     * SoftDeletes and the unique index does NOT include deleted_at — a row
+     * trashed by an earlier run would otherwise collide on re-insert.
+     */
+    private function seedDepartments(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('departments')) {
+            return;
+        }
+
+        $departments = [
+            ['code' => 'ENG', 'name' => 'Engineering'],
+            ['code' => 'SLS', 'name' => 'Sales'],
+            ['code' => 'MKT', 'name' => 'Marketing'],
+            ['code' => 'HR',  'name' => 'Human Resources'],
+            ['code' => 'FIN', 'name' => 'Finance'],
+            ['code' => 'OPS', 'name' => 'Operations'],
+        ];
+
+        foreach ($departments as $row) {
+            $dept = \App\Models\Tenant\Department::withTrashed()
+                ->updateOrCreate(['code' => $row['code']], $row);
+            if ($dept->trashed()) {
+                $dept->restore();
+            }
+        }
+    }
+
+    /**
+     * Idempotent seed of starter Positions. Keyed on `title` (scoped per-tenant
+     * via BelongsToTenant); no SoftDeletes so a plain updateOrCreate suffices.
+     */
+    private function seedPositions(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('positions')) {
+            return;
+        }
+
+        $positions = [
+            ['title' => 'Intern',                 'level' => 'L1'],
+            ['title' => 'Junior Engineer',        'level' => 'L2'],
+            ['title' => 'Engineer',               'level' => 'L3'],
+            ['title' => 'Senior Engineer',        'level' => 'L4'],
+            ['title' => 'Team Lead',              'level' => 'L5'],
+            ['title' => 'Engineering Manager',    'level' => 'L6'],
+            ['title' => 'Account Executive',      'level' => 'L3'],
+            ['title' => 'HR Business Partner',    'level' => 'L4'],
+        ];
+
+        foreach ($positions as $row) {
+            \App\Models\Tenant\Position::updateOrCreate(['title' => $row['title']], $row);
+        }
+    }
+
+    /**
+     * Three canonical shift templates. SoftDeletes on Shift means a row trashed
+     * by an earlier wipe still occupies the name; withTrashed+restore keeps
+     * re-runs collision-free.
+     */
+    private function seedShifts(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('shifts')) {
+            return;
+        }
+
+        $shifts = [
+            ['name' => 'Morning', 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'grace_period_minutes' => 15, 'half_day_threshold_minutes' => 240],
+            ['name' => 'Evening', 'start_time' => '14:00:00', 'end_time' => '22:00:00', 'grace_period_minutes' => 15, 'half_day_threshold_minutes' => 240],
+            // Night shift crosses midnight — AttendanceService handles wrap-around.
+            ['name' => 'Night',   'start_time' => '22:00:00', 'end_time' => '06:00:00', 'grace_period_minutes' => 15, 'half_day_threshold_minutes' => 240],
+        ];
+
+        foreach ($shifts as $row) {
+            $shift = \App\Models\Tenant\Shift::withTrashed()->firstOrNew(['name' => $row['name']]);
+            if (!$shift->exists) {
+                $shift->fill($row)->save();
+            } elseif ($shift->trashed()) {
+                $shift->restore();
+            }
+        }
+    }
+
+    /**
+     * Five starter open vacancies wired to the seeded departments + positions.
+     * Uses firstOrNew (rather than updateOrCreate) so manually-edited vacancies
+     * aren't trampled on every seeder re-run.
+     */
+    private function seedVacancies(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('job_vacancies')) {
+            return;
+        }
+
+        // Pre-resolve lookups; if departments/positions haven't been seeded the
+        // helper degrades gracefully — the rows still create, just without FKs.
+        $dept = fn (string $code) => \App\Models\Tenant\Department::where('code', $code)->value('id');
+        $pos  = fn (string $title) => \App\Models\Tenant\Position::where('title', $title)->value('id');
+
+        $vacancies = [
+            ['title' => 'Senior Backend Engineer', 'department_id' => $dept('ENG'), 'position_id' => $pos('Senior Engineer'),     'employment_type' => 'full_time', 'experience_min_years' => 4, 'experience_max_years' => 8,  'salary_min' => 4500, 'salary_max' => 7500, 'vacancies_count' => 2],
+            ['title' => 'Sales Account Executive', 'department_id' => $dept('SLS'), 'position_id' => $pos('Account Executive'),   'employment_type' => 'full_time', 'experience_min_years' => 2, 'experience_max_years' => 5,  'salary_min' => 2500, 'salary_max' => 4500, 'vacancies_count' => 3],
+            ['title' => 'Marketing Manager',       'department_id' => $dept('MKT'), 'position_id' => $pos('Engineering Manager'), 'employment_type' => 'full_time', 'experience_min_years' => 5, 'experience_max_years' => 10, 'salary_min' => 5000, 'salary_max' => 8500, 'vacancies_count' => 1],
+            ['title' => 'HR Business Partner',     'department_id' => $dept('HR'),  'position_id' => $pos('HR Business Partner'), 'employment_type' => 'full_time', 'experience_min_years' => 3, 'experience_max_years' => 7,  'salary_min' => 3500, 'salary_max' => 6000, 'vacancies_count' => 1],
+            ['title' => 'Operations Intern',       'department_id' => $dept('OPS'), 'position_id' => $pos('Intern'),              'employment_type' => 'intern',    'experience_min_years' => 0, 'experience_max_years' => 1,  'salary_min' => 600,  'salary_max' => 900,  'vacancies_count' => 4],
+        ];
+
+        foreach ($vacancies as $row) {
+            $row['status']    = 'open';
+            $row['posted_at'] = now()->subDays(14)->toDateString();
+            $row['closes_at'] = now()->addDays(45)->toDateString();
+
+            $vacancy = \App\Models\Tenant\JobVacancy::withTrashed()
+                ->firstOrNew(['title' => $row['title']]);
+            if (!$vacancy->exists) {
+                $vacancy->fill($row)->save();
+            } elseif ($vacancy->trashed()) {
+                $vacancy->restore();
+            }
+        }
+    }
+
+    /**
+     * Ten demo applications spread across the canonical recruitment pipeline.
+     * Keyed on (job_vacancy_id, applicant_email) so re-running is a no-op. The
+     * Application model auto-generates candidate_code on creating().
+     */
+    private function seedApplications(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('applications')) {
+            return;
+        }
+
+        // Anchor every application to whichever vacancy comes back first if
+        // the title-lookup misses — keeps the seeder resilient if vacancies
+        // were renamed by hand.
+        $vacancyByTitle = function (string $title): ?string {
+            return \App\Models\Tenant\JobVacancy::withTrashed()
+                ->where('title', $title)
+                ->value('id');
+        };
+        $fallback = \App\Models\Tenant\JobVacancy::withTrashed()->value('id');
+        if (!$fallback) {
+            return; // No vacancies → nothing to attach to.
+        }
+
+        // Pin candidate_code explicitly so seed rows are deterministic and never
+        // collide with auto-generated CAN-YYYYMM-NNN codes from real applications
+        // (the auto-generator scans by month — using a non-numeric SEED token
+        // keeps the seed rows in their own namespace).
+        $applications = [
+            ['code' => 'CAN-SEED-001', 'vacancy' => 'Senior Backend Engineer', 'applicant_name' => 'Avery Singh',   'applicant_email' => 'avery.singh@example.com',   'status' => 'hired',                'days_ago' => 60],
+            ['code' => 'CAN-SEED-002', 'vacancy' => 'Senior Backend Engineer', 'applicant_name' => 'Linh Tran',     'applicant_email' => 'linh.tran@example.com',     'status' => 'offer',                'days_ago' => 40],
+            ['code' => 'CAN-SEED-003', 'vacancy' => 'Senior Backend Engineer', 'applicant_name' => 'Pavel Ivanov',  'applicant_email' => 'pavel.ivanov@example.com',  'status' => 'interview',            'days_ago' => 22],
+            ['code' => 'CAN-SEED-004', 'vacancy' => 'Sales Account Executive', 'applicant_name' => 'Maria Garcia',  'applicant_email' => 'maria.garcia@example.com',  'status' => 'shortlisted',          'days_ago' => 18],
+            ['code' => 'CAN-SEED-005', 'vacancy' => 'Sales Account Executive', 'applicant_name' => 'Tom Becker',    'applicant_email' => 'tom.becker@example.com',    'status' => 'screening',            'days_ago' => 12],
+            ['code' => 'CAN-SEED-006', 'vacancy' => 'Marketing Manager',       'applicant_name' => 'Chloe Park',    'applicant_email' => 'chloe.park@example.com',    'status' => 'assessment',           'days_ago' => 9],
+            ['code' => 'CAN-SEED-007', 'vacancy' => 'Marketing Manager',       'applicant_name' => 'Daniel Wright', 'applicant_email' => 'daniel.wright@example.com', 'status' => 'assessment_completed', 'days_ago' => 7],
+            ['code' => 'CAN-SEED-008', 'vacancy' => 'HR Business Partner',     'applicant_name' => 'Sofia Rossi',   'applicant_email' => 'sofia.rossi@example.com',   'status' => 'applied',              'days_ago' => 5],
+            ['code' => 'CAN-SEED-009', 'vacancy' => 'Operations Intern',       'applicant_name' => 'Jake Holloway', 'applicant_email' => 'jake.holloway@example.com', 'status' => 'applied',              'days_ago' => 3],
+            ['code' => 'CAN-SEED-010', 'vacancy' => 'Operations Intern',       'applicant_name' => 'Mira Patel',    'applicant_email' => 'mira.patel@example.com',    'status' => 'withdrawn',            'days_ago' => 28],
+        ];
+
+        foreach ($applications as $row) {
+            $vacancyId = $vacancyByTitle($row['vacancy']) ?? $fallback;
+            // Match by candidate_code first (stable) — falls back to (vacancy, email)
+            // for legacy seeds created before code-pinning landed.
+            $existing = \App\Models\Tenant\Application::withTrashed()
+                ->where(function ($q) use ($row, $vacancyId) {
+                    $q->where('candidate_code', $row['code'])
+                      ->orWhere(function ($q2) use ($row, $vacancyId) {
+                          $q2->where('job_vacancy_id', $vacancyId)
+                             ->where('applicant_email', $row['applicant_email']);
+                      });
+                })
+                ->first();
+
+            if ($existing) {
+                if ($existing->trashed()) {
+                    $existing->restore();
+                }
+                // Heal stale auto-generated codes from earlier seed runs so the
+                // seed namespace converges on CAN-SEED-NNN.
+                if ($existing->candidate_code !== $row['code']) {
+                    $existing->forceFill(['candidate_code' => $row['code']])->save();
+                }
+                continue;
+            }
+
+            \App\Models\Tenant\Application::create([
+                'job_vacancy_id'  => $vacancyId,
+                'candidate_code'  => $row['code'],
+                'applicant_name'  => $row['applicant_name'],
+                'applicant_email' => $row['applicant_email'],
+                'status'          => $row['status'],
+                'applied_at'      => now()->subDays($row['days_ago']),
+            ]);
+        }
+    }
+
+    /**
+     * Two draft appraisal cycles (current-year Q1, Q2) for every seeded
+     * employee. Keyed on (employee_id, cycle) per the migration's compound
+     * index. Lets the Performance Appraisals page have non-empty state.
+     */
+    private function seedAppraisalCycles(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('appraisals')) {
+            return;
+        }
+
+        $year = (int) now()->year;
+        $cycles = [
+            ['cycle' => "{$year}-Q1", 'period_start' => "{$year}-01-01", 'period_end' => "{$year}-03-31"],
+            ['cycle' => "{$year}-Q2", 'period_start' => "{$year}-04-01", 'period_end' => "{$year}-06-30"],
+        ];
+
+        $employees = \App\Models\Tenant\Employee::withTrashed()->pluck('id');
+        if ($employees->isEmpty()) {
+            return;
+        }
+
+        foreach ($employees as $employeeId) {
+            foreach ($cycles as $row) {
+                $appraisal = \App\Models\Tenant\Appraisal::withTrashed()
+                    ->where('employee_id', $employeeId)
+                    ->where('cycle', $row['cycle'])
+                    ->first();
+
+                if ($appraisal) {
+                    if ($appraisal->trashed()) {
+                        $appraisal->restore();
+                    }
+                    continue;
+                }
+
+                \App\Models\Tenant\Appraisal::create([
+                    'employee_id'  => $employeeId,
+                    'cycle'        => $row['cycle'],
+                    'period_start' => $row['period_start'],
+                    'period_end'   => $row['period_end'],
+                    'status'       => 'draft',
+                ]);
+            }
         }
     }
 
@@ -416,12 +677,13 @@ class TenantDatabaseSeeder extends Seeder
         $modules = [
             'hrm.application' => [
                 ['key' => 'applied',              'label' => 'Applied',              'color' => 'secondary', 'icon' => 'ti-send',           'sequence' => 1,  'is_initial' => true,  'is_terminal' => false, 'allowed_next' => ['screening', 'rejected', 'withdrawn']],
-                ['key' => 'screening',            'label' => 'Screening',            'color' => 'info',      'icon' => 'ti-eye-search',     'sequence' => 2,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['assessment', 'interview', 'rejected', 'withdrawn']],
-                ['key' => 'assessment',           'label' => 'Assessment',           'color' => 'info',      'icon' => 'ti-clipboard-list', 'sequence' => 3,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['assessment_completed', 'rejected', 'withdrawn']],
-                ['key' => 'assessment_completed', 'label' => 'Assessment Completed', 'color' => 'info',      'icon' => 'ti-clipboard-check','sequence' => 4,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['interview', 'rejected', 'withdrawn']],
-                ['key' => 'interview',            'label' => 'Interview',            'color' => 'warning',   'icon' => 'ti-message-circle', 'sequence' => 5,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['offer', 'rejected', 'withdrawn']],
-                ['key' => 'offer',                'label' => 'Offer',                'color' => 'primary',   'icon' => 'ti-mail-share',     'sequence' => 6,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['hired', 'rejected', 'withdrawn']],
-                ['key' => 'hired',                'label' => 'Hired',                'color' => 'success',   'icon' => 'ti-circle-check',   'sequence' => 7,  'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
+                ['key' => 'screening',            'label' => 'Screening',            'color' => 'info',      'icon' => 'ti-eye-search',     'sequence' => 2,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['shortlisted', 'assessment', 'interview', 'rejected', 'withdrawn']],
+                ['key' => 'shortlisted',          'label' => 'Shortlisted',          'color' => 'primary',   'icon' => 'ti-list-check',     'sequence' => 3,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['assessment', 'interview', 'rejected', 'withdrawn']],
+                ['key' => 'assessment',           'label' => 'Assessment',           'color' => 'info',      'icon' => 'ti-clipboard-list', 'sequence' => 4,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['assessment_completed', 'rejected', 'withdrawn']],
+                ['key' => 'assessment_completed', 'label' => 'Assessment Completed', 'color' => 'info',      'icon' => 'ti-clipboard-check','sequence' => 5,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['interview', 'rejected', 'withdrawn']],
+                ['key' => 'interview',            'label' => 'Interview',            'color' => 'warning',   'icon' => 'ti-message-circle', 'sequence' => 6,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['offer', 'rejected', 'withdrawn']],
+                ['key' => 'offer',                'label' => 'Offer',                'color' => 'primary',   'icon' => 'ti-mail-share',     'sequence' => 7,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['hired', 'rejected', 'withdrawn']],
+                ['key' => 'hired',                'label' => 'Hired',                'color' => 'success',   'icon' => 'ti-circle-check',   'sequence' => 8,  'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
                 ['key' => 'rejected',             'label' => 'Rejected',             'color' => 'danger',    'icon' => 'ti-x',              'sequence' => 90, 'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
                 ['key' => 'withdrawn',            'label' => 'Withdrawn',            'color' => 'secondary', 'icon' => 'ti-arrow-back-up',  'sequence' => 91, 'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
             ],

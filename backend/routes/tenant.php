@@ -18,6 +18,7 @@ use App\Tenants\Modules\FMS\Controllers\ExchangeRateController;
 use App\Tenants\Modules\FMS\Controllers\LedgerController;
 use App\Tenants\Modules\HRM\Controllers\ApplicationController;
 use App\Tenants\Modules\HRM\Controllers\AppraisalController;
+use App\Tenants\Modules\HRM\Controllers\EmployeeAppointmentController;
 use App\Tenants\Modules\HRM\Controllers\CandidateQuizController;
 use App\Tenants\Modules\HRM\Controllers\DepartmentController;
 use App\Tenants\Modules\HRM\Controllers\InterviewController;
@@ -264,6 +265,10 @@ Route::middleware([
         Route::post('/applications/{application}/convert-to-employee', [ApplicationController::class, 'convertToEmployee']);
         Route::post('/applications/{application}/revert-employee-conversion', [ApplicationController::class, 'revertEmployeeConversion']);
         Route::post('/applications/{application}/quiz-attempts', [QuizController::class, 'assignToApplication']);
+
+        // HRM Module — Phase 4A: Employee Appointment (post-hire workflow)
+        Route::post('/employee-appointments', [EmployeeAppointmentController::class, 'store']);
+        Route::get('/employee-appointments/{appointment}', [EmployeeAppointmentController::class, 'show']);
 
         // HRM Module — Phase 4B: Performance
         Route::apiResource('appraisals', AppraisalController::class);

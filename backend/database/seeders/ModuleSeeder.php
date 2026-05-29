@@ -87,19 +87,35 @@ class ModuleSeeder extends Seeder
         ['slug' => 'inv-purchase-orders',  'prefix' => 'INVP', 'name' => 'Purchase Orders', 'icon' => 'ti-shopping-bag',       'route' => '/inventory/purchase-orders',   'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'inventory'],
 
         // Apps: HRM
-        ['slug' => 'hrm',              'prefix' => 'HRM',    'name' => 'Human Resource', 'icon' => 'ti-users',          'route' => null,           'group' => 'apps', 'sort_order' => 6],
-        ['slug' => 'hrm-employees',    'prefix' => 'HRME',   'name' => 'Employees',      'icon' => 'ti-user-circle',    'route' => '/hrm/employees',   'group' => 'apps', 'sort_order' => 1,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-departments',  'prefix' => 'HRMD',   'name' => 'Departments',    'icon' => 'ti-building',       'route' => '/hrm/departments', 'group' => 'apps', 'sort_order' => 2,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-positions',    'prefix' => 'HRMPOS', 'name' => 'Positions',      'icon' => 'ti-briefcase',      'route' => '/hrm/positions',   'group' => 'apps', 'sort_order' => 3,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-leaves',       'prefix' => 'HRMLV',  'name' => 'Leave Requests', 'icon' => 'ti-calendar-event', 'route' => '/hrm/timeoff/leaves',      'group' => 'apps', 'sort_order' => 4,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-shifts',       'prefix' => 'HRMSF',  'name' => 'Shifts',         'icon' => 'ti-clock-hour-8',   'route' => '/hrm/timeoff/shifts',      'group' => 'apps', 'sort_order' => 6,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-attendance',   'prefix' => 'HRMAT',  'name' => 'Attendance',     'icon' => 'ti-fingerprint',    'route' => '/hrm/timeoff/attendance',  'group' => 'apps', 'sort_order' => 7,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-overtime',     'prefix' => 'HRMOT',  'name' => 'Overtime',       'icon' => 'ti-clock-up',       'route' => '/hrm/timeoff/overtime',    'group' => 'apps', 'sort_order' => 8,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-payroll',      'prefix' => 'HRMPA',  'name' => 'Payroll',        'icon' => 'ti-cash',           'route' => '/hrm/payroll',     'group' => 'apps', 'sort_order' => 9,  'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-vacancies',    'prefix' => 'HRMVC',  'name' => 'Vacancies',      'icon' => 'ti-briefcase-2',    'route' => '/hrm/recruitments/vacancies',   'group' => 'apps', 'sort_order' => 10, 'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-applications', 'prefix' => 'HRMAP',  'name' => 'Applications',   'icon' => 'ti-user-search',    'route' => '/hrm/recruitments/applications','group' => 'apps', 'sort_order' => 11, 'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-candidates',   'prefix' => 'HRMCD',  'name' => 'Candidates',     'icon' => 'ti-layout-kanban',  'route' => '/hrm/recruitments/candidates',  'group' => 'apps', 'sort_order' => 12, 'parent_slug' => 'hrm'],
-        ['slug' => 'hrm-appraisals',   'prefix' => 'HRMPR',  'name' => 'Appraisals',     'icon' => 'ti-clipboard-list', 'route' => '/hrm/appraisals',  'group' => 'apps', 'sort_order' => 13, 'parent_slug' => 'hrm'],
+        // Slugs are kept stable across label revisions so module pivots / product_modules FKs
+        // and any code referencing slug strings keep working — only display fields change.
+        ['slug' => 'hrm',              'prefix' => 'HRM',    'name' => 'Human Resources', 'icon' => 'ti-users',          'route' => null,           'group' => 'apps', 'sort_order' => 6],
+
+        // HRM > Talent Acquisition (slug kept as hrm-recruitments)
+        ['slug' => 'hrm-recruitments',              'prefix' => 'HRMR',   'name' => 'Talent Acquisition', 'icon' => 'ti-user-plus',     'route' => null,                              'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-recruitments-vacancies',    'prefix' => 'HRMRV',  'name' => 'Vacancies',          'icon' => 'ti-briefcase-2',   'route' => '/hrm/recruitments/vacancies',     'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'hrm-recruitments'],
+        ['slug' => 'hrm-recruitments-applications', 'prefix' => 'HRMRA',  'name' => 'Applications',       'icon' => 'ti-user-search',   'route' => '/hrm/recruitments/applications',  'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'hrm-recruitments'],
+        ['slug' => 'hrm-recruitments-stages',       'prefix' => 'HRMRS',  'name' => 'Candidate Stages',   'icon' => 'ti-layout-kanban', 'route' => '/hrm/recruitments/candidates',    'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'hrm-recruitments'],
+
+        // HRM > Employee Management (slug kept as hrm-employees)
+        ['slug' => 'hrm-employees',              'prefix' => 'HRME',   'name' => 'Employee Management', 'icon' => 'ti-user-circle', 'route' => null,               'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-employees-list',         'prefix' => 'HRMEL',  'name' => 'Employee Directory',  'icon' => 'ti-address-book','route' => '/hrm/employees',   'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'hrm-employees'],
+        ['slug' => 'hrm-employees-positions',    'prefix' => 'HRMEP',  'name' => 'Positions & Roles',   'icon' => 'ti-briefcase',   'route' => '/hrm/positions',   'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'hrm-employees'],
+        ['slug' => 'hrm-employees-departments',  'prefix' => 'HRMED',  'name' => 'Departments',         'icon' => 'ti-building',    'route' => '/hrm/departments', 'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'hrm-employees'],
+
+        // HRM > Time & Attendance (slug kept as hrm-timeoff)
+        ['slug' => 'hrm-timeoff',            'prefix' => 'HRMT',  'name' => 'Time & Attendance',  'icon' => 'ti-clock-check',    'route' => null,                       'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-timeoff-attendance', 'prefix' => 'HRMTA', 'name' => 'Attendance Tracking','icon' => 'ti-fingerprint',    'route' => '/hrm/timeoff/attendance',  'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'hrm-timeoff'],
+        ['slug' => 'hrm-timeoff-shifts',     'prefix' => 'HRMTS', 'name' => 'Shift Scheduling',   'icon' => 'ti-clock-hour-8',   'route' => '/hrm/timeoff/shifts',      'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'hrm-timeoff'],
+        ['slug' => 'hrm-timeoff-overtime',   'prefix' => 'HRMTO', 'name' => 'Overtime Management','icon' => 'ti-clock-up',       'route' => '/hrm/timeoff/overtime',    'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'hrm-timeoff'],
+        ['slug' => 'hrm-timeoff-leaves',     'prefix' => 'HRMTL', 'name' => 'Leave Requests',     'icon' => 'ti-calendar-event', 'route' => '/hrm/timeoff/leaves',      'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'hrm-timeoff'],
+
+        // HRM > Performance Management (slug kept as hrm-appraisals)
+        ['slug' => 'hrm-appraisals',             'prefix' => 'HRMPR',  'name' => 'Performance Management', 'icon' => 'ti-stars',            'route' => null,              'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-appraisals-performance', 'prefix' => 'HRMPRP', 'name' => 'Performance Appraisals', 'icon' => 'ti-clipboard-check', 'route' => '/hrm/appraisals', 'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'hrm-appraisals'],
+
+        // HRM > Payroll (standalone, last item)
+        ['slug' => 'hrm-payroll', 'prefix' => 'HRMPA', 'name' => 'Payroll', 'icon' => 'ti-cash', 'route' => '/hrm/payroll', 'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'hrm'],
 
         // Apps: standalone
         ['slug' => 'fleets',     'prefix' => 'FLT',  'name' => 'Fleets',             'icon' => 'ti-truck',        'route' => '#', 'group' => 'apps', 'sort_order' => 7],
@@ -156,7 +172,14 @@ class ModuleSeeder extends Seeder
                     $attrs['parent_id'] = $idMap[$parentSlug];
                 }
 
-                $module = Module::updateOrCreate(['slug' => $def['slug']], $attrs);
+                // withTrashed: a previous seeder run may have soft-deleted this
+                // slug. The unique index is on (slug, tenant_id) without
+                // deleted_at, so a plain updateOrCreate would collide on insert.
+                // We look up including trashed rows, restore if found, then sync.
+                $module = Module::withTrashed()->updateOrCreate(['slug' => $def['slug']], $attrs);
+                if ($module->trashed()) {
+                    $module->restore();
+                }
                 $idMap[$def['slug']] = $module->id;
                 $progress = true;
             }

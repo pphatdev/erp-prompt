@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tenants\Modules\HRM\Services;
 
+use App\Models\Tenant\ApprovalWorkflow;
 use App\Models\Tenant\OvertimeRequest;
+use App\Tenants\Modules\Approvals\Services\ApprovalService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class OvertimeService
 {
@@ -20,6 +23,10 @@ class OvertimeService
     public const WEEKEND_MULTIPLIER = 2.0;
     public const HOLIDAY_MULTIPLIER = 3.0;
     public const DEFAULT_MULTIPLIER = 1.5;
+
+    public function __construct(private readonly ApprovalService $approvals)
+    {
+    }
 
     public function buildIndexQuery(array $filters = []): Builder
     {
@@ -55,7 +62,32 @@ class OvertimeService
 
         $data['status'] = OvertimeRequest::STATUS_PENDING;
 
-        return OvertimeRequest::create($data);
+        return DB::transaction(function () use ($data) {
+            $overtime = OvertimeRequest::create($data);
+
+            $workflow = $this->overtimeWorkflow();
+            $requesterId = Auth::id() ?? $overtime->employee?->user_id;
+
+            if ($workflow && $requesterId) {
+                $this->approvals->submitRequest(
+                    workflowId: $workflow->id,
+                    requesterId: (string) $requesterId,
+                    requestableType: OvertimeRequest::class,
+                    requestableId: (string) $overtime->id,
+                );
+            }
+
+            return $overtime;
+        });
+    }
+
+    private function overtimeWorkflow(): ?ApprovalWorkflow
+    {
+        return ApprovalWorkflow::query()
+            ->where('module', 'hrm')
+            ->where('type', 'overtime')
+            ->orderBy('created_at')
+            ->first();
     }
 
     /**

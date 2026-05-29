@@ -92,35 +92,35 @@
 
             <section v-else class="glass-card rounded-2xl overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-xs">
-                        <thead class="bg-(--bg-muted) text-xxs uppercase tracking-widest font-bold text-(--text-muted)">
-                            <tr>
-                                <th class="text-left px-4 py-3">Pair</th>
-                                <th class="text-right px-2 py-3 font-mono">Rate</th>
-                                <th class="text-left px-2 py-3">Effective Date</th>
-                                <th class="text-left px-2 py-3 hidden md:table-cell">Source</th>
-                                <th class="text-left px-2 py-3 hidden lg:table-cell">Notes</th>
-                                <th class="text-left px-2 py-3">Status</th>
-                                <th class="text-right px-4 py-3 w-32">Actions</th>
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                                <th class="px-4 py-3 font-semibold">Pair</th>
+                                <th class="px-4 py-3 font-semibold font-mono text-right">Rate</th>
+                                <th class="px-4 py-3 font-semibold">Effective Date</th>
+                                <th class="px-4 py-3 font-semibold hidden md:table-cell">Source</th>
+                                <th class="px-4 py-3 font-semibold hidden lg:table-cell">Notes</th>
+                                <th class="px-4 py-3 font-semibold">Status</th>
+                                <th class="px-4 py-3 font-semibold text-right w-32">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y divide-(--border-color)">
                             <tr v-for="r in filteredList" :key="r.id"
-                                class="border-t border-(--border-color)/60 hover:bg-(--bg-muted)/40 transition-colors">
+                                class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-4 py-3">
                                     <span class="font-mono font-semibold text-(--text-heading)">{{ r.pair }}</span>
                                 </td>
-                                <td class="px-2 py-3 text-right font-mono font-semibold">{{ formatRate(r.rate) }}</td>
-                                <td class="px-2 py-3">{{ formatDate(r.effectiveDate) }}</td>
-                                <td class="px-2 py-3 hidden md:table-cell">
+                                <td class="px-4 py-3 text-right font-mono font-semibold">{{ formatRate(r.rate) }}</td>
+                                <td class="px-4 py-3">{{ formatDate(r.effectiveDate) }}</td>
+                                <td class="px-4 py-3 hidden md:table-cell">
                                     <span class="text-xxs font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-(--bg-muted)">
                                         {{ r.source }}
                                     </span>
                                 </td>
-                                <td class="px-2 py-3 hidden lg:table-cell text-(--text-muted) truncate max-w-[240px]">
+                                <td class="px-4 py-3 hidden lg:table-cell text-(--text-muted) truncate max-w-[240px]">
                                     {{ r.notes || '—' }}
                                 </td>
-                                <td class="px-2 py-3">
+                                <td class="px-4 py-3">
                                     <Badge :variant="r.isActive ? 'success' : 'secondary'">
                                         {{ r.isActive ? 'Active' : 'Archived' }}
                                     </Badge>

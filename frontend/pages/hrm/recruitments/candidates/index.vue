@@ -18,7 +18,7 @@
                             class="px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 bg-(--color-primary-subtle) text-(--color-primary)">
                             <i class="ti ti-layout-kanban" /> Board
                         </button>
-                        <NuxtLink to="/applications"
+                        <NuxtLink to="/hrm/recruitments/applications"
                             class="px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 text-(--text-muted) hover:text-(--text-heading) transition-colors">
                             <i class="ti ti-list" /> List
                         </NuxtLink>
@@ -27,7 +27,7 @@
                     <NuxtLink v-if="canWrite" to="/hrm/applications/new" class="btn btn-primary text-xs">
                         <i class="ti ti-user-plus" /> Add candidate
                     </NuxtLink>
-                    <NuxtLink v-if="canWrite" to="/hrm/recruitments/hrm/recruitments/vacancies" class="btn btn-ghost text-xs">
+                    <NuxtLink v-if="canWrite" to="/hrm/recruitments/vacancies" class="btn btn-ghost text-xs">
                         <i class="ti ti-plus" /> Post New Job
                     </NuxtLink>
                 </div>
@@ -81,7 +81,7 @@
                             </span>
                         </header>
 
-                        <div class="kanban-list flex flex-col gap-3 pr-1">
+                        <div class="kanban-list flex flex-col p-1 gap-3 pr-1">
                             <article v-for="a in grouped[col.status]" :key="a.id"
                                 class="kanban-card glass-card rounded-xl p-3 shadow-sm transition-all cursor-grab"
                                 :class="{
@@ -124,8 +124,8 @@
                                     Offer: {{ formatMoney(a.expectedSalary) }}
                                 </div>
 
-                                <!-- Hired conditional slot: convert / view-employee CTA. Stops
-                     propagation so a button click does NOT also open the
+                                <!-- Hired conditional slot: appointment-request / view-employee CTA.
+                     Stops propagation so a button click does NOT also open the
                      details modal underneath, and dragstart doesn't trigger
                      a card drag when the user clicks the button. -->
                                 <div v-if="col.status === 'hired'" class="mb-3" @click.stop @mousedown.stop
@@ -135,12 +135,17 @@
                                         <i class="ti ti-user-check text-[12px]" />
                                         <span>View employee</span>
                                     </NuxtLink>
-                                    <button v-else-if="canConvert" type="button" class="hired-chip hired-chip--cta"
-                                        :disabled="converting === a.id" @click="convertApplicationToEmployee(a)">
-                                        <i
-                                            :class="['ti text-[12px]', converting === a.id ? 'ti-loader animate-spin' : 'ti-user-plus']" />
-                                        <span>{{ converting === a.id ? 'Converting...' : 'Convert to Employee' }}</span>
-                                    </button>
+                                    <span v-else-if="a.pendingAppointmentRequest"
+                                        class="hired-chip hired-chip--pending" draggable="false">
+                                        <i class="ti ti-hourglass-high text-[12px]" />
+                                        <span>Pending appointment review</span>
+                                    </span>
+                                    <NuxtLink v-else-if="canRequestAppointment"
+                                        :to="`/approvals/forms/employee-appointment?applicationId=${a.id}`"
+                                        class="hired-chip hired-chip--cta" draggable="false">
+                                        <i class="ti ti-send text-[12px]" />
+                                        <span>Request Appointment of Employee</span>
+                                    </NuxtLink>
 
                                     <!-- Revert affordance — only within the 7-day window. -->
                                     <button v-if="canRevert(a)" type="button" class="hired-revert"
@@ -284,11 +289,12 @@ import Badge from '~/components/Badge.vue'
 interface VacancyLite { id: string; title: string }
 interface EmployeeLite { id: string; employeeId: string; fullName: string }
 
-type ApplicationStatus = 'applied' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
+type ApplicationStatus = 'applied' | 'screening' | 'shortlisted' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
 
 const STATUS_FLOW: Record<ApplicationStatus, ApplicationStatus[]> = {
     applied: ['screening', 'rejected', 'withdrawn'],
-    screening: ['interview', 'rejected', 'withdrawn'],
+    screening: ['shortlisted', 'interview', 'rejected', 'withdrawn'],
+    shortlisted: ['interview', 'rejected', 'withdrawn'],
     interview: ['offer', 'rejected', 'withdrawn'],
     offer: ['hired', 'rejected', 'withdrawn'],
     hired: [],
@@ -318,6 +324,7 @@ interface Application {
     convertedAt: string | null
     vacancy?: VacancyLite
     referrerEmployeeId?: string | null
+    pendingAppointmentRequest?: { id: string; status: string; createdAt: string } | null
 }
 interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; total: number; totalPages: number } }
 
@@ -327,9 +334,8 @@ const authStore = useAuthStore()
 const toast = useToast()
 const canWrite = computed(() => authStore.hasPermission('hrm.recruitment.write'))
 const canSeeSalary = computed(() => authStore.hasPermission('hrm.recruitment.read'))
-const canConvert = computed(() =>
-    authStore.hasPermission('hrm.recruitment.write') &&
-    authStore.hasPermission('hrm.employee.write')
+const canRequestAppointment = computed(() =>
+    authStore.hasPermission('hrm.recruitment.write')
 )
 const canRevertConversion = computed(() =>
     authStore.hasPermission('hrm.recruitment.write') &&
@@ -357,6 +363,7 @@ const canRevert = (app: Application): boolean =>
 const COLUMNS: { status: ApplicationStatus; label: string }[] = [
     { status: 'applied', label: 'Applied' },
     { status: 'screening', label: 'Screening' },
+    { status: 'shortlisted', label: 'Shortlisted' },
     { status: 'interview', label: 'Technical Interview' },
     { status: 'offer', label: 'Offer Sent' },
     { status: 'hired', label: 'Hired' }
@@ -400,7 +407,7 @@ const pendingDropStatus = ref<ApplicationStatus | null>(null)
 
 const grouped = computed<Record<ApplicationStatus, Application[]>>(() => {
     const seed: Record<ApplicationStatus, Application[]> = {
-        applied: [], screening: [], interview: [], offer: [], hired: [], rejected: [], withdrawn: []
+        applied: [], screening: [], shortlisted: [], interview: [], offer: [], hired: [], rejected: [], withdrawn: []
     }
     for (const a of applications.value) {
         if (seed[a.status]) seed[a.status].push(a)
@@ -468,6 +475,7 @@ const statusVariant = (s: ApplicationStatus): 'primary' | 'success' | 'warning' 
     switch (s) {
         case 'applied': return 'secondary'
         case 'screening': return 'info'
+        case 'shortlisted': return 'primary'
         case 'interview': return 'warning'
         case 'offer': return 'primary'
         case 'hired': return 'success'
@@ -480,6 +488,7 @@ const columnHeaderClass = (s: ApplicationStatus) => {
     switch (s) {
         case 'applied': return 'badge-soft-secondary'
         case 'screening': return 'badge-soft-info'
+        case 'shortlisted': return 'badge-soft-primary'
         case 'interview': return 'badge-soft-warning'
         case 'offer': return 'badge-soft-primary'
         case 'hired': return 'badge-soft-success'
@@ -537,7 +546,7 @@ const openCard = (a: Application) => {
     // Guard: the click event fires after dragend, so suppress navigation
     // when the user just released a drag on the same card.
     if (draggingId.value) return
-    router.push(`/candidates/${a.id}`)
+    router.push(`/hrm/recruitments/candidates/${a.id}`)
 }
 
 const openSubmitModal = () => {
@@ -652,66 +661,9 @@ const onColumnDrop = async (status: ApplicationStatus) => {
     }
 }
 
-// ---- Hire → Employee conversion (mirrors applications.vue) ----------------
-// `converting` holds the in-flight application id (or null) so multiple cards
-// don't all spin at once when the user clicks rapidly.
-const converting = ref<string | null>(null)
 const reverting = ref<string | null>(null)
 
-interface ConvertedEmployee { id: string; employeeId?: string; fullName?: string }
-interface ConvertResponse {
-    data: ConvertedEmployee
-    created: boolean
-    linkedExisting: boolean
-}
-
 const router = useRouter()
-
-const openEmployeeOnList = (employeeIdCode: string) =>
-    router.push({ path: '/employees', query: { search: employeeIdCode } })
-
-const convertApplicationToEmployee = async (app: Application): Promise<void> => {
-    if (app.status !== 'hired' || app.employeeId) return
-    const ok = await toast.confirm({
-        title: `Convert ${app.applicantName} to an employee?`,
-        description: 'Creates an Employee record using the vacancy’s department, position, and expected salary. If an Employee with the same email already exists, the application links to that one instead.',
-        confirmLabel: 'Convert',
-        color: 'primary',
-        icon: 'ti-user-plus'
-    })
-    if (!ok) return
-    converting.value = app.id
-    try {
-        const res = await api.post<ConvertResponse>(`/applications/${app.id}/convert-to-employee`)
-        const emp = res.data
-        const empCode = emp.employeeId || emp.id
-
-        if (res.linkedExisting) {
-            // Surface dedupe explicitly — the user expected a new employee under
-            // the applicant's name, but their email matched an existing record.
-            toast.warning(
-                'Linked to existing employee',
-                `${app.applicantName}'s email is already on file as ${emp.fullName || empCode}. No new employee row was created.`,
-                { duration: 10000, actionLabel: 'View on employee list', onAction: () => openEmployeeOnList(empCode) }
-            )
-        } else {
-            toast.success(
-                'Employee created',
-                `${app.applicantName} is now on the employee list as ${empCode}.`,
-                { duration: 10000, actionLabel: 'View on employee list', onAction: () => openEmployeeOnList(empCode) }
-            )
-        }
-
-        // Local patch first so the chip flips immediately, then refresh from server.
-        const idx = applications.value.findIndex(x => x.id === app.id)
-        if (idx !== -1) applications.value[idx].employeeId = emp.id
-        await loadApplications()
-    } catch (err: any) {
-        toast.error('Conversion failed.', err?.data?.message)
-    } finally {
-        converting.value = null
-    }
-}
 
 const revertConversion = async (app: Application): Promise<void> => {
     if (!canRevert(app)) return
@@ -827,6 +779,13 @@ onMounted(async () => {
     border-color: rgb(var(--color-success-rgb) / 0.4);
 }
 
+.hired-chip--pending {
+    background: var(--color-warning-subtle, rgb(var(--color-warning-rgb, 250 173 20) / 0.12));
+    color: var(--color-warning);
+    border: 1px dashed rgb(var(--color-warning-rgb, 250 173 20) / 0.4);
+    cursor: default;
+}
+
 /* Small, subdued affordance under the linked pill. Only renders within the
  * 7-day revert window — so it's intentionally low-key and won't compete with
  * the primary View employee link. */
@@ -911,7 +870,6 @@ onMounted(async () => {
 }
 
 .kanban-cta:hover {
-    transform: translateY(-2px);
     border-color: var(--color-primary);
     background: linear-gradient(180deg,
             color-mix(in srgb, var(--color-primary-subtle) 95%, var(--bg-card)) 0%,

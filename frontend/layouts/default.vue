@@ -441,6 +441,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '~/stores/auth'
 import { useTenantStore } from '~/stores/tenant'
 import { useToast } from '~/composables/useToast'
+import type { AppModule } from '~/composables/useModules'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -624,22 +625,42 @@ const navGroups = reactive<NavGroup[]>([
                 ]
             },
             {
-                label: 'Human Resource',
+                label: 'Human Resources',
                 icon: 'ti-users',
                 moduleSlug: 'hrm',
                 children: [
-                    { label: 'Employees', icon: 'ti-user-circle', route: '/hrm/employees', operational: true, permission: 'hrm.employee.read' },
-                    { label: 'Departments', icon: 'ti-building', route: '/hrm/departments', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] },
-                    { label: 'Positions', icon: 'ti-briefcase', route: '/hrm/positions', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] },
-                    { label: 'Leave Requests', icon: 'ti-calendar-event', route: '/hrm/timeoff/leaves', operational: true, permission: 'hrm.leave.read' },
-                    { label: 'Shifts', icon: 'ti-clock-hour-8', route: '/hrm/timeoff/shifts', operational: true, permission: ['hrm.shift.read', 'hrm.attendance.read', 'hrm.attendance.clock.self'] },
-                    { label: 'Attendance', icon: 'ti-fingerprint', route: '/hrm/timeoff/attendance', operational: true, permission: ['hrm.attendance.read', 'hrm.attendance.read.self', 'hrm.attendance.clock.self'] },
-                    { label: 'Overtime', icon: 'ti-clock-up', route: '/hrm/timeoff/overtime', operational: true, permission: ['hrm.overtime.read', 'hrm.overtime.read.self', 'hrm.overtime.write.self'] },
-                    { label: 'Payroll', icon: 'ti-cash', route: '/hrm/payroll', operational: true, permission: 'hrm.payroll.read' },
-                    { label: 'Vacancies', icon: 'ti-briefcase-2', route: '/hrm/recruitments/vacancies', operational: true, permission: 'hrm.recruitment.read' },
-                    { label: 'Applications', icon: 'ti-user-search', route: '/hrm/recruitments/applications', operational: true, permission: 'hrm.recruitment.read' },
-                    { label: 'Candidates', icon: 'ti-layout-kanban', route: '/hrm/recruitments/candidates', operational: true, permission: 'hrm.recruitment.read' },
-                    { label: 'Appraisals', icon: 'ti-clipboard-list', route: '/hrm/appraisals', operational: true, permission: 'hrm.performance.read' }
+                    {
+                        label: 'Talent Acquisition', icon: 'ti-user-plus', moduleSlug: 'hrm-recruitments',
+                        children: [
+                            { label: 'Vacancies', icon: 'ti-briefcase-2', route: '/hrm/recruitments/vacancies', operational: true, permission: 'hrm.recruitment.read' },
+                            { label: 'Applications', icon: 'ti-user-search', route: '/hrm/recruitments/applications', operational: true, permission: 'hrm.recruitment.read' },
+                            { label: 'Candidate Stages', icon: 'ti-layout-kanban', route: '/hrm/recruitments/candidates', operational: true, permission: 'hrm.recruitment.read' }
+                        ]
+                    },
+                    {
+                        label: 'Employee Management', icon: 'ti-user-circle', moduleSlug: 'hrm-employees',
+                        children: [
+                            { label: 'Employee Directory', icon: 'ti-address-book', route: '/hrm/employees', operational: true, permission: 'hrm.employee.read' },
+                            { label: 'Positions & Roles', icon: 'ti-briefcase', route: '/hrm/positions', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] },
+                            { label: 'Departments', icon: 'ti-building', route: '/hrm/departments', operational: true, permission: ['hrm.employee.read', 'hrm.employee.read.self'] }
+                        ]
+                    },
+                    {
+                        label: 'Time & Attendance', icon: 'ti-clock-check', moduleSlug: 'hrm-timeoff',
+                        children: [
+                            { label: 'Attendance Tracking', icon: 'ti-fingerprint', route: '/hrm/timeoff/attendance', operational: true, permission: ['hrm.attendance.read', 'hrm.attendance.read.self', 'hrm.attendance.clock.self'] },
+                            { label: 'Shift Scheduling', icon: 'ti-clock-hour-8', route: '/hrm/timeoff/shifts', operational: true, permission: ['hrm.shift.read', 'hrm.attendance.read', 'hrm.attendance.clock.self'] },
+                            { label: 'Overtime Management', icon: 'ti-clock-up', route: '/hrm/timeoff/overtime', operational: true, permission: ['hrm.overtime.read', 'hrm.overtime.read.self', 'hrm.overtime.write.self'] },
+                            { label: 'Leave Requests', icon: 'ti-calendar-event', route: '/hrm/timeoff/leaves', operational: true, permission: 'hrm.leave.read' }
+                        ]
+                    },
+                    {
+                        label: 'Performance Management', icon: 'ti-stars', moduleSlug: 'hrm-appraisals',
+                        children: [
+                            { label: 'Performance Appraisals', icon: 'ti-clipboard-check', route: '/hrm/appraisals', operational: true, permission: 'hrm.performance.read' }
+                        ]
+                    },
+                    { label: 'Payroll', icon: 'ti-cash', route: '/hrm/payroll', operational: true, permission: 'hrm.payroll.read' }
                 ]
             },
             {
@@ -711,19 +732,45 @@ const canSeeItem = (item: NavItem): boolean => {
     return slugs.some(slug => authStore.hasPermission(slug))
 }
 
+// Recursively locate a DB module by slug. The sidebar tree is up to 3 deep
+// (e.g. hrm > hrm-employees > hrm-employees-list); without this, sort lookups
+// for a 2nd-level parent (like hrm-employees) would miss and fall back to 9999.
+const findModBySlug = (slug: string, mods: AppModule[] = modules.value || []): AppModule | null => {
+    for (const m of mods) {
+        if (m.slug === slug) return m
+        if (m.children?.length) {
+            const found = findModBySlug(slug, m.children)
+            if (found) return found
+        }
+    }
+    return null
+}
+
 const getModIndex = (item: NavItem, parentModSlug?: string) => {
-    const mods = modules.value || []
     if (parentModSlug) {
-        const parentMod = mods.find(m => m.slug === parentModSlug)
+        const parentMod = findModBySlug(parentModSlug)
         if (parentMod && parentMod.children) {
             const idx = parentMod.children.findIndex(c => c.route === item.route || c.slug === item.moduleSlug)
             return idx === -1 ? 9999 : idx
         }
         return 9999
-    } else {
-        const idx = mods.findIndex(m => m.slug === item.moduleSlug || m.route === item.route)
-        return idx === -1 ? 9999 : idx
     }
+    const mods = modules.value || []
+    const idx = mods.findIndex(m => m.slug === item.moduleSlug || m.route === item.route)
+    return idx === -1 ? 9999 : idx
+}
+
+// Recursive: sort siblings by DB sort_order, drop nodes the user can't see,
+// and dive into each child's own children so 3rd-level rows also obey the DB.
+const sortAndFilterChildren = (children: NavItem[], parentModSlug?: string): NavItem[] => {
+    return [...children]
+        .sort((a, b) => getModIndex(a, parentModSlug) - getModIndex(b, parentModSlug))
+        .map(child => {
+            if (!child.children) return child
+            const visibleGrand = sortAndFilterChildren(child.children, child.moduleSlug)
+            return visibleGrand.length ? { ...child, children: visibleGrand } : null
+        })
+        .filter((c): c is NavItem => c !== null && canSeeItem(c))
 }
 
 const visibleNavGroups = computed<NavGroup[]>(() => {
@@ -741,10 +788,7 @@ const visibleNavGroups = computed<NavGroup[]>(() => {
                 items: sortedItems
                     .map(item => {
                         if (!item.children) return item
-                        // Recurse into child links so a group only shows the children the
-                        // user actually has access to.
-                        const sortedChildren = [...item.children].sort((a, b) => getModIndex(a, item.moduleSlug) - getModIndex(b, item.moduleSlug))
-                        const visibleChildren = sortedChildren.filter(canSeeItem)
+                        const visibleChildren = sortAndFilterChildren(item.children, item.moduleSlug)
                         return visibleChildren.length ? { ...item, children: visibleChildren } : null
                     })
                     .filter((item): item is NavItem => item !== null && canSeeItem(item))

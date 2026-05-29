@@ -141,7 +141,7 @@
                                 <div class="flex items-center gap-2 mt-1 text-xxs text-(--text-muted)">
                                     <span>Workflow: {{ req.workflow?.name || 'Standard Approval' }}</span>
                                     <span>·</span>
-                                    <span class="font-mono">{{ formatDate(req.created_at) }}</span>
+                                    <span class="font-mono">{{ formatDateTime(req.created_at) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -172,7 +172,7 @@ import Badge from '~/components/Badge.vue'
 
 const router = useRouter()
 const { getRequests } = useApprovals()
-const { formatDate } = useDateFormat()
+const { formatDateTime } = useDateFormat()
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
@@ -219,11 +219,12 @@ const categories = [
 
 const formTypes = [
     { id: 'leave', title: 'Leave Request', description: 'Request annual, sick, or unpaid leave.', icon: 'ti-calendar-event', color: 'primary', route: '/approvals/forms/leave', category: 'hrm' },
-    { id: 'overtime', title: 'Overtime', description: 'Log extra hours for manager approval.', icon: 'ti-clock', color: 'warning', route: '/hrm/timeoff/overtime', category: 'hrm' },
+    { id: 'overtime', title: 'Overtime', description: 'Log extra hours for manager approval.', icon: 'ti-clock', color: 'warning', route: '/approvals/forms/overtime', category: 'hrm' },
     { id: 'expense', title: 'Expense Claim', description: 'Submit receipts for reimbursement.', icon: 'ti-receipt', color: 'success', route: '/finance/payments', category: 'finance' },
     { id: 'purchase', title: 'Purchase Requisition', description: 'Request to buy items or services.', icon: 'ti-shopping-cart', color: 'info', route: '/inventory/purchase-orders', category: 'procurement' },
     { id: 'petty_cash', title: 'Petty Cash', description: 'Small cash advances for operations.', icon: 'ti-cash', color: 'danger', route: '/finance/petty-cash/new', category: 'finance' },
-    { id: 'appraisal', title: 'Self Appraisal', description: 'Submit performance review goals.', icon: 'ti-clipboard-list', color: 'secondary', route: '/hrm/appraisals', category: 'hrm' },
+    { id: 'appraisal', title: 'Self Appraisal', description: 'Submit performance review goals.', icon: 'ti-clipboard-list', color: 'secondary', route: '/approvals/forms/appraisal', category: 'hrm' },
+    { id: 'employee_appointment', title: 'Employee Appointment', description: 'Request to convert a hired candidate into an employee.', icon: 'ti-user-plus', color: 'info', route: '/approvals/forms/employee-appointment', category: 'hrm' },
 ]
 
 const filteredFormTypes = computed(() => {
