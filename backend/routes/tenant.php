@@ -300,9 +300,18 @@ Route::middleware([
         Route::get('/documents/{document}/download', [DocumentController::class, 'download']);
 
         // Fleet Module
+        // bulk-archive registered BEFORE the apiResource so the {vehicle}
+        // parameter doesn't swallow 'bulk-archive' as a UUID lookup.
+        Route::post('/vehicles/bulk-archive', [VehicleController::class, 'bulkArchive']);
         Route::apiResource('vehicles', VehicleController::class);
-        Route::apiResource('maintenance-logs', MaintenanceLogController::class);
-        Route::apiResource('fuel-logs', FuelLogController::class);
+        Route::post('/vehicles/{vehicle}/image', [VehicleController::class, 'uploadImage']);
+        Route::delete('/vehicles/{vehicle}/image', [VehicleController::class, 'deleteImage']);
+        Route::apiResource('vehicle-models', \App\Tenants\Modules\Fleet\Controllers\VehicleModelController::class)
+            ->parameters(['vehicle-models' => 'vehicleModel']);
+        Route::apiResource('maintenance-logs', MaintenanceLogController::class)
+            ->parameters(['maintenance-logs' => 'maintenanceLog']);
+        Route::apiResource('fuel-logs', FuelLogController::class)
+            ->parameters(['fuel-logs' => 'fuelLog']);
 
         // Assets Module
         Route::apiResource('assets', AssetController::class);

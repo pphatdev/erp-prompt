@@ -118,7 +118,14 @@ class ModuleSeeder extends Seeder
         ['slug' => 'hrm-payroll', 'prefix' => 'HRMPA', 'name' => 'Payroll', 'icon' => 'ti-cash', 'route' => '/hrm/payroll', 'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'hrm'],
 
         // Apps: standalone
-        ['slug' => 'fleets',     'prefix' => 'FLT',  'name' => 'Fleets',             'icon' => 'ti-truck',        'route' => '#', 'group' => 'apps', 'sort_order' => 7],
+        // Fleets: group → 3 leaf pages. The route on the parent stays null so
+        // clicks open the disclosure rather than navigating. The two non-active
+        // leaves keep route='#' until their pages land — the sidebar renders
+        // them as disabled "coming soon" buttons via the operational flag.
+        ['slug' => 'fleets',            'prefix' => 'FLT',  'name' => 'Fleets',      'icon' => 'ti-truck',        'route' => null,              'group' => 'apps', 'sort_order' => 7],
+        ['slug' => 'fleet-vehicles',    'prefix' => 'FLTV', 'name' => 'Vehicles',    'icon' => 'ti-car',          'route' => '/fleet/vehicles', 'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'fleets'],
+        ['slug' => 'fleet-maintenance', 'prefix' => 'FLTM', 'name' => 'Maintenance', 'icon' => 'ti-tool',         'route' => '/fleet/maintenance', 'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'fleets'],
+        ['slug' => 'fleet-fuel',        'prefix' => 'FLTF', 'name' => 'Fuel Logs',   'icon' => 'ti-gas-station',  'route' => '/fleet/fuel',     'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'fleets'],
         ['slug' => 'projects',   'prefix' => 'PROJ', 'name' => 'Project Management', 'icon' => 'ti-presentation', 'route' => '#', 'group' => 'apps', 'sort_order' => 8],
         ['slug' => 'eapprovals', 'prefix' => 'EAPP', 'name' => 'eApprovals',         'icon' => 'ti-circle-check', 'route' => '#', 'group' => 'apps', 'sort_order' => 9],
         ['slug' => 'edocuments', 'prefix' => 'EDOC', 'name' => 'eDocuments',         'icon' => 'ti-file-text',    'route' => '#', 'group' => 'apps', 'sort_order' => 10],
@@ -128,6 +135,8 @@ class ModuleSeeder extends Seeder
         ['slug' => 'settings-apps',   'prefix' => 'SETA', 'name' => 'Apps Management', 'icon' => 'ti-box',        'route' => null,        'group' => 'apps', 'sort_order' => 12, 'is_core' => true],
         ['slug' => 'settings-apps-hrm', 'prefix' => 'SETAH', 'name' => 'Human Resource', 'icon' => 'ti-users',   'route' => null, 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps'],
         ['slug' => 'settings-apps-hrm-leave-types', 'prefix' => 'SETAHL', 'name' => 'Leave Types', 'icon' => 'ti-list', 'route' => '/settings/apps/hrm/leave-types', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-hrm'],
+        ['slug' => 'settings-apps-fleet', 'prefix' => 'SETAFLT', 'name' => 'Fleet', 'icon' => 'ti-truck', 'route' => null, 'group' => 'apps', 'sort_order' => 2, 'is_core' => true, 'parent_slug' => 'settings-apps'],
+        ['slug' => 'settings-apps-fleet-vehicle-models', 'prefix' => 'SETAFLTV', 'name' => 'Vehicle Models', 'icon' => 'ti-car', 'route' => '/settings/apps/fleet/vehicle-models', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-fleet'],
         
         ['slug' => 'settings-users',  'prefix' => 'SETU', 'name' => 'User Directory', 'icon' => 'ti-users-group',  'route' => '/settings/users',    'group' => 'apps', 'sort_order' => 13, 'is_core' => true],
         ['slug' => 'settings-roles',  'prefix' => 'SETR', 'name' => 'Roles Matrix',   'icon' => 'ti-shield-check', 'route' => '/settings/roles',    'group' => 'apps', 'sort_order' => 14, 'is_core' => true],

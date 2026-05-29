@@ -7,18 +7,17 @@ namespace App\Tenants\Modules\Fleet\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class FuelLogResource extends JsonResource
+class VehicleModelResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->id,
-            'vehicleId' => $this->vehicle_id,
-            'fillDate' => optional($this->fill_date)->toDateString(),
-            'liters' => (float) $this->liters,
-            'cost' => (float) $this->cost,
-            'mileageAtFill' => (int) $this->mileage_at_fill,
-            'driverId' => $this->driver_id,
+            'make' => $this->make,
+            'model' => $this->model,
+            'bodyType' => $this->body_type,
+            'fuelType' => $this->fuel_type,
+            'notes' => $this->notes,
             'createdAt' => optional($this->created_at)->toIso8601String(),
             'updatedAt' => optional($this->updated_at)->toIso8601String(),
         ];

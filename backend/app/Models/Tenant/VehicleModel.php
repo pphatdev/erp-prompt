@@ -1,15 +1,24 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models\Tenant;
 
+use App\Models\Traits\Auditable;
+use App\Models\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Traits\BelongsToTenant;
-use App\Models\Traits\Auditable;
 use Illuminate\Support\Str;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Vehicle extends Model
+/**
+ * Catalog row for the Vehicle Make/Model picker.
+ *
+ * Vehicles themselves still carry free-text `make` + `model` columns — this
+ * model is a SUGGESTION CATALOG that drives the picker on the Vehicle Create
+ * form. Adopting the catalog doesn't migrate existing free-text rows; users
+ * just get autocomplete on new entries.
+ */
+class VehicleModel extends Model
 {
     use BelongsToTenant, Auditable, SoftDeletes;
 
@@ -17,28 +26,15 @@ class Vehicle extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'registration_number',
         'make',
         'model',
-        'year',
-        'vin',
-        'status',
-        'current_mileage',
-        'image_path',
+        'body_type',
+        'fuel_type',
+        'notes',
         'tenant_id',
     ];
 
-    public function maintenanceLogs(): HasMany
-    {
-        return $this->hasMany(MaintenanceLog::class);
-    }
-
-    public function fuelLogs(): HasMany
-    {
-        return $this->hasMany(FuelLog::class);
-    }
-
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
 

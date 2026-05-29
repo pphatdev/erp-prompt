@@ -324,6 +324,16 @@ class TenantDatabaseSeeder extends Seeder
         // Seed the minimal Chart of Accounts required for FMS operations
         $this->seedChartOfAccounts();
 
+        // Backfill the fleet.* permission catalogue + .self grants. Safe to
+        // re-run because it syncWithoutDetaching's onto the admin/employee
+        // roles after upserting each permission row by slug.
+        $this->call(FleetPermissionSeeder::class);
+
+        // Fleet demo data: vehicles + maintenance + fuel history. Keyed on
+        // natural columns (registration_number / vehicle+date+type) so a
+        // re-run is a no-op against existing rows.
+        $this->call(FleetSeeder::class);
+
         // Seed all sidebar menu items as Module rows (idempotent)
         $this->call(ModuleSeeder::class);
 

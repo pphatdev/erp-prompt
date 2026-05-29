@@ -30,9 +30,13 @@ use App\Models\Tenant\StockReservation;
 use App\Models\Tenant\StockTransfer;
 use App\Models\Tenant\Category;
 use App\Models\Tenant\ExchangeRate;
+use App\Models\Tenant\FuelLog;
+use App\Models\Tenant\MaintenanceLog;
 use App\Models\Tenant\ProductVariant;
 use App\Models\Tenant\Supplier;
 use App\Models\Tenant\User;
+use App\Models\Tenant\Vehicle;
+use App\Models\Tenant\VehicleModel;
 use App\Models\Tenant\Warehouse;
 use App\Policies\ApplicationPolicy;
 use App\Policies\AppraisalPolicy;
@@ -62,9 +66,13 @@ use App\Policies\StockReservationPolicy;
 use App\Policies\StockTransferPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\ExchangeRatePolicy;
+use App\Policies\FuelLogPolicy;
+use App\Policies\MaintenanceLogPolicy;
 use App\Policies\ProductVariantPolicy;
 use App\Policies\SupplierPolicy;
 use App\Policies\UserPolicy;
+use App\Policies\VehicleModelPolicy;
+use App\Policies\VehiclePolicy;
 use App\Policies\WarehousePolicy;
 use App\Tenants\Modules\Approvals\Events\ApprovalRequestFinalized;
 use App\Tenants\Modules\Crm\Events\LeadQualified;
@@ -120,6 +128,12 @@ class TenantServiceProvider extends ServiceProvider
         Gate::policy(StockReservation::class, StockReservationPolicy::class);
         Gate::policy(StockTransfer::class, StockTransferPolicy::class);
         Gate::policy(LowStockAlert::class, LowStockAlertPolicy::class);
+
+        // Fleet
+        Gate::policy(Vehicle::class, VehiclePolicy::class);
+        Gate::policy(VehicleModel::class, VehicleModelPolicy::class);
+        Gate::policy(MaintenanceLog::class, MaintenanceLogPolicy::class);
+        Gate::policy(FuelLog::class, FuelLogPolicy::class);
 
         // Super Admin bypass: users holding the `admin` role short-circuit all
         // policy checks. Must return null (not false) for non-admins so other
