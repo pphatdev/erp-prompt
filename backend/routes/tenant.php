@@ -10,6 +10,8 @@ use App\Tenants\Modules\Documents\Controllers\CmsDocumentController;
 use App\Tenants\Modules\Documents\Controllers\CmsFolderController;
 use App\Tenants\Modules\EDocuments\Controllers\DocumentController;
 use App\Tenants\Modules\EDocuments\Controllers\FolderController;
+use App\Tenants\Modules\EDocuments\Controllers\ShareController as EDocsShareController;
+use App\Tenants\Modules\EDocuments\Controllers\TagController as EDocsTagController;
 use App\Tenants\Modules\Fleet\Controllers\FuelLogController;
 use App\Tenants\Modules\Fleet\Controllers\MaintenanceLogController;
 use App\Tenants\Modules\Fleet\Controllers\VehicleController;
@@ -101,6 +103,11 @@ Route::middleware([
     Route::get('/public/catalog', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'index']);
     Route::get('/public/catalog/{product}', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'show']);
     Route::get('/public/catalog/{product}/availability', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'availability']);
+
+    // Public eDocs share links — recipients have a tenant-handle + token URL.
+    // ShareLinkService throws 410/403/429 directly; no Passport required.
+    Route::get('/public/shares/{token}', [EDocsShareController::class, 'publicShow']);
+    Route::get('/public/shares/{token}/download', [EDocsShareController::class, 'publicDownload']);
 
     Route::middleware('auth:api')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
@@ -295,9 +302,24 @@ Route::middleware([
         Route::post('/approval-requests/{approvalRequest}/process', [ApprovalActionController::class, 'process']);
 
         // eDocuments Module
-        Route::apiResource('folders', FolderController::class);
-        Route::apiResource('documents', DocumentController::class);
+        // Specific document actions registered BEFORE apiResource so {document}
+        // does not capture the static segments below as UUIDs.
         Route::get('/documents/{document}/download', [DocumentController::class, 'download']);
+        Route::patch('/documents/{document}/move', [DocumentController::class, 'move']);
+        Route::get('/documents/{document}/versions', [DocumentController::class, 'versions']);
+        Route::post('/documents/{document}/versions', [DocumentController::class, 'createVersion']);
+        Route::post('/documents/{document}/acknowledge', [DocumentController::class, 'acknowledge']);
+        Route::get('/documents/{document}/acknowledgements', [DocumentController::class, 'acknowledgementSummary']);
+        Route::get('/documents/{document}/shares', [EDocsShareController::class, 'index']);
+        Route::post('/documents/{document}/shares', [EDocsShareController::class, 'store']);
+        Route::apiResource('documents', DocumentController::class);
+
+        Route::patch('/folders/{folder}/move', [FolderController::class, 'move']);
+        Route::apiResource('folders', FolderController::class);
+
+        Route::apiResource('document-tags', EDocsTagController::class)->parameters(['document-tags' => 'tag']);
+
+        Route::delete('/document-shares/{share}', [EDocsShareController::class, 'destroy']);
 
         // Fleet Module
         // bulk-archive registered BEFORE the apiResource so the {vehicle}

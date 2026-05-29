@@ -19,19 +19,18 @@
             </header>
 
             <!-- KPI strip -->
-            <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
                 <article v-for="card in kpiCards" :key="card.key"
-                    class="glass-card rounded-2xl p-4 border border-(--border-color) flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                        :class="card.tintClass">
-                        <i :class="['ti', card.icon, 'text-base']" />
+                    class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">{{ card.label }}</span>
+                        <span class="w-7 h-7 rounded-lg flex items-center justify-center"
+                            :class="`badge-soft-${card.tone}`">
+                            <i :class="['ti', card.icon, 'text-sm']" />
+                        </span>
                     </div>
-                    <div class="min-w-0">
-                        <p class="text-xxs uppercase tracking-widest font-bold text-(--text-muted)">{{ card.label }}</p>
-                        <p class="text-lg font-semibold font-mono text-(--text-heading) leading-tight">
-                            {{ card.value }}
-                        </p>
-                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ card.value }}</p>
+                    <p class="text-xxs text-(--text-muted)">{{ card.subtext }}</p>
                 </article>
             </section>
 
@@ -427,10 +426,10 @@ const totalCostCount = useCountUp(() => kpis.value.totalCost, { decimals: 2 })
 const totalLitersCount = useCountUp(() => kpis.value.totalLiters, { decimals: 2 })
 
 const kpiCards = computed(() => [
-    { key: 'total',       label: 'Total fills',  value: totalCount.value.toLocaleString(),                                                                                  icon: 'ti-gas-station',    tintClass: 'bg-(--color-primary-subtle) text-(--color-primary)' },
-    { key: 'thisMonth',   label: 'This month',   value: thisMonthCount.value.toLocaleString(),                                                                              icon: 'ti-calendar-event', tintClass: 'bg-(--color-info-subtle) text-(--color-info)' },
-    { key: 'totalCost',   label: 'Total cost',   value: formatMoney(totalCostCount.value),                                                                                  icon: 'ti-cash',           tintClass: 'bg-(--color-warning-subtle) text-(--color-warning)' },
-    { key: 'totalLiters', label: 'Total liters', value: `${totalLitersCount.value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L`,    icon: 'ti-droplet',        tintClass: 'bg-(--color-success-subtle) text-(--color-success)' },
+    { key: 'total',       label: 'Total fills',  value: totalCount.value.toLocaleString(),                                                                                  icon: 'ti-gas-station',    tone: 'primary', subtext: 'Lifetime records' },
+    { key: 'thisMonth',   label: 'This month',   value: thisMonthCount.value.toLocaleString(),                                                                              icon: 'ti-calendar-event', tone: 'info',    subtext: 'Recent activity' },
+    { key: 'totalCost',   label: 'Total cost',   value: formatMoney(totalCostCount.value),                                                                                  icon: 'ti-cash',           tone: 'warning', subtext: 'Lifetime fuel spend' },
+    { key: 'totalLiters', label: 'Total liters', value: `${totalLitersCount.value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} L`,    icon: 'ti-droplet',        tone: 'success', subtext: 'Pumped to date' },
 ])
 
 const loadAll = async () => {

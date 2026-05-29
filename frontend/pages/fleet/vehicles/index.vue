@@ -19,19 +19,18 @@
             </header>
 
             <!-- KPI strip -->
-            <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
                 <article v-for="card in kpiCards" :key="card.key"
-                    class="glass-card rounded-2xl p-4 border border-(--border-color) flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                        :class="card.tintClass">
-                        <i :class="['ti', card.icon, 'text-base']" />
+                    class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">{{ card.label }}</span>
+                        <span class="w-7 h-7 rounded-lg flex items-center justify-center"
+                            :class="`badge-soft-${card.tone}`">
+                            <i :class="['ti', card.icon, 'text-sm']" />
+                        </span>
                     </div>
-                    <div class="min-w-0">
-                        <p class="text-xxs uppercase tracking-widest font-bold text-(--text-muted)">{{ card.label }}</p>
-                        <p class="text-lg font-semibold font-mono text-(--text-heading) leading-tight">
-                            {{ card.value.toLocaleString() }}
-                        </p>
-                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ card.value.toLocaleString() }}</p>
+                    <p class="text-xxs text-(--text-muted)">{{ card.subtext }}</p>
                 </article>
             </section>
 
@@ -595,10 +594,10 @@ const maintenanceCount = useCountUp(() => kpis.value.maintenance)
 const retiredCount = useCountUp(() => kpis.value.retired)
 
 const kpiCards = computed(() => [
-    { key: 'total',       label: 'Total',          value: totalCount.value,       icon: 'ti-truck',          tintClass: 'bg-(--color-primary-subtle) text-(--color-primary)' },
-    { key: 'active',      label: 'Active',         value: activeCount.value,      icon: 'ti-circle-check',   tintClass: 'bg-(--color-success-subtle) text-(--color-success)' },
-    { key: 'maintenance', label: 'In maintenance', value: maintenanceCount.value, icon: 'ti-tool',           tintClass: 'bg-(--color-warning-subtle) text-(--color-warning)' },
-    { key: 'retired',     label: 'Retired',        value: retiredCount.value,     icon: 'ti-archive',        tintClass: 'bg-(--bg-muted) text-(--text-muted)' },
+    { key: 'total',       label: 'Total',          value: totalCount.value,       icon: 'ti-truck',        tone: 'primary', subtext: 'All vehicles' },
+    { key: 'active',      label: 'Active',         value: activeCount.value,      icon: 'ti-circle-check', tone: 'success', subtext: 'On the road' },
+    { key: 'maintenance', label: 'In maintenance', value: maintenanceCount.value, icon: 'ti-tool',         tone: 'warning', subtext: 'Off the road' },
+    { key: 'retired',     label: 'Retired',        value: retiredCount.value,     icon: 'ti-archive',      tone: 'info',    subtext: 'Decommissioned' },
 ])
 
 const resetForm = () => {

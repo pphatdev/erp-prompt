@@ -10,7 +10,9 @@ use App\Models\Tenant\CrmAppointment;
 use App\Models\Tenant\CrmContact;
 use App\Models\Tenant\Dashboard;
 use App\Models\Tenant\Department;
+use App\Models\Tenant\Document;
 use App\Models\Tenant\Employee;
+use App\Models\Tenant\Folder;
 use App\Models\Tenant\Interview;
 use App\Models\Tenant\JobVacancy;
 use App\Models\Tenant\Lead;
@@ -34,6 +36,7 @@ use App\Models\Tenant\FuelLog;
 use App\Models\Tenant\MaintenanceLog;
 use App\Models\Tenant\ProductVariant;
 use App\Models\Tenant\Supplier;
+use App\Models\Tenant\Tag;
 use App\Models\Tenant\User;
 use App\Models\Tenant\Vehicle;
 use App\Models\Tenant\VehicleModel;
@@ -46,7 +49,10 @@ use App\Policies\CrmAppointmentPolicy;
 use App\Policies\CrmContactPolicy;
 use App\Policies\DashboardPolicy;
 use App\Policies\DepartmentPolicy;
+use App\Policies\DocumentPolicy;
+use App\Policies\DocumentTagPolicy;
 use App\Policies\EmployeePolicy;
+use App\Policies\FolderPolicy;
 use App\Policies\InterviewPolicy;
 use App\Policies\JobVacancyPolicy;
 use App\Policies\LeadPolicy;
@@ -128,6 +134,11 @@ class TenantServiceProvider extends ServiceProvider
         Gate::policy(StockReservation::class, StockReservationPolicy::class);
         Gate::policy(StockTransfer::class, StockTransferPolicy::class);
         Gate::policy(LowStockAlert::class, LowStockAlertPolicy::class);
+
+        // eDocuments
+        Gate::policy(Document::class, DocumentPolicy::class);
+        Gate::policy(Folder::class, FolderPolicy::class);
+        Gate::policy(Tag::class, DocumentTagPolicy::class);
 
         // Fleet
         Gate::policy(Vehicle::class, VehiclePolicy::class);

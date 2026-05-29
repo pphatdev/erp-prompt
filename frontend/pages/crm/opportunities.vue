@@ -29,30 +29,57 @@
             </header>
 
             <!-- Metrics row -->
-            <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total Pipeline Value</p>
-                    <p class="text-xl font-semibold text-(--text-heading) mt-1">
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Total Pipeline Value</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-primary flex items-center justify-center">
+                            <i class="ti ti-coin text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">
                         <CountUp :value="totalValue" currency="USD" />
                     </p>
+                    <p class="text-xxs text-(--text-muted)">Across all stages</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Weighted Forecast</p>
-                    <p class="text-xl font-semibold text-(--color-primary) mt-1">
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Weighted Forecast</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-info flex items-center justify-center">
+                            <i class="ti ti-chart-pie text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">
                         <CountUp :value="weightedForecast" currency="USD" />
                     </p>
+                    <p class="text-xxs text-(--text-muted)">Probability-adjusted</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Active Deals</p>
-                    <p class="text-xl font-semibold text-(--text-heading) mt-1">
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Active Deals</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-warning flex items-center justify-center">
+                            <i class="ti ti-target-arrow text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">
                         <CountUp :value="activeDealsCount" />
                     </p>
+                    <p class="text-xxs text-(--text-muted)">In flight</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Deals Won</p>
-                    <p class="text-xl font-semibold text-(--color-success) mt-1">
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Deals Won</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-success flex items-center justify-center">
+                            <i class="ti ti-trophy text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">
                         <CountUp :value="wonCount" />
                     </p>
+                    <p class="text-xxs text-(--text-muted)">Closed-won</p>
                 </div>
             </section>
 

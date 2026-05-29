@@ -13,22 +13,49 @@
             </header>
 
             <!-- Metrics -->
-            <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
-                    <p class="text-xl font-semibold text-(--text-heading) mt-1">{{ totalCount }}</p>
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Total</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-primary flex items-center justify-center">
+                            <i class="ti ti-category text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ totalCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">All categories</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Root</p>
-                    <p class="text-xl font-semibold text-(--color-primary) mt-1">{{ tree.length }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Root</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-info flex items-center justify-center">
+                            <i class="ti ti-hierarchy text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ rootCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Top-level groups</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Active</p>
-                    <p class="text-xl font-semibold text-(--color-success) mt-1">{{ activeCount }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Active</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-success flex items-center justify-center">
+                            <i class="ti ti-circle-check text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ activeCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Visible to catalogue</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Assigned Products</p>
-                    <p class="text-xl font-semibold text-(--color-info) mt-1">{{ assignedProducts }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Assigned Products</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-warning flex items-center justify-center">
+                            <i class="ti ti-package text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ assignedProductsAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Mapped to a category</p>
                 </div>
             </section>
 
@@ -158,9 +185,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref, defineComponent, type PropType } from 'vue'
+import { computed, h, onMounted, reactive, ref, defineComponent, type PropType, type Component } from 'vue'
 import { useInventory } from '~/composables/useInventory'
 import { useToast } from '~/composables/useToast'
+import { useCountUp } from '~/composables/useCountUp'
 import { useAuthStore } from '~/stores/auth'
 import type { Category, CreateCategoryPayload } from '~/types/inventory'
 
@@ -192,6 +220,12 @@ const flatList = computed(() => flattenTree(tree.value))
 const totalCount = computed(() => flatList.value.length)
 const activeCount = computed(() => flatList.value.filter(c => c.isActive).length)
 const assignedProducts = computed(() => flatList.value.reduce((sum, c) => sum + (c.productsCount ?? 0), 0))
+
+// Animated KPI counters (RAF-driven, ease-out cubic).
+const totalCountAnim = useCountUp(() => totalCount.value)
+const rootCountAnim = useCountUp(() => tree.value.length)
+const activeCountAnim = useCountUp(() => activeCount.value)
+const assignedProductsAnim = useCountUp(() => assignedProducts.value)
 
 const parentOptions = computed(() => flatList.value)
 
@@ -317,7 +351,7 @@ const load = async () => {
 
 onMounted(load)
 
-const CategoryNode = defineComponent({
+const CategoryNode: Component = defineComponent({
     name: 'CategoryNode',
     props: {
         node: { type: Object as PropType<Category>, required: true },

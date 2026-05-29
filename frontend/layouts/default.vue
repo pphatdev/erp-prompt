@@ -680,7 +680,7 @@ const navGroups = reactive<NavGroup[]>([
                 ]
             },
             { label: 'Project Management', icon: 'ti-presentation', route: '#', operational: false, moduleSlug: 'projects' },
-            { label: 'eDocuments', icon: 'ti-file-text', route: '#', operational: false, moduleSlug: 'edocuments' },
+            { label: 'eDocuments', icon: 'ti-file-text', route: '/edocuments', operational: true, permission: 'edocs.explorer.read', moduleSlug: 'edocuments' },
             { label: 'Reports & Analytics', icon: 'ti-chart-bar', route: '#', operational: false, moduleSlug: 'reporting' },
         ]
     },

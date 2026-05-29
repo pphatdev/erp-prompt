@@ -13,22 +13,49 @@
             </header>
 
             <!-- Metrics -->
-            <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
-                    <p class="text-xl font-semibold text-(--text-heading) mt-1">{{ warehousesList.length }}</p>
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Total</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-primary flex items-center justify-center">
+                            <i class="ti ti-building-warehouse text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ totalCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">All warehouses</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Active</p>
-                    <p class="text-xl font-semibold text-(--color-success) mt-1">{{ activeCount }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Active</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-success flex items-center justify-center">
+                            <i class="ti ti-circle-check text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ activeCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">In service</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Capacity Total</p>
-                    <p class="text-xl font-semibold text-(--color-info) mt-1">{{ capacitySum }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Capacity Total</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-info flex items-center justify-center">
+                            <i class="ti ti-stack-2 text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ capacityNumericAnim.toLocaleString() }}</p>
+                    <p class="text-xxs text-(--text-muted)">Combined storage units</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Countries</p>
-                    <p class="text-xl font-semibold text-(--color-warning) mt-1">{{ countryCount }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Countries</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-warning flex items-center justify-center">
+                            <i class="ti ti-flag text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ countryCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Geographies covered</p>
                 </div>
             </section>
 
@@ -226,6 +253,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useInventory } from '~/composables/useInventory'
 import { useToast } from '~/composables/useToast'
+import { useCountUp } from '~/composables/useCountUp'
 import { useAuthStore } from '~/stores/auth'
 import type { Warehouse, CreateWarehousePayload } from '~/types/inventory'
 
@@ -248,12 +276,19 @@ const search = ref('')
 const filterActive = ref<'all' | 'active' | 'inactive'>('all')
 
 const activeCount = computed(() => warehousesList.value.filter(w => w.isActive).length)
-const capacitySum = computed(() =>
-    warehousesList.value.reduce((sum, w) => sum + (w.capacity ?? 0), 0).toLocaleString()
+const capacityNumeric = computed(() =>
+    warehousesList.value.reduce((sum, w) => sum + (w.capacity ?? 0), 0)
 )
+const capacitySum = computed(() => capacityNumeric.value.toLocaleString())
 const countryCount = computed(
     () => new Set(warehousesList.value.map(w => w.country).filter(Boolean)).size
 )
+
+// Animated KPI counters (RAF-driven, ease-out cubic).
+const totalCountAnim = useCountUp(() => warehousesList.value.length)
+const activeCountAnim = useCountUp(() => activeCount.value)
+const capacityNumericAnim = useCountUp(() => capacityNumeric.value)
+const countryCountAnim = useCountUp(() => countryCount.value)
 
 const filteredList = computed(() => warehousesList.value.filter(w => {
     const q = search.value.trim().toLowerCase()

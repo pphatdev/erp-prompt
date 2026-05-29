@@ -329,6 +329,10 @@ class TenantDatabaseSeeder extends Seeder
         // roles after upserting each permission row by slug.
         $this->call(FleetPermissionSeeder::class);
 
+        // Backfill the edocs.* permission catalogue. Idempotent — admin role
+        // gets all eDocs perms via syncWithoutDetaching.
+        $this->call(EDocsPermissionSeeder::class);
+
         // Fleet demo data: vehicles + maintenance + fuel history. Keyed on
         // natural columns (registration_number / vehicle+date+type) so a
         // re-run is a no-op against existing rows.

@@ -57,7 +57,7 @@
                     name="list" 
                     tag="div" 
                     v-if="filteredFormTypes.length > 0" 
-                    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"
+                    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
                 >
                     <div v-for="form in filteredFormTypes" :key="form.id" 
                         class="glass-card rounded-2xl p-5 pb-3 transition-all duration-150 cursor-pointer group border border-(--border-color) relative overflow-hidden flex flex-col justify-between min-h-[160px]"

@@ -13,26 +13,60 @@
             </header>
 
             <!-- Metrics -->
-            <section class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
-                    <p class="text-xl font-semibold text-(--text-heading) mt-1">{{ list.length }}</p>
+            <section class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Total</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-primary flex items-center justify-center">
+                            <i class="ti ti-file-invoice text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ totalCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">All POs</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Drafts</p>
-                    <p class="text-xl font-semibold text-(--color-info) mt-1">{{ countOf('draft') }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Drafts</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-info flex items-center justify-center">
+                            <i class="ti ti-pencil text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ draftCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Not yet submitted</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Awaiting Approval</p>
-                    <p class="text-xl font-semibold text-(--color-warning) mt-1">{{ countOf('submitted') }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Awaiting Approval</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-warning flex items-center justify-center">
+                            <i class="ti ti-hourglass text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ submittedCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Pending sign-off</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Receiving</p>
-                    <p class="text-xl font-semibold text-(--color-primary) mt-1">{{ countOf('approved') + countOf('receiving') }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Receiving</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-primary flex items-center justify-center">
+                            <i class="ti ti-truck-loading text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ receivingCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">In transit / GRN</p>
                 </div>
-                <div class="glass-card rounded-xl p-4 col-span-2 md:col-span-1">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Open Spend</p>
-                    <p class="text-xl font-semibold text-(--color-success) mt-1">{{ formatCurrency(openSpend) }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-2 md:col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Open Spend</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-success flex items-center justify-center">
+                            <i class="ti ti-cash text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ formatCurrency(openSpendAnim) }}</p>
+                    <p class="text-xxs text-(--text-muted)">Outstanding committed</p>
                 </div>
             </section>
 
@@ -191,6 +225,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useInventory, poStatusBadgeVariant } from '~/composables/useInventory'
 import { useToast } from '~/composables/useToast'
+import { useCountUp } from '~/composables/useCountUp'
 import { useAuthStore } from '~/stores/auth'
 import type { PurchaseOrder, PurchaseOrderStatus, Supplier, Warehouse } from '~/types/inventory'
 
@@ -226,6 +261,13 @@ const openSpend = computed(() =>
         .filter(p => p.status !== 'cancelled' && p.status !== 'received')
         .reduce((sum, p) => sum + Number(p.totalAmount || 0), 0)
 )
+
+// Animated KPI counters.
+const totalCountAnim = useCountUp(() => list.value.length)
+const draftCountAnim = useCountUp(() => countOf('draft'))
+const submittedCountAnim = useCountUp(() => countOf('submitted'))
+const receivingCountAnim = useCountUp(() => countOf('approved') + countOf('receiving'))
+const openSpendAnim = useCountUp(() => openSpend.value, { decimals: 2 })
 
 const filteredList = computed(() => list.value.filter(p => {
     const q = search.value.trim().toLowerCase()

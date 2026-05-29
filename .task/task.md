@@ -1,6 +1,6 @@
 # ERP Master Progress Registry
 
-> Last synced: 2026-05-27
+> Last synced: 2026-05-29
 
 ## Infrastructure & Platform
 - [x] Laravel multi-tenant backend (stancl/tenancy v3, multi-database)
@@ -152,10 +152,25 @@
 - [ ] Pest tenancy isolation tests (P0) & State machine integrity (P1)
 - [ ] eApprovals UI page
 
-## eDocuments / Documents
-- [x] CMS Folders + Documents (backend)
-- [x] Document check-in/check-out (backend)
-- [ ] Document explorer UI
+## eDocuments (Explorer)
+> Full task: [`.task/edocuments/task.md`](./.task/edocuments/task.md) | Rule: [`skills/edocuments/rules.md`](./skills/edocuments/rules.md)
+- [x] Backend scaffolding (Folder, Document, Tag models; migrations; service with banned-ext/MIME guards; index/store/show/download controllers)
+- [x] Schema completion — `document_shares`, `document_acknowledgements`, `document_versions` migrations + `Tag` Auditable/SoftDeletes
+- [x] Service layer — DocumentService update/delete/move/createVersion; FolderService (cycle-guarded move + recursive force delete); ShareLinkService (410/403/429); AcknowledgementService
+- [x] Search & metadata — tag CRUD, filter by folder/tag/uploader/MIME/date/polymorphic, folder pagination
+- [x] API surface — camelCase resources (Document, Folder, Tag, Share, Version, Ack); FormRequests; update/destroy/move endpoints on Document & Folder; public share routes
+- [x] Access control — `EDocsPermissionSeeder` + `DocumentPolicy`/`FolderPolicy`/`DocumentTagPolicy` registered in `TenantServiceProvider` + `$this->authorize` on every action
+- [x] Frontend Explorer MVP — `pages/edocuments/index.vue` (folders grid + docs table + kebab actions + upload/preview/share/rename modals), `pages/share/[token].vue` public viewer, `composables/useEDocuments.ts`, `stores/edocuments.ts`, sidebar wired
+- [ ] QA — Pest isolation (P0), share-link expiry (P0), upload guards, search scoping, acknowledgement, permissions, resource contract
+
+## Documents (CMS)
+> Full task: [`.task/documents/task.md`](./.task/documents/task.md) | Rule: [`skills/documents/rules.md`](./skills/documents/rules.md)
+- [x] CMS Folders + Documents (backend scaffolding completed)
+- [x] Document check-in/check-out locking service operations (completed)
+- [ ] Backend API alignment (camelCase resources, policies, permissions seeder)
+- [ ] Document explorer UI (folders, files, breadcrumbs, search)
+- [ ] Concurrency check-in/out visual flow & modal integrations
+- [ ] Dynamic PDF / Image previewer modals
 
 ## Reporting & Analytics
 - [x] Dashboard/Widget CRUD infrastructure

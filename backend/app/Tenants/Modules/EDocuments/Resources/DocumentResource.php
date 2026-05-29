@@ -2,29 +2,30 @@
 
 namespace App\Tenants\Modules\EDocuments\Resources;
 
+use App\Tenants\Modules\IAM\Resources\UserResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use App\Tenants\Modules\IAM\Resources\UserResource;
 
 class DocumentResource extends JsonResource
 {
-    /**
-     * Transform the resource into an array.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(Request $request): array
     {
         return [
             'id' => $this->id,
             'title' => $this->title,
             'filename' => $this->filename,
-            'mime_type' => $this->mime_type,
-            'size_bytes' => $this->size_bytes,
-            'folder_id' => $this->folder_id,
-            'uploader' => new UserResource($this->whenLoaded('uploader')),
-            'tags' => $this->whenLoaded('tags'),
-            'created_at' => $this->created_at->toIso8601String(),
+            'mimeType' => $this->mime_type,
+            'sizeBytes' => (int) $this->size_bytes,
+            'folderId' => $this->folder_id,
+            'uploaderId' => $this->uploader_id,
+            'documentableType' => $this->documentable_type,
+            'documentableId' => $this->documentable_id,
+            'uploader' => $this->whenLoaded('uploader', fn () => $this->uploader ? new UserResource($this->uploader) : null),
+            'folder' => $this->whenLoaded('folder', fn () => $this->folder ? new FolderResource($this->folder) : null),
+            'tags' => $this->whenLoaded('tags', fn () => TagResource::collection($this->tags)),
+            'versionsCount' => $this->when(isset($this->versions_count), fn () => (int) $this->versions_count),
+            'createdAt' => optional($this->created_at)->toIso8601String(),
+            'updatedAt' => optional($this->updated_at)->toIso8601String(),
         ];
     }
 }

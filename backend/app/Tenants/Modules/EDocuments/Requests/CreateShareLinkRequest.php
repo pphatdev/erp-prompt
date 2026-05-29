@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tenants\Modules\EDocuments\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class CreateShareLinkRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'expires_at' => 'nullable|date|after:now',
+            'password' => 'nullable|string|min:4|max:128',
+            'max_downloads' => 'nullable|integer|min:1|max:10000',
+        ];
+    }
+}

@@ -13,22 +13,49 @@
             </header>
 
             <!-- Metrics -->
-            <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total Active</p>
-                    <p class="text-xl font-semibold text-(--text-heading) mt-1">{{ leadsList.length }}</p>
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Total Active</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-primary flex items-center justify-center">
+                            <i class="ti ti-users text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ totalActiveAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Across all stages</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">New Inquiries</p>
-                    <p class="text-xl font-semibold text-(--color-info) mt-1">{{ newCount }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">New Inquiries</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-info flex items-center justify-center">
+                            <i class="ti ti-sparkles text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ newCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Untouched leads</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">In Discussion</p>
-                    <p class="text-xl font-semibold text-(--color-warning) mt-1">{{ contactedCount }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">In Discussion</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-warning flex items-center justify-center">
+                            <i class="ti ti-message-circle text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ contactedCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Actively engaged</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Qualified Rate</p>
-                    <p class="text-xl font-semibold text-(--color-success) mt-1">{{ qualifiedRate }}%</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Qualified Rate</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-success flex items-center justify-center">
+                            <i class="ti ti-trending-up text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ qualifiedRateAnim }}%</p>
+                    <p class="text-xxs text-(--text-muted)">Conversion progress</p>
                 </div>
             </section>
 
@@ -392,6 +419,7 @@ import { computed, onMounted, ref, reactive } from 'vue'
 import { useCrm, crmBadgeVariant } from '~/composables/useCrm'
 import { useSales } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
+import { useCountUp } from '~/composables/useCountUp'
 import { useValidation } from '~/composables/useValidation'
 import type { Lead, CreateLeadPayload, QualifyLeadPayload } from '~/types/crm'
 import type { CustomerLite } from '~/types/sales'
@@ -432,6 +460,12 @@ const qualifiedRate = computed(() => {
     const qual = leadsList.value.filter(l => l.status === 'qualified').length
     return Math.round((qual / leadsList.value.length) * 100)
 })
+
+// Animated counters for the KPI cards (RAF-driven, ease-out cubic).
+const totalActiveAnim = useCountUp(() => leadsList.value.length)
+const newCountAnim = useCountUp(() => newCount.value)
+const contactedCountAnim = useCountUp(() => contactedCount.value)
+const qualifiedRateAnim = useCountUp(() => qualifiedRate.value)
 
 // Filters
 const filteredLeads = computed(() => leadsList.value.filter(l => {

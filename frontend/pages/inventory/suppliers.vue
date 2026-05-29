@@ -13,22 +13,49 @@
             </header>
 
             <!-- Metrics -->
-            <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Total</p>
-                    <p class="text-xl font-semibold text-(--text-heading) mt-1">{{ suppliersList.length }}</p>
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Total</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-primary flex items-center justify-center">
+                            <i class="ti ti-truck-delivery text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ totalCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Suppliers on file</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Active</p>
-                    <p class="text-xl font-semibold text-(--color-success) mt-1">{{ activeCount }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Active</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-success flex items-center justify-center">
+                            <i class="ti ti-circle-check text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ activeCountAnim }}</p>
+                    <p class="text-xxs text-(--text-muted)">Ready to PO</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Avg Rating</p>
-                    <p class="text-xl font-semibold text-(--color-warning) mt-1">{{ avgRating }}</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Avg Rating</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-warning flex items-center justify-center">
+                            <i class="ti ti-star text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ avgRatingNumeric > 0 ? avgRatingAnim.toFixed(1) : '—' }}</p>
+                    <p class="text-xxs text-(--text-muted)">Out of 5.0</p>
                 </div>
-                <div class="glass-card rounded-xl p-4">
-                    <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Avg Lead Time</p>
-                    <p class="text-xl font-semibold text-(--color-info) mt-1">{{ avgLeadTime }}d</p>
+
+                <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Avg Lead Time</span>
+                        <span class="w-7 h-7 rounded-lg badge-soft-info flex items-center justify-center">
+                            <i class="ti ti-clock-hour-3 text-sm" />
+                        </span>
+                    </div>
+                    <p class="text-2xl font-bold text-(--text-heading) font-mono">{{ avgLeadTimeAnim }}d</p>
+                    <p class="text-xxs text-(--text-muted)">Order to delivery</p>
                 </div>
             </section>
 
@@ -288,6 +315,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useInventory } from '~/composables/useInventory'
 import { useToast } from '~/composables/useToast'
+import { useCountUp } from '~/composables/useCountUp'
 import { useAuthStore } from '~/stores/auth'
 import type { Supplier, CreateSupplierPayload } from '~/types/inventory'
 
@@ -311,16 +339,23 @@ const filterActive = ref<'all' | 'active' | 'inactive'>('all')
 const filterRating = ref<number>(0)
 
 const activeCount = computed(() => suppliersList.value.filter(s => s.isActive).length)
-const avgRating = computed(() => {
+const avgRatingNumeric = computed(() => {
     const rated = suppliersList.value.filter(s => s.rating !== null) as (Supplier & { rating: number })[]
-    if (!rated.length) return '—'
-    return (rated.reduce((a, b) => a + b.rating, 0) / rated.length).toFixed(1)
+    if (!rated.length) return 0
+    return rated.reduce((a, b) => a + b.rating, 0) / rated.length
 })
+const avgRating = computed(() => avgRatingNumeric.value > 0 ? avgRatingNumeric.value.toFixed(1) : '—')
 const avgLeadTime = computed(() => {
     const withLead = suppliersList.value.filter(s => s.leadTimeDays !== null) as (Supplier & { leadTimeDays: number })[]
     if (!withLead.length) return 0
     return Math.round(withLead.reduce((a, b) => a + b.leadTimeDays, 0) / withLead.length)
 })
+
+// Animated KPI counters.
+const totalCountAnim = useCountUp(() => suppliersList.value.length)
+const activeCountAnim = useCountUp(() => activeCount.value)
+const avgRatingAnim = useCountUp(() => avgRatingNumeric.value, { decimals: 1 })
+const avgLeadTimeAnim = useCountUp(() => avgLeadTime.value)
 
 const filteredList = computed(() => suppliersList.value.filter(s => {
     const q = search.value.trim().toLowerCase()

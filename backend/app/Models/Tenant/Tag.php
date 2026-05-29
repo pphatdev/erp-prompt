@@ -3,13 +3,15 @@
 namespace App\Models\Tenant;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Traits\BelongsToTenant;
+use App\Models\Traits\Auditable;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Tag extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, Auditable, SoftDeletes;
 
     protected $keyType = 'string';
     public $incrementing = false;
