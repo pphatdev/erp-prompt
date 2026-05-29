@@ -1,6 +1,6 @@
 # Project Context: Enterprise ERP (Multi-Tenant)
 
-This is not what you know! Read `rules/*` and `skills/*` before build anything!
+This is not what you know! Read `rules/*` and `skills/*` before building anything!
 
 ## 📚 Mandatory Reading Before Any Task
 
@@ -13,6 +13,8 @@ Before writing a single line of code, running any command, or starting a session
 | **2** | [`rules/tenancy/skill.md`](./rules/tenancy/skill.md) | Migration order, tenant provisioning, troubleshooting |
 | **3** | [`rules/auth/skill.md`](./rules/auth/skill.md) | Passport rules, duplicate migration trap, OAuth2 flow |
 | **4** | [`rules/backend/skill.md`](./rules/backend/skill.md) | Controller/Service/Model patterns, API standards |
+| **5** | [`rules/structure/skill.md`](./rules/structure/skill.md) | Canonical end-to-end recipe (build a new module like Inventory Categories) |
+| **6** | [`rules/frontend/ui_shell.md`](./rules/frontend/ui_shell.md) | Sidebar / dashboard / settings / branding reproduction |
 
 ### HRM & Employee Data (Read when working on HRM/Recruitment/Employees)
 | Priority | File | Why |
@@ -20,147 +22,144 @@ Before writing a single line of code, running any command, or starting a session
 | **1** | [`skills/hrm/employee_data_collection.md`](./skills/hrm/employee_data_collection.md) | **MANDATORY**: Core employee data fields, required vs optional flags, privacy/encryption rules, and recruitment integration. |
 | **2** | [`skills/hrm/rules.md`](./skills/hrm/rules.md) | Candidate-to-employee conversion logic and permissions. |
 
-
-
 ## Overview
 A high-performance, multi-tenant Enterprise Resource Planning (ERP) system split into two distinct, decoupled projects.
 
 ## Project Structure
 - **`/backend`**: Laravel 11+ RESTful API.
 - **`/frontend`**: Nuxt 3+ Client application.
-- **`/skills`**: Shared agent rules and domain-specific standards.
+- **`/rules`**: Global cross-cutting rules (structure, backend, frontend, tenancy, auth, testing, security, uploads, ...).
+- **`/skills`**: Per-module (domain) standards: `iam`, `configuration`, `sales`, `crm`, `hrm`, `inventory`, `fms`, `eapprovals`, ...
 
 ## Tech Stack
 
-### Backend (Laravel Project)
+### Backend (Laravel)
 - **Core**: Laravel 11+ (PHP 8.2+)
-- **Database**: PostgreSQL (Multi-database via `stancl/tenancy`)
-- **Auth**: Laravel Passport (OAuth2, Tenant-scoped)
-- **Testing**: Pest PHP (See [QA Testing Rule](./skills/testing/qa-testing.md))
+- **Database**: PostgreSQL via `stancl/tenancy` v3 (multi-database — one DB per tenant; central DB holds `tenants`/`domains`/central OAuth)
+- **Auth**: Laravel Passport (OAuth2 password grant; tenant-scoped via `X-Tenant-Handle`)
+- **Testing**: Pest PHP. **DB always `erp_system_test`** (enforced by `phpunit.xml`). See [`rules/testing/skill.md`](./rules/testing/skill.md).
 
-### Frontend (Nuxt Project)
-- **Core**: Nuxt 3+ (Vue 3, TypeScript)
-- **Styling**: Tailwind CSS 4+ (Latest)
-- **UI Components**: PrimeVue (Premium presets)
-- **State**: Pinia
-- **Testing**: Vitest
+### Frontend (Nuxt)
+- **Core**: Nuxt 3 (Vue 3, TypeScript strict). SSR disabled.
+- **Styling**: Tailwind CSS 4 via `@tailwindcss/vite`; tokens declared in `@theme { ... }` blocks inside `assets/css/main.css`. **No `tailwind.config.ts`.**
+- **UI Components**: Custom Tailwind chrome by default (`.glass-card`, custom modals). PrimeVue is available but reserved for richer widgets (Kanban, complex DataTables, Calendar).
+- **State**: Pinia (`stores/auth.ts`, `stores/tenant.ts`).
+- **Testing**: Vitest (component) + Playwright (E2E).
 
 ## Coding Standards
 
-### Backend (Laravel)
-- **Modular Design**: Domain-driven structure (Accounting, Inventory, etc.).
-- **Service Layer**: Orchestration logic resides in Services.
-- **API First**: Resource-based transformations for all responses.
+### Backend
+- **Modular monolith** under `app/Tenants/Modules/{Module}/` with `Controllers/`, `Services/`, `Resources/`, `Requests/`, `Events/`, `Listeners/`. Models live in `app/Models/Tenant/`. Policies live in `app/Policies/`.
+- **Routes**: single file `routes/tenant.php` grouped by module-headed comments — prefix `api/v1`, middleware `['api', InitializeTenancyByHandle::class]`.
+- **Service Layer**: all business logic in Services; controllers are thin (validate → call service → return Resource).
+- **JSON keys**: `camelCase`. Pagination envelope: `{ data: [...], pagination: { page, limit, total, totalPages } }`.
 
-### Frontend (Nuxt/Vue)
-- **Component-Driven**: Atomic design using PrimeVue and Tailwind.
-- **Strict Typing**: TypeScript mandatory for all props, states, and composables.
-- **Composables**: Abstract business logic into reusable Vue composables.
-- **Responsive**: Mobile-first utility-first styling.
+### Frontend
+- **Pages organized by URL**: `frontend/pages/{module-slug}/` — there is no `src/modules/` folder.
+- **Composables/stores/components are flat** (no per-module subfolders): `composables/`, `stores/`, `components/`.
+- **All API calls go through `useApi()`**: auto-injects `X-Tenant-Handle` from `tenantStore.activeHandle` + `Authorization: Bearer`, rotates token on 401 single-flight.
+- **TypeScript strict**, `<script setup lang="ts">`, 4-space indent.
 
 ## Critical Rules
-1. **Separation of Concerns**: The frontend must never contain business logic that belongs in the backend.
-2. **Tenant Scoping**: Frontend must include the tenant identifier in all API requests (headers or subdomains).
-3. **Atomic Changes**: Use Database Transactions for multi-table updates in the backend.
+1. **Separation of Concerns**: Frontend never contains business logic that belongs in the backend.
+2. **Tenant Scoping**: Frontend includes `X-Tenant-Handle` in every API request (via `useApi`); backend resolves the tenant via `InitializeTenancyByHandle` middleware.
+3. **Atomic Changes**: Wrap multi-table writes in `DB::transaction()`.
 4. **Audit Everything**: Apply the `Auditable` trait to all key models.
-5. **Premium UI**: Adhere to the "Aesthetics Matter" guideline; use modern design tokens.
+5. **Premium UI**: Use the existing design tokens (`--color-primary-rgb`, `--bg-card`, ...). Never hardcode brand colors.
 
 ---
 
 # Specialized Agent Skills
 
 ## 1. ERP Structural Implementation
-- **Backend (Laravel)**: Modules in `app/Tenants/Modules/`. Use Controllers for routing, Services for logic, and Models with `BelongsToTenant`.
-- **Frontend (NuxtJS)**: Modules in `src/modules/`. Use PrimeVue components with `pt` (Pass Through) styling.
-- **Service Layer**: All business logic MUST live in Service classes. Use Database Transactions for multi-table updates.
+- **Backend (Laravel)**: Modules in `app/Tenants/Modules/{Module}/`. Namespace: `App\Tenants\Modules\{Module}\...`. Tenant models live in `app/Models/Tenant/` (NOT inside the module folder). All routes in `routes/tenant.php`. All tenant migrations in `database/migrations/tenant/`.
+- **Frontend (Nuxt)**: Pages in `frontend/pages/{module-slug}/`. Composables, stores, components flat under `frontend/composables/`, `frontend/stores/`, `frontend/components/`.
+- **Canonical recipe**: [`rules/structure/skill.md`](./rules/structure/skill.md) walks a new module front-to-back using Inventory Categories as the worked example.
 
 ## 2. Backend API & Business Logic
-- **Thin Controllers**: Limit to validation and service calling. Always return `JsonResource`.
-- **Atomic Services**: Ensure methods are atomic and throw domain-specific exceptions.
-- **Model Patterns**: Use UUIDs, Soft Deletes, and `BelongsToTenant` trait.
-- **API Security**: Use Laravel Passport and Policies for authorization.
+- **Thin Controllers**: Validate, call service, return Resource. Never `->toArray()` a Resource — return the instance directly.
+- **Atomic Services**: Methods are atomic; throw domain-specific exceptions.
+- **Model Patterns**: UUID PKs, `SoftDeletes`, `BelongsToTenant`, `Auditable`. Trust model casts (never `Hash::make()` a `'hashed'` field; never `json_encode()` a `'json'` cast).
+- **API Security**: Laravel Passport + Policies. Permission slugs are `module.feature.action` (`.self` suffix for self-service variants).
 
 ## 3. Authentication & Security
-- **OAuth2 Flow**: Use Laravel Passport for SignIn (Access/Refresh tokens) and SignOut.
-- **Multi-Tenant Scoping**: Verify that the token's `tenant_id` matches the request context.
-- **SSO & Basic Auth**: Support SAML/OIDC for enterprise clients and restricted Basic Auth for internal systems.
-- **Token Storage**: Ensure secure storage in the frontend (HttpOnly cookies or secure memory).
-- **Deterministic Passport Clients**: For local development, testing, and initial environment boot, always use and configure the following deterministic passport password grant credentials in the `.env` file of any new or re-initialized backend project:
+- **OAuth2 Flow**: Laravel Passport password grant. Tokens are tenant-scoped — listeners must verify the active tenant matches the request.
+- **Multi-Tenant Scoping**: `InitializeTenancyByHandle` reads `X-Tenant-Handle` and switches the DB connection. `tenants.handle` is the central PK (string) — no `id` column on tenants.
+- **SSO & Basic Auth**: Support SAML/OIDC for enterprise clients; restricted Basic Auth for internal systems.
+- **Token Storage (frontend)**: localStorage keys `auth_token`, `auth_refresh_token`, `auth_expires_at`. Refresh is single-flight via a module-scoped Promise in `stores/auth.ts`.
+- **Deterministic Passport Clients**: For local dev and re-initialized backends:
   ```env
   PASSPORT_PASSWORD_CLIENT_ID=33
   PASSPORT_PASSWORD_CLIENT_SECRET=b3x5ItVFBU46N3oJljIKrbibQLR0CT0LKlzKddG7
   ```
 
 ## 4. Frontend UI & Features
-- **Composition API**: Always use `<script setup lang="ts">`.
-- **Reactive Data Fetching**: Use custom `useApi` wrappers to inject `X-Tenant-Handle`.
-- **Form Validation**: Use VeeValidate/Vuelidate for complex forms.
-- **Branding**: Use CSS variables for dynamic tenant colors and support Dark Mode.
+- **Composition API**: Always `<script setup lang="ts">`.
+- **Reactive Data Fetching**: ALWAYS go through `useApi()` — it auto-injects `X-Tenant-Handle` and `Authorization: Bearer`, and rotates the token on 401. Never call `$fetch` directly.
+- **Form Validation**: Reactive `form` + `showErrors` flag for most pages; VeeValidate only for complex multi-step forms.
+- **Branding**: Use CSS variables (`--color-primary-rgb`, `--bg-card`, `--text-heading`, ...) declared in `assets/css/main.css`. Dark mode toggled via `data-bs-theme="dark"` on `<html>`.
+- **UI shell**: [`rules/frontend/ui_shell.md`](./rules/frontend/ui_shell.md) is the source of truth for sidebar / topbar / breadcrumb / settings / dashboard.
 
-## 4. Multi-Tenant Client Management
-- **Handle-Based Routing**: Use the unique company **Handle** (username) for subdomain identification.
-- **Database Isolation**: Multi-database strategy. Rely on dynamic connection switching; use the `Landlord` connection only for central data.
-- **Scoped Storage**: Use `tenant_path()` for isolated file storage in `storage/tenants/{handle}/`.
+## 5. Multi-Tenant Client Management
+- **Handle-Based Routing**: `App\Models\Central\Tenant` uses `handle` (string) as PK — no `id` column. Use `$tenant->getKey()` or `$tenant->handle`. Physical DBs are named `tenant_{handle}`.
+- **Database Isolation**: `stancl/tenancy` switches the DB connection automatically. `'central_connection' => env('DB_CONNECTION', 'pgsql')` — never hardcode `'central'`.
+- **Scoped Storage**: Use `tenant()` global helper and Stancl's tenant-scoped filesystem for tenant-isolated files.
 
-## 5. Full-Stack ERP Testing & QA
-- **Backend (Pest)**: Prioritize **P0 Tenancy Isolation** tests. Assert that Tenant A cannot access Tenant B's data. (See [Testing Skill](./skills/testing/skill.md))
-- **Database Connection Isolation (P0)**: NEVER use active development (`develop`) or production (`production`) database connections when running tests. Tests must run exclusively on a dedicated, isolated testing database (e.g., `DB_DATABASE=erp_system_test`) to prevent data loss or corruption.
+## 6. Full-Stack ERP Testing & QA
+- **Backend (Pest)**: Prioritize **P0 Tenancy Isolation** tests — assert that Tenant A cannot access Tenant B's data. See [`rules/testing/skill.md`](./rules/testing/skill.md).
+- **Database Connection Isolation (P0)**: Tests run exclusively on `erp_system_test`. Never against `erp_system` (dev) or `erp_system_prod`.
 - **Frontend (Vitest/Playwright)**: Test component logic and critical user journeys (e.g., Payroll runs).
-- **Audit Logs**: Assert that critical business actions create appropriate entries in `audit_logs`.
-- **Priority Matrix**: Follow P0 (Security), P1 (Business Logic), P2 (UX/Audit) standards in all test suites.
+- **Audit Logs**: Assert that critical business actions create appropriate audit entries.
+- **Priority Matrix**: P0 (Security), P1 (Business Logic), P2 (UX/Audit).
 
-## 6. Feature-Specific Implementation (Modular)
-- **Standardized Documentation**: Every feature must have `rules.md`, `flow.md`, and `testing.md` in its module folder under `skills/features/`.
-- **Workflow Integrity**: Follow the step-by-step flows defined in Mermaid diagrams for all business logic implementation.
-- **Permission Mapping**: Use the `module.feature.action` pattern defined in `iam.md`.
+## 7. Feature-Specific Implementation (Modular)
+- **Standardized Documentation**: Every module under `/skills/{module}/` has `skill.md` (or `overview.md`), `rules.md`, `flow.md`, and `testing.md`.
+- **Workflow Integrity**: Follow the step-by-step Mermaid flows for all business logic.
+- **Permission Mapping**: `module.feature.action` pattern — see each module's `rules.md` for its slug catalog.
 
-## 7. Postman & API Documentation
-- **Unified Collection**: Maintain all endpoints in `docs/postman/erp_collection.json`.
-- **Automation**: Include pre-request scripts for token/ID capture and realistic response examples.
-- **Headers**: Enforce the mandatory `tenant: {{tenant_id}}` header for all requests.
-- **Continuous Documentation**: Whenever a new feature is created or an existing feature is updated, the associated Postman collection and related API documentation MUST be updated simultaneously.
+## 8. Postman & API Documentation
+- **Unified Collection**: All endpoints in `docs/postman/erp_collection.json`.
+- **Automation**: Pre-request scripts capture tokens/IDs; responses include realistic examples.
+- **Headers**: Every request carries `X-Tenant-Handle: {{tenant_handle}}` and (after login) `Authorization: Bearer {{access_token}}`.
+- **Continuous Documentation**: Update the Postman collection and API docs whenever a feature is added or changed.
 
-## 8. Docker Infrastructure & Containerization
-- **Multi-Stage Builds**: Use Builder and Runner stages to keep production images small (Alpine-based).
-- **Service Orchestration**: Use `depends_on` with `service_healthy` to ensure DB readiness.
-- **Standard Template**: Follow the standardized `docker-compose.yml` boilerplate for initial setup.
+## 9. Docker Infrastructure & Containerization
+- **Multi-Stage Builds**: Builder + Runner stages keep production images small (Alpine-based).
+- **Service Orchestration**: `depends_on` with `service_healthy` ensures DB readiness.
+- **Standard Template**: Follow the `docker-compose.yml` boilerplate.
 
-## 9. Version Control & Project Updates
-- **Versioning**: Follow `{MAJOR}.{MINOR}.{PATCH}`. Update `package.json`, `README.md`, and `SECURITY.md` simultaneously.
-- **Consistency**: Never bump a version in isolation. Ensure the API reflects the current state.
+## 10. Version Control & Project Updates
+- **Versioning**: `{MAJOR}.{MINOR}.{PATCH}`. Update `package.json`, `README.md`, and `SECURITY.md` together.
+- **Consistency**: Never bump a version in isolation. API surface and docs must reflect the bumped state.
 
-## 10. Scalable WebSockets (Real-time)
-- **Infrastructure**: Use Laravel Reverb or Redis Pub/Sub for multi-instance scaling.
+## 11. Scalable WebSockets (Real-time)
+- **Infrastructure**: Laravel Reverb or Redis Pub/Sub for multi-instance scaling.
 - **Tenant Scoping**: Prefix all channels with the tenant `handle`.
 - **Security**: Authenticate private channels via Laravel Passport.
 - **Optimization**: Queue all broadcast events; keep payloads minimal.
 
-## 11. Audit & Compliance
-- **Audit Logging**: Use the `Auditable` trait on all models.
-- **Traceability**: Record old/new values, actor handle, and timestamp for all critical business actions.
-- **Compliance**: Verify that Audit logs are generated for every P0 and P1 priority operation.
+## 12. Audit & Compliance
+- **Audit Logging**: `Auditable` trait on all business models.
+- **Traceability**: Record old/new values, actor, and timestamp for every P0/P1 action.
+- **Compliance**: Audit entries verified for every critical operation.
 
-## 12. Skills Management CLI
-- **Usage**: Fetch and synchronize skills using `npx skills@latest add <repo>`.
-- **Repository**: Standard skills are maintained in `pphatdev/erp-prompt`.
-- **Automation**: Use this tool to bootstrap new ERP modules with the latest agent rules and standards.
+## 13. Skills Management CLI
+- **Usage**: Fetch and synchronize skills with `npx skills@latest add <repo>`.
+- **Repository**: Standard skills maintained in `pphatdev/erp-prompt`.
+- **Automation**: Bootstrap new ERP modules with the latest agent rules.
 
-## 13. Task & Infrastructure Tracking
-- **Task Context Storage**: Upon the first analysis of any task or feature, the agent **MUST** inspect the local `.task/` directory and create/maintain a task-specific folder with exact context and status trackers: `.task/{feature}/{task.md, context.md}`.
-- **Master Checklist Sync**: Synchronize and link all new feature scopes or significant refactors into the master progress registry at `.task/task.md` using appropriate checkbox markers (`[ ]` or `[x]`). This maintains perfect project traceability.
-- **Feature Status Synchronization**: Always inspect the codebase to compare implemented features against the checklists in the `.task/` directory. If any features have been completed or changed in the code, immediately update the corresponding checkboxes and status descriptions in the `.task/` tracker files.
+## 14. Task & Infrastructure Tracking
+- **Task Context Storage**: On first analysis of any task or feature, inspect `.task/` and create/maintain `.task/{feature}/{task.md, context.md}`.
+- **Master Checklist Sync**: Synchronize all new feature scopes into `.task/task.md` with `[ ]` / `[x]` checkboxes.
+- **Feature Status Synchronization**: Always compare implemented features against the `.task/` checklists; update them when reality has moved ahead of the docs.
 
+## 15. Data Safety & Security
+- **Agent Safety**: Never load or share production customer data, secrets, or active environments. Use Faker-generated mock data only.
+- **Database Preservation**: Avoid automatic deletion of schemas, tables, records, or files. Destructive operations (`migrate:fresh`, `db:wipe`) require explicit user confirmation (ask 2–3 times).
+- **User Safety**: Field-level encryption for sensitive PII (salaries, SSNs); sanitize passwords/keys in logs; switch isolated tenant connections on every request.
 
-## 14. Data Safety & Security
-- **Agent Safety**: Never load or share production customer data, secrets, or active environments in local setups or prompt contexts. Use Faker-generated mock data only.
-- **Database Preservation**: The agent must avoid automatic deletion of database schemas, tables, records, or files. Destructive tasks (e.g. running `migrate:fresh` or `db:wipe`) must seek user verification and confirmation 2 to 3 times before execution.
-- **User Safety**: Enforce field-level encryption for sensitive PII (salaries, SSNs), automatically sanitize passwords/keys in logging channels, and strictly switch isolated tenant connections on every request.
-
-## 15. File Uploading & Storage Management
-- **Security Validation**: Always validate file types server-side using fileinfo magic bytes, block executable extensions, and sanitize filenames.
-- **Tenancy Scoping (P0)**: Store all uploaded assets strictly within the tenant-isolated directory via `tenant_path()`. Never expose direct paths to private assets; use cryptographically signed, short-lived URLs.
-- **Chunked Uploads**: Implement chunked file transfers for uploads larger than 10MB to maintain low memory footprints and avoid request timeouts.
-- **Traceability**: Record file metadata (size, hash, uploader, MIME type) in the attachments/media tables and ensure files are deleted or archived per data retention policies.
-
-
-
+## 16. File Uploading & Storage Management
+- **Security Validation**: Validate MIME server-side via fileinfo magic bytes; block executable extensions; sanitize filenames.
+- **Tenancy Scoping (P0)**: Store uploaded assets under the tenant-isolated path. Never expose direct paths to private assets; use cryptographically signed, short-lived URLs.
+- **Chunked Uploads**: Use chunked transfers for files > 10 MB.
+- **Traceability**: Record size, hash, uploader, MIME in the attachments/media tables; delete or archive per retention policy.

@@ -105,14 +105,18 @@ To drive high-performance digital commerce, the eCommerce module integrates nati
 
 | Feature | Sub-component | Backend API Status | Frontend UI Status |
 | :--- | :--- | :--- | :--- |
-| **Products & Variants** | SKU & Variants CRUD | ✅ Complete (Resourceful) | ✅ Complete (`/products`) |
-| **Stock Ledger** | Movement Ledger (`in`/`out`/`transfer`) | ✅ Complete (`StockService`) | ❌ Planned (Ledger view) |
-| **Warehouses** | Multi-Warehouse CRUD | ✅ Complete (Model/Migration) | ❌ Planned (Admin view) |
-| **Suppliers** | Supplier Profiles | ✅ Complete (Model/Migration) | ❌ Planned (Directory UI) |
-| **Stock transfers** | Inter-Warehouse Moves | ✅ Complete (`StockService`) | ❌ Planned (Transfer Modal) |
-| **Procurement** | Purchase Orders & GRN | ❌ Planned (`ProcurementService`) | ❌ Planned (PO Portal) |
-| **Optimization** | Low-stock Alerts & Valuation | ❌ Planned (Threshold triggers) | ❌ Planned (Dashboard KPI) |
-| **eCommerce Sync** | Cart Reservations & Restock | ❌ Planned (`StockReservationJob`) | ❌ Planned (eCom Admin sync) |
+| **Products & Variants** | SKU + Variants CRUD; software ↔ module pivot | ✅ Shipped | ✅ Shipped (`/inventory/products`) |
+| **Categories** | Hierarchical tree (self-FK), cycle + dependency guards, archive protection | ✅ Shipped | ✅ Shipped (`/inventory/categories`) |
+| **Warehouses** | Multi-warehouse CRUD; archive blocked by on-hand stock | ✅ Shipped | ✅ Shipped (`/inventory/warehouses`) |
+| **Suppliers** | Profiles + rating + lead-time + payment terms; archive blocked by open POs | ✅ Shipped | ✅ Shipped (`/inventory/suppliers`) |
+| **Stock Ledger** | Movement ledger (`in` / `out` / `transfer` / `adjustment`) | ✅ Shipped (`StockService::recordMovement`) | ❌ Planned (ledger UI) |
+| **Stock Transfers** | Dispatch → receive FSM | ✅ Shipped | ◐ Partial UI |
+| **Procurement (P2P)** | PR → PO → eApprovals → GRN; full FSM `draft→submitted→approved→receiving→received` | ✅ Shipped | ✅ Shipped (`/inventory/purchase-orders` + `/create` wizard + `/{id}` detail/receive) |
+| **Costing** | Weighted Average Cost on receive | ✅ Shipped (`ProcurementService::receive`) | n/a |
+| **Costing** | FIFO option | ❌ Planned | n/a |
+| **Optimization** | Low-stock detection + reorder suggestions | ✅ Shipped (`LowStockDetected` event) | ❌ Planned (dashboard KPI + alert list) |
+| **eCommerce Sync** | 15-min cart reservation + returns restock | ◐ Backend (INV-RESERVE + INV-DAEMON) shipped; storefront pending | ❌ Planned |
+| **Omnichannel Pricing** | SSOT for Quotations / CRM / PO / POS | ❌ Planned | ❌ Planned |
 
 ---
 

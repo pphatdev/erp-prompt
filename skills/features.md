@@ -1,27 +1,32 @@
 # ERP Application Features
 
-## 1. Identity & Access Management (IAM)
-- **[Detailed Specification: IAM](./iam/overview.md)**
+> Status legend: ✅ Shipped (backend + frontend) · ◐ Partially shipped · ❌ Not started. See `.task/task.md` for the authoritative master checklist.
+
+## 1. Identity & Access Management (IAM) — ✅
+- **[Detailed Specification: IAM](./iam/overview.md)** · **[Operational skill](./iam/skill.md)**
 - Multi-Tenant Security & Isolation
-- Role-Based Access Control (RBAC)
-- Identity Management & MFA
-- Audit & Compliance Logging
+- Role-Based Access Control (RBAC) — `module.feature.action` slugs
+- `hasPermission()` on User; super-admin short-circuit
+- Identity Management (Passport password grant); MFA + SSO planned
+- Audit logging via `Auditable` trait
 
-## 2. Sales
-- **[Detailed Specification: Sales](./sales/overview.md)**
-- **[Customer Relationship Management (CRM)](./crm/overview.md)**: Lead intake, Opportunity pipeline (Kanban), B2B Contacts & Accounts, and Interaction Timelines.
-- Sales Operations & Order-to-Cash (O2C)
-- Invoicing & Revenue Recognition
+## 2. Sales (Order-to-Cash) — ✅
+- **[Detailed Specification: Sales](./sales/overview.md)** · **[Operational skill](./sales/skill.md)**
+- **[Customer Relationship Management (CRM)](./crm/overview.md)** — Lead intake, Opportunity pipeline (Kanban), B2B/B2C Product Schedule, Appointments, polymorphic Activities
+- Sales Operations: Customers → Quotations → Orders → Invoices → Subscriptions
+- Tenant provisioning (`TenantProvisioningService`)
+- Target-flow refactor planned (status enums + Customer-creation moves to Quotation `won`)
 
-## 3. Financial Management (FMS)
+## 3. Financial Management (FMS) — ◐
 - **[Detailed Specification: FMS](./fms/overview.md)**
-- General Ledger (GL) & Chart of Accounts
-- Accounts Payable (AP) & Accounts Receivable (AR)
-- Cash Management & Bank Reconciliation
-- Tax Compliance & Reporting
+- General Ledger (GL) & Chart of Accounts ✅
+- Journal Entries + Ledger ✅
+- Payments + Estimates ❌ Planned
+- Accounts Payable (AP) & Accounts Receivable (AR) UI ❌
+- Tax Compliance & Reporting ❌
 
 
-## 4. Human Resource Management (HRM)
+## 4. Human Resource Management (HRM) — ✅
 - **[Detailed Specification: HRM](./hrm/overview.md)**
 
 - Recruitment (Talent Acquisition & ATS)
@@ -33,7 +38,7 @@
 - Employee Notes & Documentation
 
 
-## 5. eApprovals
+## 5. eApprovals — ◐ (backend ✅, UI ❌)
 - **[Detailed Specification: eApprovals](./eapprovals/overview.md)**
 - Forms Request: [Leave, Overtime, Expense, etc.]
 - Personal Request
@@ -42,7 +47,7 @@
 - Notification & Alerts
 - Audit & Compliance Tracking
 
-## 6. eDocuments (Explorer)
+## 6. eDocuments (Explorer) — ◐ (backend ✅, UI ❌)
 - **[Detailed Specification: eDocuments](./edocuments/overview.md)**
 - Central Policy & SOP Repository
 - Multi-System File Explorer (Aggregated View)
@@ -52,7 +57,7 @@
 - Public Link Sharing (Secure & Expiring)
 - Document Acknowledgement Tracking
 
-## 7. Fleet Management
+## 7. Fleet Management — ❌
 - **[Detailed Specification: Fleet Management](./fleet/overview.md)**
 - Vehicle & Asset Tracking
 - Maintenance Scheduling & Tracking
@@ -61,7 +66,7 @@
 - Telematics Integration
 - Fleet Analytics & Reporting
 
-## 8. Fixed Asset Management
+## 8. Fixed Asset Management — ❌
 - **[Detailed Specification: Fixed Asset Management](./assets/overview.md)**
 - Asset Tracking
 - Depreciation Management
@@ -69,8 +74,8 @@
 - Asset Revaluation Management
 - Asset Retirement Management
 
-## 9. Inventory Management
-- **[Detailed Specification: Inventory Management](./inventory/overview.md)**
+## 9. Inventory Management — ✅ (FIFO + eCommerce sync planned)
+- **[Detailed Specification: Inventory Management](./inventory/overview.md)** · **[Operational skill](./inventory/skill.md)**
 - Inventory & Warehouse Management
 - Procurement & Procure-to-Pay (P2P)
 - Logistics & Distribution Tracking
@@ -79,7 +84,7 @@
 - Vendor & Supplier Management
 - Inventory Analytics & Optimization
 
-## 10. Project Management
+## 10. Project Management — ◐ (backend ✅, UI ❌)
 - **[Detailed Specification: Project Management](./projects/overview.md)**
 - Project Planning & Scheduling
 - Task Management & Tracking
@@ -89,7 +94,7 @@
 - Project Collaboration & Communication
 - Project Analytics & Reporting
 
-## 11. Document Management
+## 11. Document Management — ◐ (backend ✅, UI ❌)
 - **[Detailed Specification: Document Management](./documents/overview.md)**
 - Document Storage & Retrieval
 - Document Version Control
@@ -97,8 +102,9 @@
 - Document Security & Access Control
 - Document Audit & Compliance Tracking
 
-## 12. Reporting & Analytics
+## 12. Reporting & Analytics — ◐
 - **[Detailed Specification: Reporting & Analytics](./reporting/overview.md)**
+- Dashboard infrastructure + `DashboardSummaryService` ✅
 - Dashboard & Reporting
 - Data Visualization & Analytics
 - Report Export & Sharing
@@ -107,8 +113,10 @@
 - Report Security & Access Control
 - Report Audit & Compliance Tracking
 
-## 13. Configuration & Tenant Settings
+## 13. Configuration & Tenant Settings — ✅
 - **[Detailed Specification: Configuration](./configuration/overview.md)**
+- Tabs: Branding · Locale · Notifications · Security · Numbering · Modules (admin) · Platform (admin)
+- See [`./configuration/numbering.md`](./configuration/numbering.md) for the 7 document-numbering prefixes
 - Company Profile & Legal Information
 - Localization & Regional Settings (Currency, Timezone)
 - Branding & UI Customization (Logos, Colors)

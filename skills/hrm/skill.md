@@ -1,47 +1,139 @@
 ---
 name: human-resource-management
-description: Build employee management systems, payroll engines, leave tracking, and performance appraisals.
+description: Employees, departments, leave, attendance, payroll, recruitment (ATS), and appraisals. Handles sensitive PII.
 ---
 # Human Resource Management (HRM)
 
-Use this skill when building employee management systems, payroll engines, leave tracking, or performance appraisal modules. This module handles sensitive PII (Personally Identifiable Information).
+Use this skill when building or extending workforce, leave, attendance, payroll, recruitment, or performance features. This module handles **sensitive PII** — every change here is a P0/P1 risk.
 
-## Workflows
-1. **Employee Onboarding**: Manage the transition from candidate to employee, including contract generation and system access.
-2. **Payroll Run**: Orchestrate monthly salary calculations, including taxes, deductions, and Payslip distribution.
-3. **Leave Application**: Handle the end-to-end process of leave requests, from submission to balance adjustment.
-4. **Candidate Quiz Assessment**: Secure magic-link generation, email invitation, sandboxed quiz session, automated evaluation, and integration with the ATS application pipeline.
+## Module surface (shipped)
 
-## Guidelines
+```
+Human Resource (sidebar group)
+├── Employees                      — CRUD + self-service variant
+├── Departments
+├── Positions
+├── Leave
+│   ├── Leave Requests
+│   └── Leave Types
+├── Shifts
+├── Attendance                     — clock-in / clock-out + reconciliation against shifts
+├── Overtime
+├── Payroll
+│   ├── Payroll Periods
+│   └── Payslips
+├── Recruitment
+│   ├── Vacancies                  — internal + public careers portal (/public/job-vacancies)
+│   ├── Applications
+│   └── Candidates (Kanban)
+└── Appraisals
+```
 
-### 1. Workforce Management
-- **Employee Lifecycle**: Implement Hire -> Onboard -> Promote -> Offboard workflows.
-- **Data Privacy**: Encrypt sensitive fields like Salary, National ID, and Bank Account details.
-- **Self-Service Details Access**: Allow employees to securely view their own detailed employee profile. Implement ownership validation in policies to permit self-view without administrative read permissions, keeping sensitive fields gated appropriately (e.g. `base_salary` requires `hrm.payroll.read`).
-- **Recruitment History Linkage**: When a candidate is hired, link their `Application` record (including quiz attempts, structured interview feedback, panel scores, and digital offer files) to the newly created `Employee` profile to ensure continuous data traceability. **Linkage is explicit, not implicit** — see "Hire → Employee Conversion Contract" in `rules.md` and Stage 4.5 in `recruitment/flow.md`. Status transitions to `hired` never side-effect an Employee creation; conversion is a deliberate `POST /applications/{id}/convert-to-employee` call (single or bulk), reversible for 7 days via `POST /applications/{id}/revert-employee-conversion`.
-- **Workforce Registry Visibility**: Upon successful conversion, new employees must be provisioned with status `active` so they immediately display on the employee listing and registry views.
+| Layer | Path |
+|---|---|
+| Controllers | `app/Tenants/Modules/HRM/Controllers/*.php` |
+| Services | `app/Tenants/Modules/HRM/Services/{EmployeeService, LeaveService, AttendanceService, PayrollService, RecruitmentService, ...}.php` |
+| Resources | `app/Tenants/Modules/HRM/Resources/*.php` |
+| Models | `app/Models/Tenant/{Employee, Department, Position, LeaveRequest, LeaveType, Shift, AttendanceLog, Overtime, PayrollPeriod, Payslip, Vacancy, Application, Quiz, QuizAttempt, Appraisal}.php` |
+| Policies | `app/Policies/{Employee, Leave, Payroll, Application, ...}Policy.php` |
+| Migrations | `database/migrations/tenant/{date}_create_hrm_tables.php` (+ later additions for recruitment, quizzes, appraisals) |
+| Seeder | `TenantDatabaseSeeder.php` — seeds default leave types, workflow statuses, an admin user + linked employee using `RecruitmentService::generateNextEmployeeId()` |
+| Pages | `frontend/pages/hrm/{employees, departments, positions, leaves, leave-types, shifts, attendance, overtime, payroll, recruitments/{vacancies, applications, candidates}, appraisals}.vue` + public `pages/careers/*.vue` |
 
-### 2. Payroll Engine
-- **Calculations**: Standardize earnings (Base, Bonus) and deductions (Tax, Insurance) logic.
-- **Payslips**: Generate secure, non-editable PDF payslips accessible via the Employee Self-Service portal.
+## Permission slug catalog
 
-### 3. Leave & Attendance
-- **Accrual Logic**: Automatically calculate leave balances based on tenure and tenant policy. Enforce balance checks against YTD approved and pending leaves.
-- **Approvals**: Integrate with `eApprovals` for multi-level leave authorization, locking requested days during the workflow.
-- **Attendance & Shifts**: Reconcile daily check-in/out timestamps against shifts, grace periods, public holidays, and leaves to determine daily presence status.
-- **Detailed Specification**: Refer to the dedicated [Time Off & Attendance Rules](time_off_attendance/rules.md) for full implementation specifications, database structures, and testing criteria.
+```
+hrm.employee.{read,write,delete}
+hrm.employee.read.self                  ← self-service: scoped to authenticated user's employee row
+hrm.department.{read,write,delete}
+hrm.position.{read,write,delete}
+hrm.leave.{read,write,delete}
+hrm.leave.read.self                     ← self-service
+hrm.payroll.{read,write,run}            ← gates base_salary visibility
+hrm.attendance.{read,write}
+hrm.attendance.read.self
+hrm.recruitment.{read,write,delete}
+hrm.recruitment.application.{read,write}
+hrm.appraisal.{read,write}
+```
 
-### 4. Candidate Quizzing & ATS Security
-- **Magic-Link Authentication**: Issue a secure, short-lived hash token scoped to `application_id`. Upon verification, grant a temporary, restricted `candidate` role session that permits only reading authorized quiz details and submitting the answers.
-- **Sandboxed Assessment**: Quiz interfaces must implement client-side time-tracking, sandboxed navigation, and automated page-blur detection to ensure evaluation integrity.
-- **Auto-Grading & ATS Integration**: Automatically compute the final score upon submission, update the application record, and log results into `quiz_attempts` table. Correct answers must be stored in encrypted format to prevent database leakage.
+Self-service `.self` permissions pair with ownership policies — e.g. `EmployeePolicy::view()` returns `true` when `($user->hasPermission('hrm.employee.read') OR ($user->hasPermission('hrm.employee.read.self') AND $user->employee_id === $row->id))`.
 
-## Best Practices
-- **Employee Self-Service (ESS)**: Prioritize a clean mobile-first UI for employees to view their own data.
-- **Compliance**: Ensure all HR data retention follows local labor laws.
-- **Scalability**: Run payroll processing in background jobs (`Laravel Queue`) for large organizations.
+## Critical rules
+
+### 1. Employee data privacy (P0)
+- `Employee::base_salary` requires `hrm.payroll.read` — Resource hides the field otherwise.
+- `Employee::national_id`, `bank_account`, `tax_id` are encrypted at the cast level. Use `'encrypted'` cast in the model; never store plaintext.
+- Self-service responses MUST scrub financial fields. `EmployeeResource` checks the current user's permission set before exposing each field.
+- See [`employee_data_collection.md`](./employee_data_collection.md) — **mandatory** read for any HRM change.
+
+### 2. Candidate → Employee conversion (P0)
+- Hiring is **explicit**, not implicit. Setting an Application's status to `hired` does NOT create an Employee.
+- Conversion endpoint: `POST /applications/{id}/convert-to-employee` (single) or `POST /applications/bulk-convert-to-employees`.
+- Reversible for 7 days: `POST /applications/{id}/revert-employee-conversion`.
+- On conversion, new Employee is provisioned with `status = active` so they appear in registry views immediately.
+- Recruitment history (Application, quiz attempts, interview feedback, offer files) links to the Employee via `employees.application_id` (nullable). See [`rules.md`](./rules.md) § "Hire → Employee Conversion Contract" and [`recruitment/flow.md`](./recruitment/flow.md) Stage 4.5.
+
+### 3. Numbering — Employee ID + Candidate code
+- Employee ID format `{prefix}{NNNN}`, zero-padded ≥ 4 digits. Generator: `RecruitmentService::generateNextEmployeeId()`.
+- Candidate code format `{prefix}{YYYYMM}-{NNN}`, monthly reset. Generator: `Application::generateCandidateCode()` (fired in `creating` model event).
+- Both read prefixes from `SettingService` (`numbering.employee_id_prefix`, `numbering.candidate_code_prefix`). Hardcoded prefixes forbidden. See [`skills/configuration/numbering.md`](../configuration/numbering.md).
+- Both `employee_id` and `candidate_code` carry unique DB constraints (employee_id non-partial — terminated employees keep their IDs forever).
+
+### 4. Leave & attendance
+- Leave balance accrual: tenure-based, computed against YTD approved + pending. Enforce balance check before allowing submission.
+- Multi-level approvals via **eApprovals**: leave requests dispatch into the approval workflow; days lock during the workflow.
+- Attendance reconciliation: daily job matches `attendance_logs` against shifts + grace periods + public holidays + leaves to compute `present` / `late` / `absent` / `on_leave`.
+- Full spec: [`time_off_attendance/rules.md`](./time_off_attendance/rules.md).
+
+### 5. Payroll
+- Runs as a queued job (`Laravel Queue`) — payroll for large headcounts must not block the request.
+- Payslip PDFs are generated server-side, signed-URL access only, and stored under tenant-scoped storage.
+- Posts to FMS: payroll run debits a Salary expense account and credits a Payroll Payable liability. CoA codes are seeded by `TenantDatabaseSeeder::seedChartOfAccounts()`.
+
+### 6. Candidate quiz + ATS security
+- Magic-link auth: short-lived hashed token scoped to `application_id` → temporary `candidate` role session limited to reading the quiz + submitting answers.
+- Quiz answer keys are encrypted at rest (`'encrypted'` cast) to prevent answer leakage from a DB dump.
+- Auto-grading on submission updates `quiz_attempts` and writes the score back to the Application.
+
+## Frontend integration
+
+- **Self-service pages** live under `My Workspace` sidebar group (hidden for admins via `.filter(group => !(group.id === 'self-service' && authStore.isAdmin))`).
+- **Public careers portal** at `/careers` (no auth required) hits `GET /public/job-vacancies` and `POST /public/applications`. Magic-link assessment continues without a real user session.
+- **Kanban**: `pages/hrm/recruitments/candidates.vue` uses a drag/drop column view (one PrimeVue dependency justified here).
+- **Confirm modals**: every state-changing action (publish vacancy, close payroll period, convert to employee) uses `useToast().confirm({ color: 'warning' | 'danger' })` — never `window.confirm`. See `rules/frontend/standards.md` § 6.
+
+## Status
+
+| Feature | Backend | Frontend |
+|---|:---:|:---:|
+| Employees CRUD + self-service | ✅ | ✅ |
+| Departments + Positions | ✅ | ✅ |
+| Leave Types + Requests + accrual + eApprovals routing | ✅ | ✅ |
+| Shifts + Attendance (clock in/out) + reconciliation | ✅ | ✅ |
+| Overtime | ✅ | ✅ |
+| Payroll Periods + Payslip generation (PDF) | ✅ | ✅ |
+| Vacancies + public careers portal | ✅ | ✅ |
+| Applications + Candidates Kanban | ✅ | ✅ |
+| Candidate quiz (magic link, sandboxed, auto-graded) | ✅ | ✅ |
+| Appraisals | ✅ | ✅ |
+| Explicit candidate→employee conversion (single + bulk + revert) | ✅ | ✅ |
 
 ## Troubleshooting
-- **Incorrect Leave Balance**: Verify the `LeaveAccrualJob` has run for the current period.
-- **Payroll Failure**: Check the `PayrollService` logs for missing tax configurations for specific employees.
-- **Unauthorized Access**: If an employee can see another's salary, immediately audit the `EmployeePolicy` and `hrm.employee.read` permission.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Employee can see another's `base_salary` | Resource didn't gate on `hrm.payroll.read` | Check `EmployeeResource::toArray()` — wrap the field with `$this->when($request->user()->hasPermission('hrm.payroll.read'), ...)` |
+| Leave balance wrong | `LeaveAccrualJob` hasn't run for the period | Run the job; verify YTD calculation includes both approved + pending |
+| Setting status to `hired` didn't create an Employee | Correct behavior — conversion is explicit | Call `POST /applications/{id}/convert-to-employee` |
+| Payroll fails | Missing tax config for an employee | Check `PayrollService` logs — fill `tax_config` for the offending employee |
+| New Employee ID collides | Two concurrent creates raced past the sequential generator | Caller must catch PostgreSQL `23505` and retry — see `skills/configuration/numbering.md` § 3.4 |
+| Magic-link quiz session lets candidate see other quizzes | Token scoping broke — should be application-scoped | Verify the temporary session role has read access **only** to the quiz tied to `application_id` |
+
+## Read next
+- [`employee_data_collection.md`](./employee_data_collection.md) — **MANDATORY** for any HRM change
+- [`rules.md`](./rules.md) — full conversion contract + permission matrix
+- [`flow.md`](./flow.md) — top-level HRM flows
+- [`recruitment/flow.md`](./recruitment/flow.md) — vacancy → application → hire flow
+- [`time_off_attendance/rules.md`](./time_off_attendance/rules.md) — leave + attendance spec
+- [`testing.md`](./testing.md) — P0/P1/P2 test matrix

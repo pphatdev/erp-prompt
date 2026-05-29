@@ -27,9 +27,9 @@ Use this skill when developing components, pages, or state management in the Nux
 - **Templates**: Keep templates clean. Move complex logic to the `<script setup>` or composables.
 
 ### 3. API Integration
-- **Tenant Context**: All API requests must include the `X-Tenant-ID` header or use a tenant-scoped subdomain.
-- **Data Fetching**: Use Nuxt's `useFetch` or `useAsyncData` with proper error handling.
-- **Error Handling**: Implement global error interceptors to handle 401 (Auth) and 403 (Tenant Access) errors.
+- **Tenant Context**: All API requests must include the `X-Tenant-Handle` header. This is injected automatically by `useApi()` — never call `$fetch` or `useFetch` directly with raw URLs.
+- **Data Fetching**: Wrap API calls in module composables (`useInventory`, `useDashboard`, ...). Pages call composables, composables call `useApi`.
+- **Error Handling**: `useApi()` handles 401 (rotates token, retries once). Surface other errors via `useToast().error(...)`. 403s are typically prevented at the UI level by checking `authStore.hasPermission(slug)` before rendering action buttons.
 
 ### 4. State Management (Pinia)
 - Use Pinia for global state (User info, Tenant config, Shared settings).

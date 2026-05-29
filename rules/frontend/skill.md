@@ -7,24 +7,29 @@ Use this skill when building new pages, complex forms, or dashboard features in 
 
 ### 1. Composition API & Component Structure
 - **Script Setup**: Always use `<script setup lang="ts">`.
-- **Atomic Design**: Break down large pages into small, reusable components located in the same module or `components/shared`.
+- **Atomic Design**: Break down large pages into small, reusable components located in `components/` (flat — there is no per-module components folder).
 - **Props Validation**: Use TypeScript interfaces and `withDefaults` for all props.
 - **Emits**: Explicitly define emits using `defineEmits`.
+- **4-space indent** in `.vue` / `.ts` / `.css` / `.json` — matches backend.
 
-### 2. UI Development (PrimeVue + Tailwind)
-- **PrimeVue Pass-Through (PT)**: Use the `pt` property to style PrimeVue components with Tailwind classes for a unified look.
-- **Custom Tokens**: Use CSS variables for brand colors (e.g., `--primary-color`) to support dynamic tenant branding.
-- **Layouts**: Use Nuxt layouts (`layouts/default.vue`, `layouts/auth.vue`) to manage persistent UI elements like sidebars and headers.
+### 2. UI Development (Tailwind 4 + optional PrimeVue)
+- **Default chrome is custom Tailwind**, not PrimeVue. Most pages use hand-rolled `.glass-card` containers and custom modals (`fixed inset-0 bg-black/50 backdrop-blur-sm`). PrimeVue is reserved for richer widgets (Kanban drag/drop, full DataTables, Calendar). When you do use PrimeVue, theme via its `pt` (Pass-Through) property.
+- **CSS Variables drive branding.** Use the existing tokens (`--color-primary-rgb`, `--bg-card`, `--text-heading`, `--shadow-md`, ...). Never hardcode a brand color — it breaks tenant theming.
+- **Tailwind 4** is consumed via `@tailwindcss/vite`; design tokens live in `@theme { ... }` blocks inside `assets/css/main.css`. There is **no `tailwind.config.ts`**.
+- **Icons**: Tabler Icons CDN — `<i class="ti ti-users"></i>`.
+- **Layouts**: Use Nuxt layouts (`layouts/default.vue`, `layouts/auth.vue`) to manage persistent UI elements. The default layout owns the sidebar, topbar, and breadcrumb — pages just render their content.
 
 ### 3. Reactive Data Fetching
-- **useApi Composable**: Use a custom `useApi` wrapper around `useFetch` to automatically inject the `X-Tenant-ID` header.
-- **Lazy Loading**: Use `lazy: true` in `useFetch` for non-critical data to improve initial page load.
-- **Watchers**: Use `watch` or `watchEffect` to reactively fetch data when route parameters or filters change.
+- **useApi Composable**: ALWAYS go through `useApi()`. It auto-injects the `X-Tenant-Handle` header (from `tenantStore.activeHandle`) and the `Authorization: Bearer` token; on 401 it awaits `authStore.rotateToken()` (single-flight, concurrent-safe) and retries once. Never call `$fetch` or `useFetch` directly with raw URLs.
+- **Module composables wrap useApi**: e.g. `useInventory()`, `useDashboard()`. Don't sprinkle `api.get('/x')` calls across pages — group them in the composable so endpoint changes touch one file.
+- **Singleton + fail-open**: `useModules`, `useDashboard` use module-level refs to share state and return `true` from gating checks before data is loaded — UI never hides items on a backend error.
+- **Watchers**: Use `watch` or `watchEffect` to reactively fetch when route params/filters change.
 
 ### 4. Form Handling & Validation
-- **VeeValidate / Vuelidate**: Use a validation library for complex forms to ensure consistent error messaging.
-- **Debouncing**: Use debounced inputs for search fields to reduce API load.
-- **Loading States**: Always show a loading indicator (Skeleton or Spinner) during asynchronous operations.
+- **Reactive `form` + `showErrors` flag** is the default pattern: show validation errors only after first submit attempt. Use VeeValidate only for complex multi-step forms.
+- **Debouncing**: Use debounced inputs for search fields (live handle-availability check, etc.).
+- **Loading States**: Always show a skeleton or spinner during async operations. The codebase uses `.nav-skeleton` / `.dash-skeleton` classes (shimmer keyframe in `main.css`).
+- **Confirm dialogs**: `await useToast().confirm({ title, message, color: 'danger' })` — never `window.confirm`. See `rules/frontend/standards.md` §6.
 
 ## Best Practices
 - **Composable Logic**: Extract reusable business logic (e.g., `useInvoicing`, `useInventory`) into composables.

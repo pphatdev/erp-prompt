@@ -17,7 +17,7 @@ Use this skill when developing features that require tenant isolation, managing 
 - **Central Connection Config**: In `config/tenancy.php`, always set `'central_connection' => env('DB_CONNECTION', 'pgsql')`. Never hardcode `'central'` — that connection name does not exist in this project.
 
 ### 3. Tenant-Aware Features
-- **Scoped Storage**: Use the `tenant_path()` helper to store files. This ensures assets are saved in `storage/tenants/{handle}/`.
+- **Scoped Storage**: File uploads go through Stancl's tenant-scoped filesystem (`FilesystemTenancyBootstrapper`); the active disk auto-rewrites paths to `storage/tenants/{handle}/...` while a tenancy context is active. Read the current tenant identity via `tenant('id')` or `tenant()->handle`.
 - **Global Scopes**: Always apply the `BelongsToTenant` trait (`App\Models\Traits\BelongsToTenant`) to models that should be scoped to a single company.
 - **Cache Isolation**: Use tenant-specific cache prefixes to prevent data leakage between companies (handled automatically by `CacheTenancyBootstrapper`).
 
