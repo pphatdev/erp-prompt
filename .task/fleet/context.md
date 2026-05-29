@@ -1,27 +1,63 @@
-# Feature Context: Fleet Management (Backend)
+# Feature Context: Fleet Management
 
-Implementation phases for the Fleet module, focusing on vehicle tracking, maintenance, and fuel management.
+Full implementation plan for the Fleet Management module under the multi-tenant Enterprise ERP architecture, covering backend standard alignment and frontend creation.
 
-## Implementation Phases (Backend Only)
+## Implementation Phases
 
-### Phase 1: Asset Schema
-- [ ] Create migrations for `vehicles`, `maintenance_logs`, and `fuel_logs`.
-- [ ] Implement models with `BelongsToTenant` and `Auditable`.
+```mermaid
+graph TD
+    A[Phase 1: Backend Alignment & Security] --> B[Phase 2: Frontend State & Composables]
+    B --> C[Phase 3: Vehicles Directory & Kebab Row Actions]
+    C --> D[Phase 4: Fuel Logs & Tenant-Isolated Uploads]
+    D --> E[Phase 5: Maintenance Scheduling & Alerting]
+    E --> F[Phase 6: QA Testing & Postman Collection]
+```
 
-### Phase 2: Fleet Management Service
-- [ ] Implement `VehicleService` for vehicle lifecycle and assignments.
-- [ ] Implement logic for logging maintenance and fuel expenses.
-- [ ] Create automated checks for maintenance thresholds based on mileage or date.
+### Phase 1: Backend Alignment & Security (P0/P1)
+- **Permissions & Seeders**:
+  - Implement `FleetPermissionSeeder.php` covering admin actions (`fleet.vehicles.*`, `fleet.maintenance.*`, `fleet.fuel.*`) and `.self` scopes.
+  - Register the seeder in `TenantDatabaseSeeder.php` to automate tenant onboarding setup.
+- **Access Policies**:
+  - Implement `VehiclePolicy.php`, `MaintenanceLogPolicy.php`, and `FuelLogPolicy.php` enforcing standard gates.
+- **CamelCase REST Resources**:
+  - Refactor `VehicleResource.php`, `MaintenanceLogResource.php`, and `FuelLogResource.php` from legacy snake_case output to strict camelCase response contracts (e.g. `registrationNumber`, `currentMileage`).
+- **Sidebar Entitlement Routing**:
+  - Update `ModuleSeeder.php` to bind `'fleets'` to the active `/fleet/vehicles` Nuxt route (instead of `'#'`).
 
-### Phase 3: API & Access Control
-- [ ] Create `VehicleController`, `MaintenanceController`, and `FuelController`.
-- [ ] Implement `VehicleResource`, `MaintenanceResource`, and `FuelResource`.
-- [ ] Define `fleet.vehicles.*`, `fleet.maintenance.*`, and `fleet.fuel.*` permission policies.
+### Phase 2: Frontend State & Composables (P2)
+- **API Composables**:
+  - Implement `frontend/composables/useFleet.ts` routing strictly through `useApi()` to auto-inject the `X-Tenant-Handle` and `Authorization` headers.
+- **Global Store**:
+  - Add flat state management `frontend/stores/fleet.ts` for tracking active vehicles and real-time telemetry coordinates.
 
-### Phase 4: Integration
-- [ ] (Future) Integrate with external Telematics via `TrackingService`.
-- [ ] Connect maintenance/fuel costs to FMS (Financial Management System).
+### Phase 3: Vehicles Directory & Kebab Row Actions (P1/P2)
+- **Vehicles List UI (`/fleet/vehicles.vue`)**:
+  - Premium Responsive Grid/DataTable using existing design tokens (`.glass-card`, `--color-primary-rgb`).
+  - Integrate interactive maps dynamically in `onMounted` lifecycle hooks.
+- **Row Action Controls**:
+  - Collapse table row actions into a 30x30 kebab button (`ti-dots-vertical`) with fixed dropdowns and click-outside dismiss listeners.
+- **Confirmations & Modals**:
+  - Re-route delete, edit, and state changes to `useToast().confirm()`.
 
-### Phase 5: QA & Testing
-- [ ] P0 Tenancy Isolation tests.
-- [ ] P1 Logic tests for maintenance alerts.
+### Phase 4: Fuel Logs & Tenant-Isolated Uploads (P1/P2)
+- **Fuel Logs Table (`/fleet/fuel.vue`)**:
+  - Render list using `formatDate` from `~/composables/useDateFormat.ts`.
+- **Tenant-Isolated Receipt Uploading**:
+  - Integrate image attachments (fuel receipts) using the tenant-scoped filesystem (`tenant_path()`). 
+  - Restrict exposure using signed, temporary URLs.
+
+### Phase 5: Maintenance Scheduling & Alerting (P1/P2)
+- **Maintenance Table (`/fleet/maintenance.vue`)**:
+  - Display maintenance logs with active status indicators.
+- **Job Triggers**:
+  - Ensure the `MaintenanceSchedulerJob` triggers alert checks against configured vehicle thresholds.
+
+### Phase 6: QA Testing & Postman Collection (P0/P1)
+- **Tenancy Isolation Tests**:
+  - Add Pest feature tests verifying Tenant A is blocked from reading or writing Tenant B's fleet records.
+- **Business Invariant Tests**:
+  - Write tests verifying mileage is monotonic and cannot decrease.
+- **Contract & Audit Tests**:
+  - Verify camelCase structures, pagination envelope shape, and `Auditable` database trail logging.
+- **Postman Sync**:
+  - Synchronize Fleet endpoints with `docs/postman/erp_collection.json`.

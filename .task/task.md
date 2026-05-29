@@ -137,9 +137,11 @@
 - [ ] Depreciation UI
 
 ## Fleet
-- [ ] Vehicle management UI
-- [ ] Fuel logs UI
-- [ ] Maintenance logs UI
+> Full task: [`.task/fleet/task.md`](./.task/fleet/task.md) | Rule: [`skills/fleet/rules.md`](./skills/fleet/rules.md)
+- [x] Backend API alignment (camelCase resources, policies, permissions, auditable, monotonic mileage)
+- [ ] Vehicle management UI & Interactive map overlays
+- [ ] Fuel logs UI & Tenant-isolated uploads
+- [ ] Maintenance logs UI & threshold scheduler
 
 ## eApprovals
 > Full task: [`.task/eapprovals/task.md`](./.task/eapprovals/task.md) | Rule: [`skills/eapprovals/rules.md`](./skills/eapprovals/rules.md)
