@@ -671,7 +671,14 @@ const navGroups = reactive<NavGroup[]>([
                     { label: 'Review Portal', icon: 'ti-user-check', route: '/approvals/review', operational: true }
                 ]
             },
-            { label: 'Fleets', icon: 'ti-truck', route: '#', operational: false, moduleSlug: 'fleets' },
+            {
+                label: 'Fleets', icon: 'ti-truck', moduleSlug: 'fleets',
+                children: [
+                    { label: 'Vehicles', icon: 'ti-car', route: '/fleet/vehicles', operational: true, permission: ['fleet.vehicles.read', 'fleet.vehicles.read.self'] },
+                    { label: 'Maintenance', icon: 'ti-tool', route: '/fleet/maintenance', operational: true, permission: 'fleet.maintenance.read' },
+                    { label: 'Fuel Logs', icon: 'ti-gas-station', route: '/fleet/fuel', operational: true, permission: ['fleet.fuel.read', 'fleet.fuel.write.self'] }
+                ]
+            },
             { label: 'Project Management', icon: 'ti-presentation', route: '#', operational: false, moduleSlug: 'projects' },
             { label: 'eDocuments', icon: 'ti-file-text', route: '#', operational: false, moduleSlug: 'edocuments' },
             { label: 'Reports & Analytics', icon: 'ti-chart-bar', route: '#', operational: false, moduleSlug: 'reporting' },
@@ -690,6 +697,13 @@ const navGroups = reactive<NavGroup[]>([
                         icon: 'ti-users',
                         children: [
                             { label: 'Leave Types', icon: 'ti-list', route: '/settings/apps/hrm/leave-types', operational: true, permission: 'hrm.leave.read' }
+                        ]
+                    },
+                    {
+                        label: 'Fleet',
+                        icon: 'ti-truck',
+                        children: [
+                            { label: 'Vehicle Models', icon: 'ti-car', route: '/settings/apps/fleet/vehicle-models', operational: true, permission: 'fleet.vehicle_models.read' }
                         ]
                     },
                 ]
