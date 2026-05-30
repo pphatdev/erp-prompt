@@ -95,6 +95,17 @@ class Customer extends Model
         return $this->hasMany(Lead::class);
     }
 
+    /**
+     * All subscriptions belonging to this customer — used by
+     * TenantProvisioningService::syncModuleEntitlement to compute the union
+     * of `active` subscription items every time the tenant's module
+     * visibility needs to be re-derived.
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
     public function accountManager(): BelongsTo
     {
         return $this->belongsTo(User::class, 'account_manager_id');

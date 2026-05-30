@@ -11,6 +11,7 @@ use App\Models\Tenant\Product;
 use App\Models\Tenant\Subscription;
 use App\Models\Tenant\SubscriptionItem;
 use App\Tenants\Modules\Inventory\Services\PricingService;
+use App\Tenants\Modules\Sales\Services\TenantProvisioningService;
 use DomainException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -33,7 +34,32 @@ class SubscriptionService
 {
     public function __construct(
         private readonly PricingService $pricing,
+        private readonly TenantProvisioningService $provisioner,
     ) {}
+
+    /**
+     * Re-derive the customer's tenant module visibility after a subscription
+     * lifecycle change. Wrapped so callers never have to think about whether
+     * the customer is provisioned, is a tenant type, or has any subscriptions
+     * at all — TenantProvisioningService::syncModuleEntitlement returns
+     * silently in those cases. Failure is swallowed and logged so a single
+     * stuck tenant DB can't unwind the lifecycle operation itself.
+     */
+    private function reentitle(Subscription $sub): void
+    {
+        try {
+            $customer = $sub->customer;
+            if ($customer) {
+                $this->provisioner->syncModuleEntitlement($customer);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to re-sync customer tenant module entitlement.', [
+                'subscription_id' => $sub->id,
+                'customer_id'     => $sub->customer_id,
+                'error'           => $e->getMessage(),
+            ]);
+        }
+    }
 
     public function createFromOrder(Order $order): ?Subscription
     {
@@ -102,6 +128,12 @@ class SubscriptionService
             'cancel_reason' => $reason,
         ]);
 
+        // Cancellation revokes module access — re-sync immediately so the
+        // customer's sidebar drops the cancelled product's modules on their
+        // next page load. The reentitle() method is a no-op if any other
+        // active subscription still covers the same modules.
+        $this->reentitle($sub);
+
         return $sub;
     }
 
@@ -139,7 +171,13 @@ class SubscriptionService
                 "Renewal — {$sub->subscription_number}"
             );
 
-            return $sub->fresh(['items', 'customer']);
+            $renewed = $sub->fresh(['items', 'customer']);
+
+            // Renewal can transition expired -> active; re-sync so any
+            // previously-deactivated modules light back up.
+            $this->reentitle($renewed);
+
+            return $renewed;
         });
     }
 
@@ -205,7 +243,14 @@ class SubscriptionService
                 );
             }
 
-            return $sub->fresh(['items', 'customer']);
+            $changed = $sub->fresh(['items', 'customer']);
+
+            // Plan change swaps product_id on one line — re-sync so the new
+            // product's linked modules become visible and the old product's
+            // modules drop off when no other line covers them.
+            $this->reentitle($changed);
+
+            return $changed;
         });
     }
 
@@ -216,10 +261,26 @@ class SubscriptionService
      */
     public function expireDueSubscriptions(): int
     {
-        return Subscription::where('status', Subscription::STATUS_ACTIVE)
+        // Capture the about-to-expire rows so we can re-sync each customer's
+        // tenant module visibility after the bulk update flips their status.
+        // A single bulk UPDATE is still the persistence path — the loop is
+        // strictly for re-entitlement after the fact, not for per-row writes.
+        $dueSubs = Subscription::where('status', Subscription::STATUS_ACTIVE)
+            ->whereNotNull('end_date')
+            ->whereDate('end_date', '<', now()->toDateString())
+            ->with('customer')
+            ->get();
+
+        $affected = Subscription::where('status', Subscription::STATUS_ACTIVE)
             ->whereNotNull('end_date')
             ->whereDate('end_date', '<', now()->toDateString())
             ->update(['status' => Subscription::STATUS_EXPIRED]);
+
+        foreach ($dueSubs as $sub) {
+            $this->reentitle($sub);
+        }
+
+        return $affected;
     }
 
     /**

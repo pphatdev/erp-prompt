@@ -126,6 +126,17 @@ class ModuleSeeder extends Seeder
         ['slug' => 'fleet-vehicles',    'prefix' => 'FLTV', 'name' => 'Vehicles',    'icon' => 'ti-car',          'route' => '/fleet/vehicles', 'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'fleets'],
         ['slug' => 'fleet-maintenance', 'prefix' => 'FLTM', 'name' => 'Maintenance', 'icon' => 'ti-tool',         'route' => '/fleet/maintenance', 'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'fleets'],
         ['slug' => 'fleet-fuel',        'prefix' => 'FLTF', 'name' => 'Fuel Logs',   'icon' => 'ti-gas-station',  'route' => '/fleet/fuel',     'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'fleets'],
+        // Apps: Fixed Assets — five leaves under the parent slug `assets` used
+        // by useModules().hasModule('assets') to gate the whole sidebar group.
+        // Sort-order intentionally collides with `fleets` (7) — the visual nav
+        // order is driven by the literal navGroups array in layouts/default.vue;
+        // the Modules admin page falls back to alphabetical within a tier.
+        ['slug' => 'assets',            'prefix' => 'AST',  'name' => 'Fixed Assets',  'icon' => 'ti-cube',           'route' => null,                  'group' => 'apps', 'sort_order' => 7],
+        ['slug' => 'assets-registry',   'prefix' => 'ASTR', 'name' => 'Asset Registry','icon' => 'ti-list-check',     'route' => '/assets',             'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'assets'],
+        ['slug' => 'assets-depreciation','prefix'=> 'ASTD', 'name' => 'Depreciation',  'icon' => 'ti-receipt',        'route' => '/assets/depreciation','group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'assets'],
+        ['slug' => 'assets-revaluation','prefix' => 'ASTV', 'name' => 'Revaluation',   'icon' => 'ti-stars',          'route' => '/assets/revaluation', 'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'assets'],
+        ['slug' => 'assets-disposal',   'prefix' => 'ASTX', 'name' => 'Disposal',      'icon' => 'ti-archive',        'route' => '/assets/disposal',    'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'assets'],
+        ['slug' => 'assets-audits',     'prefix' => 'ASTA', 'name' => 'Audit Campaigns','icon'=> 'ti-calendar-stats', 'route' => '/assets/audits',      'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'assets'],
         ['slug' => 'projects',   'prefix' => 'PROJ', 'name' => 'Project Management', 'icon' => 'ti-presentation', 'route' => '#', 'group' => 'apps', 'sort_order' => 8],
         ['slug' => 'eapprovals', 'prefix' => 'EAPP', 'name' => 'eApprovals',         'icon' => 'ti-circle-check', 'route' => '#', 'group' => 'apps', 'sort_order' => 9],
         ['slug' => 'edocuments', 'prefix' => 'EDOC', 'name' => 'eDocuments',         'icon' => 'ti-file-text',    'route' => '#', 'group' => 'apps', 'sort_order' => 10],
@@ -133,22 +144,35 @@ class ModuleSeeder extends Seeder
 
         // Core: Configurations
         ['slug' => 'settings-apps',   'prefix' => 'SETA', 'name' => 'Apps Management', 'icon' => 'ti-box',        'route' => null,        'group' => 'apps', 'sort_order' => 12, 'is_core' => true],
+        // Apps Management sub-tree — each system that owns auto-generated codes
+        // exposes its prefix matrix as a `Prefix Code` leaf under its own group.
+        // Backend setting keys (numbering.*) are unchanged; the grouping is a
+        // pure UI organization concern. Invoice + Subscription sit under
+        // Finance (financial documents), Asset Code under System (FAM infra).
         ['slug' => 'settings-apps-hrm', 'prefix' => 'SETAH', 'name' => 'Human Resource', 'icon' => 'ti-users',   'route' => null, 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps'],
         ['slug' => 'settings-apps-hrm-leave-types', 'prefix' => 'SETAHL', 'name' => 'Leave Types', 'icon' => 'ti-list', 'route' => '/settings/apps/hrm/leave-types', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-hrm'],
-        ['slug' => 'settings-apps-fleet', 'prefix' => 'SETAFLT', 'name' => 'Fleet', 'icon' => 'ti-truck', 'route' => null, 'group' => 'apps', 'sort_order' => 2, 'is_core' => true, 'parent_slug' => 'settings-apps'],
+        ['slug' => 'settings-apps-hrm-prefix-code', 'prefix' => 'SETAHP', 'name' => 'Prefix Code', 'icon' => 'ti-hash', 'route' => '/settings/apps/hrm/prefix-code', 'group' => 'apps', 'sort_order' => 2, 'is_core' => true, 'parent_slug' => 'settings-apps-hrm'],
+        ['slug' => 'settings-apps-sales', 'prefix' => 'SETASLS', 'name' => 'Sales', 'icon' => 'ti-address-book', 'route' => null, 'group' => 'apps', 'sort_order' => 2, 'is_core' => true, 'parent_slug' => 'settings-apps'],
+        ['slug' => 'settings-apps-sales-prefix-code', 'prefix' => 'SETASLSP', 'name' => 'Prefix Code', 'icon' => 'ti-hash', 'route' => '/settings/apps/sales/prefix-code', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-sales'],
+        ['slug' => 'settings-apps-inventory', 'prefix' => 'SETAINV', 'name' => 'Inventory', 'icon' => 'ti-building-warehouse', 'route' => null, 'group' => 'apps', 'sort_order' => 3, 'is_core' => true, 'parent_slug' => 'settings-apps'],
+        ['slug' => 'settings-apps-inventory-prefix-code', 'prefix' => 'SETAINVP', 'name' => 'Prefix Code', 'icon' => 'ti-hash', 'route' => '/settings/apps/inventory/prefix-code', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-inventory'],
+        ['slug' => 'settings-apps-finance', 'prefix' => 'SETAFIN', 'name' => 'Finance', 'icon' => 'ti-coin', 'route' => null, 'group' => 'apps', 'sort_order' => 4, 'is_core' => true, 'parent_slug' => 'settings-apps'],
+        ['slug' => 'settings-apps-finance-prefix-code', 'prefix' => 'SETAFINP', 'name' => 'Prefix Code', 'icon' => 'ti-hash', 'route' => '/settings/apps/finance/prefix-code', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-finance'],
+        ['slug' => 'settings-apps-system', 'prefix' => 'SETASYS', 'name' => 'System', 'icon' => 'ti-cube', 'route' => null, 'group' => 'apps', 'sort_order' => 5, 'is_core' => true, 'parent_slug' => 'settings-apps'],
+        ['slug' => 'settings-apps-system-prefix-code', 'prefix' => 'SETASYSP', 'name' => 'Prefix Code', 'icon' => 'ti-hash', 'route' => '/settings/apps/system/prefix-code', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-system'],
+        ['slug' => 'settings-apps-fleet', 'prefix' => 'SETAFLT', 'name' => 'Fleet', 'icon' => 'ti-truck', 'route' => null, 'group' => 'apps', 'sort_order' => 6, 'is_core' => true, 'parent_slug' => 'settings-apps'],
         ['slug' => 'settings-apps-fleet-vehicle-models', 'prefix' => 'SETAFLTV', 'name' => 'Vehicle Models', 'icon' => 'ti-car', 'route' => '/settings/apps/fleet/vehicle-models', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-fleet'],
-        
+
         ['slug' => 'settings-users',  'prefix' => 'SETU', 'name' => 'User Directory', 'icon' => 'ti-users-group',  'route' => '/settings/users',    'group' => 'apps', 'sort_order' => 13, 'is_core' => true],
         ['slug' => 'settings-roles',  'prefix' => 'SETR', 'name' => 'Roles Matrix',   'icon' => 'ti-shield-check', 'route' => '/settings/roles',    'group' => 'apps', 'sort_order' => 14, 'is_core' => true],
-        
-        ['slug' => 'settings-config', 'prefix' => 'SETC', 'name' => 'Configuration',  'icon' => 'ti-settings',     'route' => null, 'group' => 'apps', 'sort_order' => 15, 'is_core' => true],
+
+        ['slug' => 'settings-config', 'prefix' => 'SETC', 'name' => 'Configuration',  'icon' => 'ti-settings',     'route' => null, 'group' => 'apps', 'sort_order' => 16, 'is_core' => true],
         ['slug' => 'settings-config-branding', 'prefix' => 'SETCB', 'name' => 'Branding', 'icon' => 'ti-palette', 'route' => '/settings/configuration/branding', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-config'],
         ['slug' => 'settings-config-locale', 'prefix' => 'SETCL', 'name' => 'Locale', 'icon' => 'ti-language', 'route' => '/settings/configuration/locale', 'group' => 'apps', 'sort_order' => 2, 'is_core' => true, 'parent_slug' => 'settings-config'],
         ['slug' => 'settings-config-notifications', 'prefix' => 'SETCN', 'name' => 'Notifications', 'icon' => 'ti-bell', 'route' => '/settings/configuration/notifications', 'group' => 'apps', 'sort_order' => 3, 'is_core' => true, 'parent_slug' => 'settings-config'],
         ['slug' => 'settings-config-security', 'prefix' => 'SETCS', 'name' => 'Security', 'icon' => 'ti-shield-lock', 'route' => '/settings/configuration/security', 'group' => 'apps', 'sort_order' => 4, 'is_core' => true, 'parent_slug' => 'settings-config'],
         ['slug' => 'settings-config-modules', 'prefix' => 'SETCM', 'name' => 'Modules', 'icon' => 'ti-puzzle', 'route' => '/settings/configuration/modules', 'group' => 'apps', 'sort_order' => 5, 'is_core' => true, 'parent_slug' => 'settings-config'],
-        ['slug' => 'settings-config-numbering', 'prefix' => 'SETCNO', 'name' => 'Numbering', 'icon' => 'ti-hash', 'route' => '/settings/configuration/numbering', 'group' => 'apps', 'sort_order' => 6, 'is_core' => true, 'parent_slug' => 'settings-config'],
-        ['slug' => 'settings-config-platform', 'prefix' => 'SETCP', 'name' => 'Platform', 'icon' => 'ti-server', 'route' => '/settings/configuration/platform', 'group' => 'apps', 'sort_order' => 7, 'is_core' => true, 'parent_slug' => 'settings-config'],
+        ['slug' => 'settings-config-platform', 'prefix' => 'SETCP', 'name' => 'Platform', 'icon' => 'ti-server', 'route' => '/settings/configuration/platform', 'group' => 'apps', 'sort_order' => 6, 'is_core' => true, 'parent_slug' => 'settings-config'],
     ];
 
     public function run(): void

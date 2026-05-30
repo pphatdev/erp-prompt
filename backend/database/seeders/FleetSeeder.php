@@ -136,11 +136,19 @@ class FleetSeeder extends Seeder
         ];
 
         foreach ($vehicles as $row) {
-            $vehicle = Vehicle::withTrashed()
-                ->firstOrNew(['registration_number' => $row['registration_number']]);
+            // Look up WITHOUT the BelongsToTenant global scope so we don't miss
+            // a pre-existing TT-NNNN row whose tenant_id doesn't match the
+            // current tenant (rows written before migration #76 made the unique
+            // constraint composite, or rows where the auto-fill scoped to a
+            // different handle on a prior seeder run). Without this bypass,
+            // firstOrNew would miss the row and the next INSERT would collide
+            // on the global unique `vehicles_registration_number_unique`.
+            $vehicle = Vehicle::withoutGlobalScopes()->withTrashed()
+                ->where('registration_number', $row['registration_number'])
+                ->first();
 
-            if (!$vehicle->exists) {
-                $vehicle->fill($row)->save();
+            if (!$vehicle) {
+                Vehicle::create($row);
             } elseif ($vehicle->trashed()) {
                 $vehicle->restore();
             }

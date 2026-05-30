@@ -180,6 +180,13 @@ class SettingService
                 'label' => 'Purchase order number prefix',
                 'value' => 'PO-'
             ],
+            [
+                'key' => 'numbering.asset_code_prefix',
+                'group' => 'numbering',
+                'type' => 'string',
+                'label' => 'Fixed asset code prefix',
+                'value' => 'AST-'
+            ],
         ];
     }
 

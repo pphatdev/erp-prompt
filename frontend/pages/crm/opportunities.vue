@@ -29,7 +29,7 @@
             </header>
 
             <!-- Metrics row -->
-            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
                     <div class="flex items-center justify-between">
                         <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Total Pipeline Value</span>
@@ -277,7 +277,6 @@
                                 <select v-model="form.stage" class="form-control text-xs">
                                     <option value="new">Opportunities</option>
                                     <option value="schedules">Schedules (B2B/B2C)</option>
-                                    <option value="contacted">Contacted</option>
                                     <option value="won">Won (Qualified)</option>
                                     <option value="lost">Lost (Not Qualified)</option>
                                 </select>
@@ -405,23 +404,25 @@ const draggedOverStage = ref<OpportunityStage | null>(null)
 const movingId = ref<string | null>(null)
 const pendingDropStage = ref<OpportunityStage | null>(null)
 
-// Kanban Column Configuration — matches the CRM module spec:
-//   Opportunities · Schedules (B2B/B2C) · Contacted · Won (Qualified) · Lost (Not Qualified)
-// The backend Opportunity::STAGES also accepts legacy values (qualified /
-// proposal / negotiation); visualStage() collapses those into "Contacted" so
-// nothing disappears off the board.
+// Kanban Column Configuration — 4-column trim:
+//   Opportunities · Schedules (B2B/B2C) · Won (Qualified) · Lost (Not Qualified)
+// The backend Opportunity::STAGES still accepts `contacted` plus the legacy
+// `qualified` / `proposal` / `negotiation` values; visualStage() rolls all four
+// into "Schedules" so historical rows keep surfacing on the trimmed board.
 const stagesList: { stage: OpportunityStage; label: string }[] = [
     { stage: 'new',       label: 'Opportunities' },
     { stage: 'schedules', label: 'Schedules (B2B/B2C)' },
-    { stage: 'contacted', label: 'Contacted' },
     { stage: 'won',       label: 'Won (Qualified)' },
     { stage: 'lost',      label: 'Lost (Not Qualified)' },
 ]
 
 const visualStage = (raw: OpportunityStage): OpportunityStage => {
-    // Roll intermediate/legacy stages forward into "contacted" so they still
-    // surface on the trimmed board.
-    if (raw === 'qualified' || raw === 'proposal' || raw === 'negotiation') return 'contacted'
+    // Contacted no longer has its own column — collapse it (and the older
+    // qualified / proposal / negotiation stages) into Schedules so nothing
+    // disappears from the board after the column was removed.
+    if (raw === 'contacted' || raw === 'qualified' || raw === 'proposal' || raw === 'negotiation') {
+        return 'schedules'
+    }
     return raw
 }
 
@@ -584,7 +585,6 @@ const stageDropMessage = (stage: OpportunityStage): string => {
     switch (stage) {
         case 'new':       return 'Deal moved to Opportunities'
         case 'schedules': return 'Deal moved to Schedules — capture products-of-interest'
-        case 'contacted': return 'Opportunity marked as Contacted'
         case 'won':       return 'Opportunity marked as Won (Qualified)'
         case 'lost':      return 'Opportunity marked as Lost (Not Qualified)'
         default:          return `Deal moved to ${stage}`
@@ -773,14 +773,16 @@ const columnHeaderClass = (s: OpportunityStage) => {
     switch (s) {
         case 'new':       return 'badge-soft-info'
         case 'schedules': return 'badge-soft-primary'
-        case 'contacted': return 'badge-soft-warning'
         case 'won':       return 'badge-soft-success'
         case 'lost':      return 'badge-soft-danger'
-        // Legacy stages collapse into "Contacted" — kept here so the cast
-        // stays exhaustive even though they no longer surface as columns.
+        // The `contacted` + legacy `qualified` / `proposal` / `negotiation`
+        // stages no longer surface as their own column — visualStage() collapses
+        // them into Schedules. The cases stay so the switch is exhaustive over
+        // OpportunityStage even though they're never the column key at runtime.
+        case 'contacted':
         case 'qualified':
         case 'proposal':
-        case 'negotiation': return 'badge-soft-warning'
+        case 'negotiation': return 'badge-soft-primary'
     }
 }
 

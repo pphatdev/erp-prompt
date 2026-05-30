@@ -9,9 +9,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant\Customer;
 use App\Tenants\Modules\Sales\Resources\CustomerResource;
 use App\Tenants\Modules\Sales\Services\CrmService;
+use App\Tenants\Modules\Sales\Services\TenantProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class CustomerController extends Controller
 {
@@ -19,6 +22,7 @@ class CustomerController extends Controller
 
     public function __construct(
         private readonly CrmService $crmService,
+        private readonly TenantProvisioningService $provisioner,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -85,6 +89,61 @@ class CustomerController extends Controller
         $customer->delete();
 
         return response()->json(['message' => 'Customer archived.']);
+    }
+
+    /**
+     * POST /customers/{customer}/provision
+     *
+     * Manually (re-)trigger tenant provisioning for a tenant-type customer.
+     *
+     * Used to heal customers whose provisioning aborted partway — most
+     * commonly when a downstream seeder threw (FleetSeeder unique violation,
+     * GL period locked, etc.) leaving the central tenant + tenant DB created
+     * but `customer.provisioned_tenant_id` / `provisioned_at` un-persisted.
+     *
+     * Idempotent — TenantProvisioningService::provisionForCustomer:
+     *   - returns early if the customer is already fully provisioned;
+     *   - uses `CentralTenant::firstOrCreate` so an existing central tenant is
+     *     reused (no duplicates);
+     *   - runs `migrate` / `db:seed` on the tenant DB defensively (the tenant
+     *     migrations are guarded with hasTable() and seeders are idempotent on
+     *     their natural keys).
+     */
+    public function provision(Customer $customer): JsonResponse
+    {
+        if (!$customer->isTenantCustomer()) {
+            return response()->json([
+                'message' => 'Only tenant-type customers can be provisioned.',
+            ], 422);
+        }
+
+        try {
+            // Find the most recent subscription via the customer's confirmed
+            // orders. TenantProvisioningService uses it to seed module
+            // entitlements + software product rows; customers without a
+            // subscription still get a usable bare tenant DB.
+            $sub = \App\Models\Tenant\Subscription::whereIn(
+                'order_id',
+                $customer->orders()->pluck('id')
+            )
+                ->orderByDesc('created_at')
+                ->first();
+
+            $this->provisioner->provisionForCustomer($customer, $sub);
+        } catch (Throwable $e) {
+            Log::error('Manual tenant provisioning failed.', [
+                'customer_id' => $customer->id,
+                'error'       => $e->getMessage(),
+            ]);
+            return response()->json([
+                'message' => 'Provisioning failed: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        $resource = new CustomerResource($customer->fresh('accountManager'));
+        return $resource
+            ->additional(['message' => 'Provisioning completed.'])
+            ->response();
     }
 
     /**

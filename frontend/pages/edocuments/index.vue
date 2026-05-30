@@ -17,20 +17,7 @@
                 </div>
             </header>
 
-            <!-- Breadcrumb -->
-            <nav class="glass-card rounded-xl px-4 py-2 flex items-center gap-2 text-xs overflow-x-auto">
-                <template v-for="(crumb, idx) in store.breadcrumbs" :key="crumb.id ?? 'home'">
-                    <button type="button"
-                        class="flex items-center gap-1 px-2 py-1 rounded hover:bg-(--bg-muted) text-(--text-heading)"
-                        :class="idx === store.breadcrumbs.length - 1 ? 'font-semibold' : 'text-(--text-muted)'"
-                        @click="navigateTo(crumb.id)">
-                        <i v-if="crumb.id === null" class="ti ti-home text-xs" />
-                        {{ crumb.name }}
-                    </button>
-                    <i v-if="idx < store.breadcrumbs.length - 1" class="ti ti-chevron-right text-xxs text-(--text-muted)" />
-                </template>
-            </nav>
-
+            
             <!-- KPI Cards -->
             <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
                 <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
@@ -78,6 +65,20 @@
                 </div>
             </section>
 
+            <!-- Breadcrumb -->
+            <nav class="glass-card rounded-xl px-4 py-2 flex items-center gap-2 text-xs overflow-x-auto">
+                <template v-for="(crumb, idx) in store.breadcrumbs" :key="crumb.id ?? 'home'">
+                    <button type="button"
+                        class="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-(--bg-muted) text-(--text-heading)"
+                        :class="idx === store.breadcrumbs.length - 1 ? 'font-semibold' : 'text-(--text-muted)'"
+                        @click="navigateTo(crumb.id)">
+                        <i v-if="crumb.id === null" class="ti ti-home text-xs" />
+                        {{ crumb.name }}
+                    </button>
+                    <i v-if="idx < store.breadcrumbs.length - 1" class="ti ti-chevron-right text-xxs text-(--text-muted)" />
+                </template>
+            </nav>
+
             <!-- Search -->
             <div class="glass-card rounded-xl p-3 flex items-center gap-2">
                 <i class="ti ti-search text-(--text-muted)" />
@@ -123,20 +124,24 @@
                 </div>
             </section>
 
-            <!-- Documents Table -->
-            <section class="glass-card rounded-2xl overflow-hidden">
-                <div v-if="loading" class="py-16 flex flex-col items-center gap-3">
-                    <span class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
-                    <span class="text-xs text-(--text-muted)">Loading...</span>
-                </div>
+            <!-- Loading state -->
+            <section v-if="loading" class="glass-card rounded-2xl py-16 flex flex-col items-center gap-3">
+                <span class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
+                <span class="text-xs text-(--text-muted)">Loading...</span>
+            </section>
 
-                <div v-else-if="documents.length === 0 && folders.length === 0" class="py-20 text-center">
-                    <i class="ti ti-file-text text-4xl text-(--text-muted)" />
-                    <h4 class="text-sm font-semibold text-(--text-heading) mt-3">This folder is empty</h4>
-                    <p class="text-xs text-(--text-muted) mt-1">Upload a file or create a subfolder to get started.</p>
-                </div>
+            <!-- Empty folder state — neither files nor subfolders -->
+            <section v-else-if="documents.length === 0 && folders.length === 0" class="glass-card rounded-2xl py-20 text-center">
+                <i class="ti ti-file-text text-4xl text-(--text-muted)" />
+                <h4 class="text-sm font-semibold text-(--text-heading) mt-3">This folder is empty</h4>
+                <p class="text-xs text-(--text-muted) mt-1">Upload a file or create a subfolder to get started.</p>
+            </section>
 
-                <table v-else class="w-full text-xs">
+            <!-- Documents Table — only mounts when there are files. Folder-only views
+                 (subfolders without files) leave this section out so we don't render
+                 an empty <thead> below the folders grid. -->
+            <section v-else-if="documents.length > 0" class="glass-card rounded-2xl">
+                <table class="w-full text-xs">
                     <thead class="bg-(--bg-muted) text-(--text-muted) uppercase text-xxs tracking-widest">
                         <tr>
                             <th class="text-left px-4 py-2.5">Name</th>

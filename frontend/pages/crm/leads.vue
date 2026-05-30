@@ -13,7 +13,7 @@
             </header>
 
             <!-- Metrics -->
-            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
                     <div class="flex items-center justify-between">
                         <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Total Active</span>

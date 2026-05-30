@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Models\Tenant\Application;
 use App\Models\Tenant\Appraisal;
+use App\Models\Tenant\Asset;
+use App\Models\Tenant\AssetAuditCampaign;
 use App\Models\Tenant\AttendanceLog;
 use App\Models\Tenant\CrmActivity;
 use App\Models\Tenant\CrmAppointment;
@@ -43,6 +45,8 @@ use App\Models\Tenant\VehicleModel;
 use App\Models\Tenant\Warehouse;
 use App\Policies\ApplicationPolicy;
 use App\Policies\AppraisalPolicy;
+use App\Policies\AssetAuditCampaignPolicy;
+use App\Policies\AssetPolicy;
 use App\Policies\AttendanceLogPolicy;
 use App\Policies\CrmActivityPolicy;
 use App\Policies\CrmAppointmentPolicy;
@@ -145,6 +149,10 @@ class TenantServiceProvider extends ServiceProvider
         Gate::policy(VehicleModel::class, VehicleModelPolicy::class);
         Gate::policy(MaintenanceLog::class, MaintenanceLogPolicy::class);
         Gate::policy(FuelLog::class, FuelLogPolicy::class);
+
+        // Assets (fixed asset management)
+        Gate::policy(Asset::class, AssetPolicy::class);
+        Gate::policy(AssetAuditCampaign::class, AssetAuditCampaignPolicy::class);
 
         // Super Admin bypass: users holding the `admin` role short-circuit all
         // policy checks. Must return null (not false) for non-admins so other

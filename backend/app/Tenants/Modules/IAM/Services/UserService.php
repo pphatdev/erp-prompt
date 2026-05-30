@@ -8,9 +8,27 @@ use Illuminate\Support\Facades\DB;
 
 class UserService
 {
+    /**
+     * User Directory listing query — scoped to the actor's tenant.
+     *
+     * The `BelongsToTenant` global scope already enforces this for normal
+     * Eloquent queries, but we re-state the `tenant_id` filter explicitly
+     * here so the intent is obvious at the call site and a future refactor
+     * to `User::query()->withoutGlobalScopes()` (or a shared-DB tenancy mode)
+     * doesn't silently turn the User Directory into a cross-tenant listing.
+     */
     public function buildIndexQuery(): Builder
     {
         $query = User::query()->with('roles');
+
+        // Defense-in-depth: tenant() resolves to the currently-initialized
+        // central tenant (set by InitializeTenancyByHandle middleware). Inside
+        // a tenant request it's always non-null; outside (CLI/queue) it's null
+        // and we leave the query unscoped so the global scope alone applies.
+        if ($tenantKey = tenant()?->getTenantKey()) {
+            $query->where('tenant_id', $tenantKey);
+        }
+
         $query->orderBy('created_at', 'desc');
         return $query;
     }

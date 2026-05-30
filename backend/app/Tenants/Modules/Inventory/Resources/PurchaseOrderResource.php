@@ -11,7 +11,12 @@ class PurchaseOrderResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.purchase_order_prefix') ?: 'PO-';
+        // Setting key must match what ProcurementService::generatePoNumber() writes
+        // and what the Prefix Code matrix page exposes — `numbering.po_prefix`.
+        // The legacy `numbering.purchase_order_prefix` key was never seeded, so the
+        // fallback fired on every read and the user's prefix change had no visible
+        // effect on PO numbers.
+        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.po_prefix') ?: 'PO-';
         $poNumber = $this->po_number;
         if ($poNumber && preg_match('/(\d+)$/', $poNumber, $matches)) {
             $poNumber = $prefix . $matches[1];

@@ -41,7 +41,7 @@
                         <i class="ti ti-chart-pie text-lg" />
                     </span>
                     <span v-show="!isCompact" class="overflow-hidden">
-                        <span class="block text-sm font-semibold text-(--text-heading) tracking-tight">Smart ERP</span>
+                        <span class="block text-sm font-semibold text-(--text-heading) tracking-tight">SmartERP</span>
                         <span
                             class="block text-[10px] uppercase tracking-widest font-mono text-(--text-muted)">Enterprise
                             Suite</span>
@@ -93,7 +93,7 @@
                         <template v-for="item in group.items" :key="item.label">
                             <!-- Single operational link -->
                             <NuxtLink v-if="!item.children && item.operational" :to="item.route!" class="nav-link"
-                                :class="isRouteActive(item.route) ? 'nav-link-active' : ''">
+                                :class="isRouteActive(item.route, item.exact) ? 'nav-link-active' : ''">
                                 <span class="nav-icon"><i :class="['ti', item.icon]" /></span>
                                 <span v-show="!isCompact" class="truncate flex-1">{{ item.label }}</span>
                                 <Badge v-show="!isCompact && item.badge" :variant="item.badgeVariant || 'success'">{{
@@ -126,7 +126,7 @@
                                         <template v-if="!child.children">
                                             <NuxtLink v-if="child.operational" :to="child.route!"
                                                 class="nav-link nav-link-sub"
-                                                :class="isRouteActive(child.route) ? 'nav-link-active' : ''">
+                                                :class="isRouteActive(child.route, child.exact) ? 'nav-link-active' : ''">
                                                 <span class="nav-icon"><i :class="['ti', child.icon]" /></span>
                                                 <span class="truncate">{{ child.label }}</span>
                                             </NuxtLink>
@@ -153,7 +153,7 @@
                                                 <template v-for="grandchild in child.children" :key="grandchild.label">
                                                     <NuxtLink v-if="grandchild.operational" :to="grandchild.route!"
                                                         class="nav-link nav-link-sub"
-                                                        :class="isRouteActive(grandchild.route) ? 'nav-link-active' : ''">
+                                                        :class="isRouteActive(grandchild.route, grandchild.exact) ? 'nav-link-active' : ''">
                                                         <span class="nav-icon"><i
                                                                 :class="['ti', grandchild.icon]" /></span>
                                                         <span class="truncate">{{ grandchild.label }}</span>
@@ -420,7 +420,7 @@
             <!-- <footer
                 class="px-6 py-4 border-t border-(--border-color) bg-(--footer-bg) flex flex-col sm:flex-row justify-between items-center gap-2 text-xxs text-(--text-muted)">
                 <div>
-                    © {{ new Date().getFullYear() }} Smart ERP · Tenant <span class="font-mono text-(--text-body)">@{{
+                    © {{ new Date().getFullYear() }} SmartERP · Tenant <span class="font-mono text-(--text-body)">@{{
                         tenantStore.activeHandle }}</span>
                 </div>
                 <div class="flex items-center gap-4 font-mono uppercase tracking-wider">
@@ -541,6 +541,13 @@ interface NavItem {
      * Omit for items that should always be visible (e.g. Dashboard).
      */
     moduleSlug?: string
+    /**
+     * Require an exact path match for the active highlight. Use on a leaf
+     * whose route is also a prefix of sibling leaves (e.g. Asset Registry at
+     * `/assets` next to `/assets/depreciation`); without this both would
+     * light up because the default prefix rule matches `/assets/...`.
+     */
+    exact?: boolean
     children?: NavItem[]
 }
 interface NavGroup { id: string; label: string; items: NavItem[] }
@@ -664,7 +671,11 @@ const navGroups = reactive<NavGroup[]>([
                 ]
             },
             {
-                label: 'eApprovals', icon: 'ti-checks', route: '#', operational: true,
+                // moduleSlug must match the row in `modules` table (seeded by
+                // ModuleSeeder as `eapprovals`). Without it, useModules().hasModule()
+                // never gates this group and it shows for every tenant regardless
+                // of subscription entitlement.
+                label: 'eApprovals', icon: 'ti-checks', route: '#', operational: true, moduleSlug: 'eapprovals',
                 children: [
                     { label: 'Forms Portal', icon: 'ti-forms', route: '/approvals/forms', operational: true },
                     { label: 'My Requests', icon: 'ti-inbox', route: '/approvals/requests', operational: true },
@@ -677,6 +688,17 @@ const navGroups = reactive<NavGroup[]>([
                     { label: 'Vehicles', icon: 'ti-car', route: '/fleet/vehicles', operational: true, permission: ['fleet.vehicles.read', 'fleet.vehicles.read.self'] },
                     { label: 'Maintenance', icon: 'ti-tool', route: '/fleet/maintenance', operational: true, permission: 'fleet.maintenance.read' },
                     { label: 'Fuel Logs', icon: 'ti-gas-station', route: '/fleet/fuel', operational: true, permission: ['fleet.fuel.read', 'fleet.fuel.write.self'] }
+                ]
+            },
+            {
+                label: 'Fixed Assets', icon: 'ti-cube', moduleSlug: 'assets',
+                children: [
+                    // `exact: true` so /assets/depreciation etc. don't also light the Registry leaf.
+                    { label: 'Asset Registry', icon: 'ti-list-check', route: '/assets', operational: true, exact: true, permission: ['assets.tracking.read', 'assets.tracking.read.self'] },
+                    { label: 'Depreciation', icon: 'ti-receipt', route: '/assets/depreciation', operational: true, permission: ['assets.depreciation.read', 'assets.depreciation.write'] },
+                    { label: 'Revaluation', icon: 'ti-stars', route: '/assets/revaluation', operational: true, permission: ['assets.revaluation.read', 'assets.revaluation.write'] },
+                    { label: 'Disposal', icon: 'ti-archive', route: '/assets/disposal', operational: true, permission: ['assets.disposal.read', 'assets.disposal.write'] },
+                    { label: 'Audit Campaigns', icon: 'ti-calendar-stats', route: '/assets/audits', operational: true, permission: ['assets.audit.read', 'assets.audit.read.self'] }
                 ]
             },
             { label: 'Project Management', icon: 'ti-presentation', route: '#', operational: false, moduleSlug: 'projects' },
@@ -696,7 +718,36 @@ const navGroups = reactive<NavGroup[]>([
                         label: 'Human Resource',
                         icon: 'ti-users',
                         children: [
-                            { label: 'Leave Types', icon: 'ti-list', route: '/settings/apps/hrm/leave-types', operational: true, permission: 'hrm.leave.read' }
+                            { label: 'Leave Types', icon: 'ti-list', route: '/settings/apps/hrm/leave-types', operational: true, permission: 'hrm.leave.read' },
+                            { label: 'Prefix Code', icon: 'ti-hash', route: '/settings/apps/hrm/prefix-code', operational: true, permission: 'settings.read' }
+                        ]
+                    },
+                    {
+                        label: 'Sales',
+                        icon: 'ti-address-book',
+                        children: [
+                            { label: 'Prefix Code', icon: 'ti-hash', route: '/settings/apps/sales/prefix-code', operational: true, permission: 'settings.read' }
+                        ]
+                    },
+                    {
+                        label: 'Inventory',
+                        icon: 'ti-building-warehouse',
+                        children: [
+                            { label: 'Prefix Code', icon: 'ti-hash', route: '/settings/apps/inventory/prefix-code', operational: true, permission: 'settings.read' }
+                        ]
+                    },
+                    {
+                        label: 'Finance',
+                        icon: 'ti-coin',
+                        children: [
+                            { label: 'Prefix Code', icon: 'ti-hash', route: '/settings/apps/finance/prefix-code', operational: true, permission: 'settings.read' }
+                        ]
+                    },
+                    {
+                        label: 'System',
+                        icon: 'ti-cube',
+                        children: [
+                            { label: 'Prefix Code', icon: 'ti-hash', route: '/settings/apps/system/prefix-code', operational: true, permission: 'settings.read' }
                         ]
                     },
                     {
@@ -719,7 +770,6 @@ const navGroups = reactive<NavGroup[]>([
                     { label: 'Notifications', icon: 'ti-bell', route: '/settings/configuration/notifications', operational: true, permission: 'settings.read' },
                     { label: 'Security', icon: 'ti-shield-lock', route: '/settings/configuration/security', operational: true, permission: 'settings.read' },
                     { label: 'Modules', icon: 'ti-puzzle', route: '/settings/configuration/modules', operational: true, permission: 'settings.read' },
-                    { label: 'Numbering', icon: 'ti-hash', route: '/settings/configuration/numbering', operational: true, permission: 'settings.read' },
                     { label: 'Platform', icon: 'ti-server', route: '/settings/configuration/platform', operational: true, permission: 'settings.read' },
                 ]
             },
@@ -811,13 +861,14 @@ const visibleNavGroups = computed<NavGroup[]>(() => {
         .filter(group => group.items.length > 0)
 })
 
-const isRouteActive = (target?: string): boolean => {
+const isRouteActive = (target?: string, exact: boolean = false): boolean => {
     if (!target || target === '#') return false
     const path = router.currentRoute.value.path
     // Strip query/hash from the target so deep-links like
     // /crm/opportunities?stage=won still highlight when on /crm/opportunities.
     const targetPath = target.split(/[?#]/)[0]
     if (targetPath === '/settings' && path !== '/settings') return false
+    if (exact) return path === targetPath
     if (path !== targetPath && !path.startsWith(targetPath + '/')) return false
     // If the target carries query params, require each to match the current
     // query so the "Won (Qualified)" sub-link only highlights when stage=won.
@@ -834,7 +885,7 @@ const isRouteActive = (target?: string): boolean => {
 }
 
 const isGroupActive = (item: NavItem): boolean =>
-    Boolean(item.children?.some(c => isRouteActive(c.route) || isGroupActive(c)))
+    Boolean(item.children?.some(c => isRouteActive(c.route, c.exact) || isGroupActive(c)))
 
 const megaMenu = [
     { title: 'Dashboards', items: ['Ecommerce', 'Analytics', 'CRM', 'Finance', 'Projects'] },
@@ -950,6 +1001,15 @@ const SLUG_LABELS: Record<string, string> = {
     leave: 'Leave Request',
     'requests': 'My Requests',
     review: 'Review Portal',
+    // Fixed Assets — `assets` matches the parent NavItem label so the dedup
+    // skip in breadcrumbItems collapses `Fixed Assets > Assets > X` to
+    // `Fixed Assets > X`. The leaves are fallbacks; each page's
+    // definePageMeta({ breadcrumb }) still takes priority on the last segment.
+    assets: 'Fixed Assets',
+    depreciation: 'Depreciation',
+    revaluation: 'Revaluation',
+    disposal: 'Disposal',
+    audits: 'Audit Campaigns',
 }
 
 const titleize = (slug: string) =>

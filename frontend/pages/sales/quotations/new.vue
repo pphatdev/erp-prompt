@@ -38,7 +38,7 @@
                             <div>
                                 <label class="form-label">
                                     From Qualified Lead / Opportunity
-                                    <span class="text-(--text-muted) normal-case font-normal lowercase">— optional, pre-fills items + customer · shows only Won (Qualified) opportunities</span>
+                                    <span class="text-(--text-muted) normal-case font-normal">— optional, pre-fills items + customer · shows only Won (Qualified) opportunities</span>
                                 </label>
                                 <select v-model="form.from_opportunity_id" class="form-control"
                                     @change="onOpportunityChange" :disabled="loadingSchedule">
@@ -81,7 +81,7 @@
                                 <label class="form-label">
                                     Customer<span v-if="!form.from_opportunity_id"> *</span>
                                     <span v-if="form.from_opportunity_id"
-                                        class="text-(--text-muted) normal-case font-normal lowercase">— optional, created on Quotation Won if blank</span>
+                                        class="text-(--text-muted) normal-case font-normal">— optional, created on Quotation Won if blank</span>
                                 </label>
                                 <select v-model="form.customer_id" class="form-control"
                                     :class="{ 'ring-1 ring-(--color-danger)': showErrors && !canSubmit && !form.customer_id && !form.from_opportunity_id }">

@@ -46,7 +46,7 @@
                 </div>
             </header>
 
-            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="glass-card rounded-xl p-4">
                     <p class="text-xxs text-(--text-muted) uppercase tracking-widest font-bold">Cycle</p>
                     <p class="text-base font-semibold text-(--text-heading) mt-1 capitalize">{{

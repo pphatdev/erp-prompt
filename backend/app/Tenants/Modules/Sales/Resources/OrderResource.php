@@ -11,7 +11,12 @@ class OrderResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.sales_order_prefix') ?: 'SO-';
+        // Setting key must match what OrderService::generateOrderNumber() writes
+        // and what the Prefix Code matrix page exposes — `numbering.order_prefix`.
+        // The legacy `numbering.sales_order_prefix` key was never seeded, so the
+        // fallback fired on every read and the user's prefix change had no visible
+        // effect on order numbers.
+        $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.order_prefix') ?: 'SO-';
         $orderNumber = $this->order_number;
         if ($orderNumber && preg_match('/(\d+)$/', $orderNumber, $matches)) {
             $orderNumber = $prefix . $matches[1];

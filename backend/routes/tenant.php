@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 use App\Tenants\Modules\Approvals\Controllers\ApprovalActionController;
 use App\Tenants\Modules\Approvals\Controllers\WorkflowController;
+use App\Tenants\Modules\Assets\Controllers\AssetAuditCampaignController;
 use App\Tenants\Modules\Assets\Controllers\AssetController;
+use App\Tenants\Modules\Assets\Controllers\AssetVerificationController;
 use App\Tenants\Modules\Assets\Controllers\DepreciationController;
+use App\Tenants\Modules\Assets\Controllers\DisposalController;
+use App\Tenants\Modules\Assets\Controllers\RevaluationController;
 use App\Tenants\Modules\Documents\Controllers\CmsDocumentController;
 use App\Tenants\Modules\Documents\Controllers\CmsFolderController;
 use App\Tenants\Modules\EDocuments\Controllers\DocumentController;
@@ -138,6 +142,7 @@ Route::middleware([
         // Sales — Customers
         Route::get('/customers/check-handle', [CustomerController::class, 'checkHandle']);
         Route::apiResource('customers', CustomerController::class);
+        Route::post('/customers/{customer}/provision', [CustomerController::class, 'provision']);
 
         // CRM — Leads
         Route::apiResource('leads', \App\Tenants\Modules\Crm\Controllers\LeadController::class);
@@ -335,9 +340,38 @@ Route::middleware([
         Route::apiResource('fuel-logs', FuelLogController::class)
             ->parameters(['fuel-logs' => 'fuelLog']);
 
-        // Assets Module
+        // Assets Module — Fixed Asset Management
+        //
+        // Depreciation / revaluation / disposal logs live at /assets/* prefixes
+        // that overlap with the {asset} param on apiResource. Declare them
+        // BEFORE Route::apiResource so Laravel doesn't capture `depreciation`
+        // as an {asset} UUID. The single-asset action routes use `/assets/{asset}/...`
+        // which is unambiguous regardless of order.
+        Route::get('/assets/depreciation', [DepreciationController::class, 'index']);
+        Route::get('/assets/revaluations', [RevaluationController::class, 'index']);
+        Route::get('/assets/disposals',    [DisposalController::class, 'index']);
+
+        // Verification logs index — must come before the apiResource so
+        // `/assets/verifications` isn't captured as `{asset}`.
+        Route::get('/assets/verifications', [AssetVerificationController::class, 'index']);
+
         Route::apiResource('assets', AssetController::class);
-        Route::post('/assets/{asset}/depreciate', [DepreciationController::class, 'calculate']);
+        Route::get('/assets/{asset}/depreciation/preview', [DepreciationController::class, 'preview']);
+        Route::post('/assets/{asset}/depreciate',          [DepreciationController::class, 'calculate']);
+        Route::post('/assets/{asset}/revaluations',        [RevaluationController::class, 'store']);
+        Route::post('/assets/{asset}/disposals',           [DisposalController::class, 'store']);
+
+        // QR scan resolver — front-end calls this after the camera decodes
+        // the QR. Returns the asset profile + active-campaign context.
+        Route::get('/assets/{asset}/profile',       [AssetVerificationController::class, 'profile']);
+        Route::post('/assets/{asset}/verifications',[AssetVerificationController::class, 'store']);
+
+        // Audit campaigns (verification cycles).
+        Route::apiResource('asset-audit-campaigns', AssetAuditCampaignController::class)
+            ->parameters(['asset-audit-campaigns' => 'campaign']);
+        Route::post('/asset-audit-campaigns/{campaign}/start',    [AssetAuditCampaignController::class, 'start']);
+        Route::post('/asset-audit-campaigns/{campaign}/complete', [AssetAuditCampaignController::class, 'complete']);
+        Route::get('/asset-audit-campaigns/{campaign}/reconciliation', [AssetAuditCampaignController::class, 'reconciliation']);
 
         // Inventory Module
         Route::apiResource('products', ProductController::class);

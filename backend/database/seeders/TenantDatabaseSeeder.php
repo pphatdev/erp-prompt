@@ -333,6 +333,15 @@ class TenantDatabaseSeeder extends Seeder
         // gets all eDocs perms via syncWithoutDetaching.
         $this->call(EDocsPermissionSeeder::class);
 
+        // Backfill the assets.* permission catalogue + custodian .self grants.
+        // Idempotent — slugs upsert by `slug` and roles syncWithoutDetaching.
+        $this->call(AssetsPermissionSeeder::class);
+
+        // Demo fixed-asset register: 12 assets across categories with depreciation
+        // history, one revaluation surplus, one scrap disposal, and an active
+        // audit campaign with partial scans. Idempotent on asset_code.
+        $this->call(AssetsDemoSeeder::class);
+
         // Fleet demo data: vehicles + maintenance + fuel history. Keyed on
         // natural columns (registration_number / vehicle+date+type) so a
         // re-run is a no-op against existing rows.
@@ -646,6 +655,8 @@ class TenantDatabaseSeeder extends Seeder
             ['code' => '1200', 'name' => 'Accounts Receivable',    'type' => 'asset'],   // AR — invoice confirm
             ['code' => '1300', 'name' => 'Prepaid Expenses',       'type' => 'asset'],
             ['code' => '1400', 'name' => 'Inventory',              'type' => 'asset'],
+            ['code' => '1500', 'name' => 'Accumulated Depreciation','type' => 'asset'],  // contra-asset — fixed asset depreciation
+            ['code' => '1700', 'name' => 'Fixed Assets',           'type' => 'asset'],   // fixed asset cost account
 
             // ── Liabilities (2xxx) ─────────────────────────────────────────
             ['code' => '2100', 'name' => 'Accounts Payable',       'type' => 'liability'],
@@ -656,11 +667,13 @@ class TenantDatabaseSeeder extends Seeder
             // ── Equity (3xxx) ──────────────────────────────────────────────
             ['code' => '3000', 'name' => 'Retained Earnings',      'type' => 'equity'],
             ['code' => '3100', 'name' => 'Owner\'s Equity',        'type' => 'equity'],
+            ['code' => '3200', 'name' => 'Revaluation Reserve',    'type' => 'equity'],   // fixed asset surplus
 
             // ── Revenue (4xxx) ─────────────────────────────────────────────
             ['code' => '4000', 'name' => 'Sales Revenue',          'type' => 'revenue'],  // revenue — invoice confirm
             ['code' => '4100', 'name' => 'Service Revenue',        'type' => 'revenue'],
             ['code' => '4200', 'name' => 'Other Income',           'type' => 'revenue'],
+            ['code' => '4300', 'name' => 'Gain/Loss on Disposal',  'type' => 'revenue'],  // fixed asset disposal P&L
 
             // ── Expenses (5xxx) ────────────────────────────────────────────
             ['code' => '5000', 'name' => 'Cost of Goods Sold',     'type' => 'expense'],
@@ -668,6 +681,7 @@ class TenantDatabaseSeeder extends Seeder
             ['code' => '5200', 'name' => 'Rent & Utilities',       'type' => 'expense'],
             ['code' => '5300', 'name' => 'General & Administrative','type' => 'expense'],
             ['code' => '5400', 'name' => 'Depreciation',           'type' => 'expense'],
+            ['code' => '5500', 'name' => 'Revaluation Loss',       'type' => 'expense'],  // fixed asset revaluation loss
         ];
 
         foreach ($accounts as $account) {

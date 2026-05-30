@@ -44,12 +44,14 @@ export interface Opportunity {
     leadId: string | null
     customerId: string | null
     customer?: CustomerRef | null
+    lead?: { id: string; title: string | null } | null
     title: string
     estimatedValue: number
     probability: number
     stage: OpportunityStage
     projectedCloseDate: string | null
     lossReason: string | null
+    notes?: string | null
     createdAt: string
     updatedAt: string
 }

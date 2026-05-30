@@ -1,15 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models\Tenant;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Models\Traits\Auditable;
 use App\Models\Traits\BelongsToTenant;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class DepreciationLog extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, Auditable;
 
     protected $keyType = 'string';
     public $incrementing = false;
@@ -20,8 +23,16 @@ class DepreciationLog extends Model
         'depreciation_amount',
         'accumulated_depreciation',
         'book_value',
+        'method',
         'journal_entry_id',
         'tenant_id',
+    ];
+
+    protected $casts = [
+        'period_date'              => 'date',
+        'depreciation_amount'      => 'decimal:2',
+        'accumulated_depreciation' => 'decimal:2',
+        'book_value'               => 'decimal:2',
     ];
 
     public function asset(): BelongsTo
@@ -29,11 +40,16 @@ class DepreciationLog extends Model
         return $this->belongsTo(Asset::class);
     }
 
-    protected static function boot()
+    public function journalEntry(): BelongsTo
+    {
+        return $this->belongsTo(JournalEntry::class);
+    }
+
+    protected static function boot(): void
     {
         parent::boot();
 
-        static::creating(function ($model) {
+        static::creating(function (self $model) {
             if (empty($model->{$model->getKeyName()})) {
                 $model->{$model->getKeyName()} = (string) Str::uuid();
             }

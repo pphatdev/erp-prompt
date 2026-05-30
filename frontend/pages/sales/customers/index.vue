@@ -4,8 +4,7 @@
             <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                     <h1 class="text-xl font-semibold">Customers</h1>
-                    <p class="text-xs text-(--text-muted) mt-1">Anchor of the sales funnel — every quote, order, invoice
-                        and subscription belongs to one.</p>
+                    <p class="text-xs text-(--text-muted) mt-1">Anchor of the sales funnel — every quote, order, invoice and subscription belongs to one.</p>
                 </div>
                 <NuxtLink to="/sales/customers/new" class="btn btn-primary text-xs">
                     <i class="ti ti-user-plus" />New customer
@@ -13,7 +12,7 @@
             </header>
 
             <!-- Metrics row -->
-            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="glass-card rounded-2xl p-4 space-y-2 col-span-1">
                     <div class="flex items-center justify-between">
                         <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Total</span>
@@ -191,6 +190,14 @@
                                 <i class="ti ti-at" />
                                 <span class="font-mono">{{ c.tenantHandle }}</span>
                             </div>
+                            <button v-if="!c.provisionedSubdomain"
+                                type="button"
+                                class="mt-1 inline-flex items-center gap-1 text-(--color-primary) hover:underline font-semibold disabled:text-(--text-muted) disabled:cursor-not-allowed"
+                                :disabled="provisioningId === c.id"
+                                @click.stop="provisionCustomer(c)">
+                                <i :class="['ti', provisioningId === c.id ? 'ti-loader-2 animate-spin' : 'ti-rocket']" />
+                                {{ provisioningId === c.id ? 'Provisioning...' : 'Provision now' }}
+                            </button>
                         </div>
                     </div>
 
@@ -248,14 +255,17 @@
 import { computed, onMounted, ref } from 'vue'
 import { useSales } from '~/composables/useSales'
 import { useToast } from '~/composables/useToast'
+import { useApi } from '~/composables/useApi'
 import type { Customer, CustomerType, CustomerTier } from '~/types/sales'
 import CountUp from '~/components/CountUp.vue'
 
 const sales = useSales()
 const toast = useToast()
+const api = useApi()
 
 const loading = ref(false)
 const archiving = ref(false)
+const provisioningId = ref<string | null>(null)
 const customers = ref<Customer[]>([])
 const search = ref('')
 const filterStatus = ref<'all' | 'active' | 'inactive'>('all')
@@ -334,6 +344,33 @@ const onConfirmDelete = async () => {
         toast.error('Archive failed', err?.data?.message)
     } finally {
         archiving.value = false
+    }
+}
+
+// ───── Manual provisioning (heal stuck tenant customers) ────────
+const provisionCustomer = async (c: Customer) => {
+    if (provisioningId.value || c.provisionedSubdomain) return
+
+    const ok = await toast.confirm({
+        title: `Provision ${c.name}?`,
+        description: 'Spins up the customer\'s tenant database, runs all migrations + seeds, and links the customer record. Use this to retry a previously failed provisioning — it\'s idempotent so it\'s safe to re-run.',
+        confirmLabel: 'Provision',
+        color: 'primary',
+        icon: 'ti-rocket',
+    })
+    if (!ok) return
+
+    provisioningId.value = c.id
+    try {
+        const res = await api.post<{ data: Customer; message?: string }>(`/customers/${c.id}/provision`)
+        const updated = res.data
+        const idx = customers.value.findIndex(x => x.id === c.id)
+        if (idx !== -1) customers.value[idx] = updated
+        toast.success('Provisioning complete.', updated.provisionedSubdomain ?? c.name)
+    } catch (err: any) {
+        toast.error('Provisioning failed.', err?.data?.message)
+    } finally {
+        provisioningId.value = null
     }
 }
 
