@@ -125,6 +125,16 @@
 - [ ] Tax management UI
 - [ ] Financial reports UI
 
+## Accounting & General Ledger
+> Full task: [`.task/accounting/task.md`](./.task/accounting/task.md) | Rule: [`skills/accounting/rules.md`](./skills/accounting/rules.md)
+- [x] Chart of Accounts table migration, hierarchical `Account` model, and CRUD controllers.
+- [x] Journal Entries & Ledger table structures, `JournalEntry` and `LedgerEntry` models, and balanced `AccountingService::postEntry` postings.
+- [x] Exchange rates database migration, uppercase standardization logic, `ExchangeRateService` converter, and PrimeVue dynamic currency converter UI.
+- [ ] COA circular parent-child loops prevention safeguards and deletion protection — **P1 open**
+- [ ] Tree view dynamic balance summation component and COA UI page (`/accounting/accounts`) — **P2 open**
+- [ ] General Ledger immutability policies, reverse-posting corrections utility, and form posting validators — **P1 open**
+- [ ] Fiscal period lock statuses, post-write validation block middlewares, and closing balance rollover automatons — **P1 open**
+
 ## Projects
 - [x] Projects CRUD (backend)
 - [x] Tasks CRUD + status update
