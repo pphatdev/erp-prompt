@@ -133,8 +133,14 @@
 - [ ] Kanban board UI
 
 ## Assets
-- [ ] Asset CRUD UI
-- [ ] Depreciation UI
+> Full task: [`.task/assets/task.md`](./.task/assets/task.md) | Rule: [`skills/assets/rules.md`](./skills/assets/rules.md)
+- [ ] Schema: Multi-tenant database migrations for 5 assets-related tables and flat Eloquent models utilizing `BelongsToTenant`, `SoftDeletes`, and `Auditable`
+- [ ] Tracking: `AssetService` supporting tenant-configurable `numbering.asset_code_prefix` and subdomain-specific QR code URL generations
+- [ ] Depreciation: `DepreciationService` calculations (Straight-line, Declining Balance, SYD) and scheduling batch checker jobs
+- [ ] Integration: Synchronous balanced general ledger postings to FMS inside atomic database transactions, exit checking for HRM custodians, and polymorphics for Fleet vehicles
+- [ ] Access: Thin API controller layers guarded by policies and seeder configurations including self-service `.self` scopes
+- [ ] UI: Nuxt 3 pages (`/assets`, `/assets/depreciation`, `/assets/revaluation`, `/assets/disposal`), stores, flat `useAssets.ts` composable, interactive HSL panels, custom modal overlays, and toast confirmations
+- [ ] QA: Pest integration testing (Isolation, mathematical thresholds, camelCase structural assertions, transaction rollback traps, audit logs) and Postman collections
 
 ## Fleet
 > Full task: [`.task/fleet/task.md`](./.task/fleet/task.md) | Rule: [`skills/fleet/rules.md`](./skills/fleet/rules.md)
