@@ -39,6 +39,7 @@ Detailed checklists for implementing the multi-tenant Fixed Assets Management sy
 - [x] `FmsIntegrationService::postRevaluationJournal` handles surplus (Dr Asset / Cr Reserve) and loss (Dr Loss / Cr Asset).
 - [x] `FmsIntegrationService::postDisposalJournal` posts sale (Cash + AccumDepr + Gain/Loss vs Asset Cost) and scrap (AccumDepr + Loss vs Asset Cost).
 - [x] Seed missing GL accounts (1500 Accumulated Depreciation, 1700 Fixed Assets, 3200 Revaluation Reserve, 4300 Disposal P&L, 5500 Revaluation Loss) into `seedChartOfAccounts`.
+- [x] HRM Custodian Profile Link — Setup Employee model relation (`assets()`) and `EmployeeResource` serialization to discover custody assets directly from employee workspace profile.
 - [ ] Link employee exit callbacks in `EmployeeService` or exit observers to flag unreturned custodian assets — **DEFERRED**.
 - [ ] Polymorphic bindings on `Asset` for `Fleet\Vehicle` capitalization — **DEFERRED**.
 

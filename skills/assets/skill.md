@@ -57,7 +57,7 @@ Use this skill when developing, expanding, or integrating components related to 
 
 ## 3. Cross-Module Integrations
 
-- **HRM (Employees)**: Track active custodians by linking the asset to `employee_id`. When an employee exits the tenant organization, trigger a middleware checker to flag all unreturned assets.
+- **HRM (Employees)**: Track active custodians by linking the asset to `custodian_employee_id`. When an employee exits the tenant organization, trigger a middleware checker to flag all unreturned assets. The Employee detail page (both admin and self-service) must display a dedicated **Assets** tab detailing all physical Fixed Assets currently under their custody (where `assets.custodian_employee_id = employees.id`), backed by eager-loaded model relations.
 - **Fleet (Vehicles)**: Capitalize heavy machinery or company vehicles by registering them in both Fleet and Fixed Assets systems. A polymorphic relation allows the vehicle model to also act as an auditable fixed asset.
 - **FMS (General Ledger)**: Execute direct journal entries via the `FmsIntegrationService`. Verify that the tenant's ledger period is open before executing any posting transaction.
 

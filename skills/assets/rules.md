@@ -26,7 +26,7 @@ Employees/Custodians can view and audit their assigned physical assets:
 
 ### Asset Operational Flow
 1. **Acquisition & Capitalization**: Register new physical asset, automatically triggering code generation (e.g. `AST-00001`) and initial capitalization criteria checking.
-2. **Tagging & Custody**: Assign tracking locations and an employee custodian (`employee_id`), generating the physical QR code.
+2. **Tagging & Custody**: Assign tracking locations and an employee custodian (`custodian_employee_id`), generating the physical QR code. The assigned custody assets must be directly discoverable and listed in the employee's profile tab in the HRM module.
 3. **Depreciation Job**: Run scheduled monthly calculations based on Straight-line, Declining balance, or SYD methods, posting automated journal entries to the `fms` module.
 4. **Appraisal & Revaluation**: Periodically adjust asset book value based on certified appraisals, matching revaluation reserve entries in `fms`.
 5. **Physical Audit Scans**: Verify assets physically via QR scanners, updating the location and condition status.
