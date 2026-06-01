@@ -14,19 +14,19 @@ class TimesheetResource extends JsonResource
         return [
             'id'           => $this->id,
             'taskId'       => $this->task_id,
-            'task'         => $this->whenLoaded('task', fn () => $this->task ? [
+            'task'         => $this->relationLoaded('task') && $this->task ? [
                 'id'        => $this->task->id,
                 'title'     => $this->task->title,
                 'status'    => $this->task->status,
                 'projectId' => $this->task->project_id,
-            ] : null),
+            ] : null,
 
             'employeeId'   => $this->employee_id,
-            'employee'     => $this->whenLoaded('employee', fn () => $this->employee ? [
+            'employee'     => $this->relationLoaded('employee') && $this->employee ? [
                 'id'         => $this->employee->id,
                 'employeeId' => $this->employee->employee_id,
                 'fullName'   => trim(($this->employee->first_name ?? '') . ' ' . ($this->employee->last_name ?? '')) ?: null,
-            ] : null),
+            ] : null,
 
             'logDate'      => $this->log_date,
             'hoursWorked'  => (float) $this->hours_worked,

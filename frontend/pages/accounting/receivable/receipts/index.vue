@@ -171,13 +171,10 @@
                     </table>
                 </div>
 
-                <footer class="flex items-center justify-between px-4 py-3 border-t border-(--border-color) text-xxs text-(--text-muted)">
-                    <span>Page {{ pagination.page }} of {{ pagination.totalPages }} · {{ pagination.total }} total</span>
-                    <div class="flex items-center gap-2">
-                        <button type="button" class="btn btn-ghost text-xxs" :disabled="pagination.page <= 1" @click="goPage(pagination.page - 1)">Prev</button>
-                        <button type="button" class="btn btn-ghost text-xxs" :disabled="pagination.page >= pagination.totalPages" @click="goPage(pagination.page + 1)">Next</button>
-                    </div>
-                </footer>
+                <Pagination :page="pagination.page" :limit="pagination.limit"
+                    :total="pagination.total" :total-pages="pagination.totalPages"
+                    @update:page="(p) => { pagination.page = p; load() }"
+                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; load() }" />
             </section>
         </div>
 
@@ -497,12 +494,6 @@ const load = async () => {
     } finally {
         loading.value = false
     }
-}
-
-const goPage = (p: number) => {
-    if (p < 1 || p > pagination.totalPages) return
-    pagination.page = p
-    load()
 }
 
 const setStatusFilter = (s: '' | ReceiptStatus) => {

@@ -13,7 +13,7 @@ class ProjectResource extends JsonResource
     {
         $tasksCount = $this->tasks_count ?? ($this->relationLoaded('tasks') ? $this->tasks->count() : null);
 
-        return [
+        $payload = [
             'id'           => $this->id,
             'name'         => $this->name,
             'description'  => $this->description,
@@ -23,17 +23,24 @@ class ProjectResource extends JsonResource
             'status'       => $this->status,
 
             'managerId'    => $this->manager_id,
-            'manager'      => $this->whenLoaded('manager', fn () => $this->manager ? [
+            'manager'      => $this->relationLoaded('manager') && $this->manager ? [
                 'id'         => $this->manager->id,
                 'employeeId' => $this->manager->employee_id,
                 'fullName'   => trim(($this->manager->first_name ?? '') . ' ' . ($this->manager->last_name ?? '')) ?: null,
-            ] : null),
+            ] : null,
 
             'tasksCount'   => $tasksCount,
-            'tasks'        => TaskResource::collection($this->whenLoaded('tasks')),
 
             'createdAt'    => optional($this->created_at)->toIso8601String(),
             'updatedAt'    => optional($this->updated_at)->toIso8601String(),
         ];
+
+        if ($this->relationLoaded('tasks')) {
+            $payload['tasks'] = $this->tasks
+                ->map(fn ($t) => (new TaskResource($t))->toArray($request))
+                ->all();
+        }
+
+        return $payload;
     }
 }

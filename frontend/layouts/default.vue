@@ -93,7 +93,7 @@
                         <template v-for="item in group.items" :key="item.label">
                             <!-- Single operational link -->
                             <NuxtLink v-if="!item.children && item.operational" :to="item.route!" class="nav-link"
-                                :class="isRouteActive(item.route, item.exact) ? 'nav-link-active' : ''">
+                                :class="isRouteActive(item.route, item.exact, item.excludePrefixes) ? 'nav-link-active' : ''">
                                 <span class="nav-icon"><i :class="['ti', item.icon]" /></span>
                                 <span v-show="!isCompact" class="truncate flex-1">{{ item.label }}</span>
                                 <Badge v-show="!isCompact && item.badge" :variant="item.badgeVariant || 'success'">{{
@@ -126,7 +126,7 @@
                                         <template v-if="!child.children">
                                             <NuxtLink v-if="child.operational" :to="child.route!"
                                                 class="nav-link nav-link-sub"
-                                                :class="isRouteActive(child.route, child.exact) ? 'nav-link-active' : ''">
+                                                :class="isRouteActive(child.route, child.exact, child.excludePrefixes) ? 'nav-link-active' : ''">
                                                 <span class="nav-icon"><i :class="['ti', child.icon]" /></span>
                                                 <span class="truncate">{{ child.label }}</span>
                                             </NuxtLink>
@@ -153,7 +153,7 @@
                                                 <template v-for="grandchild in child.children" :key="grandchild.label">
                                                     <NuxtLink v-if="grandchild.operational" :to="grandchild.route!"
                                                         class="nav-link nav-link-sub"
-                                                        :class="isRouteActive(grandchild.route, grandchild.exact) ? 'nav-link-active' : ''">
+                                                        :class="isRouteActive(grandchild.route, grandchild.exact, grandchild.excludePrefixes) ? 'nav-link-active' : ''">
                                                         <span class="nav-icon"><i
                                                                 :class="['ti', grandchild.icon]" /></span>
                                                         <span class="truncate">{{ grandchild.label }}</span>
@@ -575,6 +575,14 @@ interface NavItem {
      * light up because the default prefix rule matches `/assets/...`.
      */
     exact?: boolean
+    /**
+     * Path prefixes that suppress the active highlight even though the default
+     * prefix rule would match. Use on a leaf whose route is a prefix of sibling
+     * leaves but should still light up for drill-in URLs that are NOT siblings
+     * (e.g. `/projects` should match `/projects/<uuid>` but not `/projects/tasks`).
+     * Each value is matched as a prefix the same way `route` itself is.
+     */
+    excludePrefixes?: string[]
     children?: NavItem[]
 }
 interface NavGroup { id: string; label: string; items: NavItem[] }
@@ -767,7 +775,14 @@ const navGroups = reactive<NavGroup[]>([
                     { label: 'Audit Campaigns', icon: 'ti-calendar-stats', route: '/assets/audits', operational: true, permission: ['assets.audit.read', 'assets.audit.read.self'] }
                 ]
             },
-            { label: 'Project Management', icon: 'ti-presentation', route: '#', operational: false, moduleSlug: 'projects' },
+            {
+                label: 'Project Management', icon: 'ti-presentation', moduleSlug: 'projects',
+                children: [
+                    { label: 'Projects', icon: 'ti-folder-open', route: '/projects', excludePrefixes: ['/projects/tasks', '/projects/timesheets'], operational: true, permission: ['projects.project.read', 'projects.project.write'] },
+                    { label: 'Tasks', icon: 'ti-checkbox', route: '/projects/tasks', operational: true, permission: ['projects.task.read', 'projects.task.write'] },
+                    { label: 'Timesheets', icon: 'ti-clock-hour-3', route: '/projects/timesheets', operational: true, permission: ['projects.timesheet.read', 'projects.timesheet.write'] }
+                ]
+            },
             { label: 'eDocuments', icon: 'ti-file-text', route: '/edocuments', operational: true, permission: 'edocs.explorer.read', moduleSlug: 'edocuments' },
             { label: 'Reports & Analytics', icon: 'ti-chart-bar', route: '#', operational: false, moduleSlug: 'reporting' },
         ]
@@ -934,7 +949,7 @@ const visibleNavGroups = computed<NavGroup[]>(() => {
         .filter(group => group.items.length > 0)
 })
 
-const isRouteActive = (target?: string, exact: boolean = false): boolean => {
+const isRouteActive = (target?: string, exact: boolean = false, excludePrefixes?: string[]): boolean => {
     if (!target || target === '#') return false
     const path = router.currentRoute.value.path
     // Strip query/hash from the target so deep-links like
@@ -943,6 +958,16 @@ const isRouteActive = (target?: string, exact: boolean = false): boolean => {
     if (targetPath === '/settings' && path !== '/settings') return false
     if (exact) return path === targetPath
     if (path !== targetPath && !path.startsWith(targetPath + '/')) return false
+    // Suppress when the current path is also under a configured sibling prefix.
+    // Keeps `/projects` lighting up for `/projects/<uuid>` drill-ins while
+    // letting `/projects/tasks` and `/projects/timesheets` claim the highlight
+    // for their own sub-items.
+    if (excludePrefixes?.length) {
+        for (const ex of excludePrefixes) {
+            const exPath = ex.split(/[?#]/)[0]
+            if (path === exPath || path.startsWith(exPath + '/')) return false
+        }
+    }
     // If the target carries query params, require each to match the current
     // query so the "Won (Qualified)" sub-link only highlights when stage=won.
     if (target.includes('?')) {
@@ -958,7 +983,7 @@ const isRouteActive = (target?: string, exact: boolean = false): boolean => {
 }
 
 const isGroupActive = (item: NavItem): boolean =>
-    Boolean(item.children?.some(c => isRouteActive(c.route, c.exact) || isGroupActive(c)))
+    Boolean(item.children?.some(c => isRouteActive(c.route, c.exact, c.excludePrefixes) || isGroupActive(c)))
 
 const megaMenu = [
     { title: 'Dashboards', items: ['Ecommerce', 'Analytics', 'CRM', 'Finance', 'Projects'] },
@@ -1054,6 +1079,9 @@ const SLUG_LABELS: Record<string, string> = {
     new: 'New',
     settings: 'Settings',
     hrm: 'HRM',
+    projects: 'Projects',
+    tasks: 'Tasks',
+    timesheets: 'Timesheets',
     sales: 'Sales',
     customers: 'Customers',
     quotations: 'Quotations',

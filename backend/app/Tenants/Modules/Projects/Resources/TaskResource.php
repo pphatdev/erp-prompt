@@ -11,14 +11,14 @@ class TaskResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        return [
+        $payload = [
             'id'           => $this->id,
             'projectId'    => $this->project_id,
-            'project'      => $this->whenLoaded('project', fn () => $this->project ? [
+            'project'      => $this->relationLoaded('project') && $this->project ? [
                 'id'     => $this->project->id,
                 'name'   => $this->project->name,
                 'status' => $this->project->status,
-            ] : null),
+            ] : null,
 
             'title'        => $this->title,
             'description'  => $this->description,
@@ -27,16 +27,22 @@ class TaskResource extends JsonResource
             'priority'     => $this->priority,
 
             'assigneeId'   => $this->assignee_id,
-            'assignee'     => $this->whenLoaded('assignee', fn () => $this->assignee ? [
+            'assignee'     => $this->relationLoaded('assignee') && $this->assignee ? [
                 'id'         => $this->assignee->id,
                 'employeeId' => $this->assignee->employee_id,
                 'fullName'   => trim(($this->assignee->first_name ?? '') . ' ' . ($this->assignee->last_name ?? '')) ?: null,
-            ] : null),
-
-            'timesheets'   => TimesheetResource::collection($this->whenLoaded('timesheets')),
+            ] : null,
 
             'createdAt'    => optional($this->created_at)->toIso8601String(),
             'updatedAt'    => optional($this->updated_at)->toIso8601String(),
         ];
+
+        if ($this->relationLoaded('timesheets')) {
+            $payload['timesheets'] = $this->timesheets
+                ->map(fn ($ts) => (new TimesheetResource($ts))->toArray($request))
+                ->all();
+        }
+
+        return $payload;
     }
 }
