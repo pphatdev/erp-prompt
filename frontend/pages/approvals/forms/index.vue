@@ -35,17 +35,15 @@
             <div class="space-y-6">
                 <!-- Filters Tab list -->
                 <div class="flex items-center justify-between  pb-4 flex-wrap gap-4">
-                    <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                    <section class="flex items-center gap-2 flex-wrap">
                         <button v-for="cat in categories" :key="cat.id" type="button" 
-                            class="px-4 py-2 rounded-lg text-xs font-semibold uppercase border-(--color-primary)/20 tracking-wider transition-all whitespace-nowrap cursor-pointer"
-                            :class="activeCategory === cat.id 
-                                ? 'bg-(--color-primary)/10 text-(--color-primary) border shadow-xs' 
-                                : 'text-(--text-muted) hover:text-(--text-heading) hover:bg-(--bg-muted)'"
+                            class="chip"
+                            :class="{ active: activeCategory === cat.id }"
                             @click="activeCategory = cat.id">
-                            <i v-if="cat.icon" :class="['ti', cat.icon, 'mr-1.5']" />
+                            <i v-if="cat.icon" :class="['ti', cat.icon]"></i>
                             {{ cat.name }}
                         </button>
-                    </div>
+                    </section>
 
                     <span class="text-xxs font-mono text-(--text-muted)">
                         Showing {{ filteredFormTypes.length }} of {{ formTypes.length }} Forms
@@ -294,5 +292,29 @@ onMounted(() => {
 .list-leave-to {
     opacity: 0;
     transform: translateY(10px) scale(0.95);
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    font-size: 11px;
+    color: var(--text-body);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.chip:hover {
+    background: var(--bg-muted);
+}
+
+.chip.active {
+    background: rgb(var(--color-primary-rgb) / 0.12);
+    color: var(--color-primary);
+    border-color: rgb(var(--color-primary-rgb) / 0.4);
 }
 </style>

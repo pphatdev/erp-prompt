@@ -1,83 +1,91 @@
 <template>
     <NuxtLayout name="default">
-        <div class="max-w-3xl mx-auto py-8">
-            <!-- Header -->
-            <div class="mb-8 flex items-center gap-4">
-                <button @click="router.back()" class="w-10 h-10 rounded-full bg-(--bg-muted) flex items-center justify-center hover:bg-primary/10 hover:text-primary transition-colors">
-                    <i class="ti ti-arrow-left text-xl"></i>
-                </button>
-                <div>
-                    <h1 class="text-2xl font-bold">New Leave Request</h1>
-                    <p class="text-sm text-(--text-muted) mt-1">Submit your request for annual, sick, or unpaid leave.</p>
-                </div>
-            </div>
+        <div class="max-w-4xl mx-auto space-y-8 pb-12">
+            <!-- Hero banner -->
+            <section class="relative overflow-hidden rounded-2xl border border-(--border-color) bg-(--bg-card) p-6 sm:p-8 shadow-(--shadow-sm)">
+                <div class="absolute -top-20 -right-16 w-72 h-72 rounded-full blur-3xl bg-(--color-primary)/15 pointer-events-none" />
+                <div class="absolute -bottom-20 -left-20 w-72 h-72 rounded-full blur-3xl bg-(--color-info)/10 pointer-events-none" />
 
-            <!-- Form Card -->
-            <div class="glass-card rounded-2xl p-6 sm:p-8 border border-(--border-color) shadow-sm">
-                
-                <div v-if="loading" class="py-12 flex flex-col items-center justify-center gap-3">
-                    <span class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
-                    <span class="text-xs text-(--text-muted) font-medium">Loading form details...</span>
-                </div>
-
-                <form v-else @submit.prevent="submitForm" class="space-y-6">
-                    
-                    <!-- Leave Type -->
-                    <div>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <label v-for="type in leaveTypes" :key="type.id" 
-                                :class="[
-                                    'cursor-pointer border-2 rounded-xl p-4 flex flex-col items-center gap-2 transition-all',
-                                    form.leave_type_id === type.id ? 'border-primary bg-primary/5' : 'border-(--border-color) hover:border-primary/30'
-                                ]"
-                            >
-                                <input type="radio" :value="type.id" v-model="form.leave_type_id" class="hidden" required />
-                                <div :class="['w-10 h-10 rounded-full flex items-center justify-center', form.leave_type_id === type.id ? 'bg-primary/10 text-primary' : 'bg-(--bg-muted) text-(--text-muted)']">
-                                    <i class="ti ti-calendar-event text-xl"></i>
-                                </div>
-                                <span class="font-medium text-sm text-center">{{ type.name }}</span>
-                                <span class="text-xxs text-(--text-muted)">{{ type.annualAllowance }} days/yr</span>
-                            </label>
+                <div class="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                    <div class="flex items-start gap-4">
+                        <button @click="router.back()"
+                            class="w-10 h-10 mt-1 rounded-full bg-(--bg-muted) flex items-center justify-center hover:bg-(--color-primary)/10 hover:text-(--color-primary) transition-colors shrink-0">
+                            <i class="ti ti-arrow-left text-xl"></i>
+                        </button>
+                        <div class="space-y-2 max-w-2xl">
+                            <Badge variant="primary" :dot="true">eApprovals · Time Off</Badge>
+                            <h1 class="text-2xl font-bold tracking-tight text-(--text-heading)">
+                                New Leave Request
+                            </h1>
+                            <p class="text-xs text-(--text-body) leading-relaxed">
+                                Submit your request for annual, sick, or unpaid leave. Once submitted, it will be sent to your reporting manager for approval.
+                            </p>
                         </div>
                     </div>
+                </div>
+            </section>
 
-                    <!-- Date Range -->
+            <div v-if="loading" class="glass-card rounded-2xl p-16 flex flex-col items-center justify-center gap-3 border border-(--border-color)">
+                <span class="w-8 h-8 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
+                <span class="text-xs text-(--text-muted) font-medium">Loading form details...</span>
+            </div>
+
+            <form v-else @submit.prevent="submitForm" class="space-y-6">
+                
+                <!-- Leave Classification -->
+                <section class="glass-card rounded-2xl p-6 border border-(--border-color) space-y-5">
+                    <header>
+                        <h3 class="text-xs font-semibold uppercase tracking-widest text-(--text-muted) flex items-center gap-2">
+                            <i class="ti ti-category text-sm" />Leave Classification
+                        </h3>
+                        <p class="text-xxs text-(--text-muted) mt-1">Select the type of leave you are requesting.</p>
+                    </header>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <label v-for="type in leaveTypes" :key="type.id" 
+                            :class="[
+                                'cursor-pointer border-2 rounded-xl p-4 flex flex-col items-center gap-2 transition-all',
+                                form.leave_type_id === type.id ? 'border-(--color-primary) bg-(--color-primary)/5 shadow-sm' : 'border-(--border-color) hover:border-(--color-primary)/30'
+                            ]"
+                        >
+                            <input type="radio" :value="type.id" v-model="form.leave_type_id" class="hidden" required />
+                            <div :class="['w-10 h-10 rounded-full flex items-center justify-center', form.leave_type_id === type.id ? 'bg-(--color-primary) text-white shadow-md' : 'bg-(--bg-muted) text-(--text-muted)']">
+                                <i class="ti ti-calendar-event text-xl"></i>
+                            </div>
+                            <span class="font-semibold text-sm text-center" :class="form.leave_type_id === type.id ? 'text-(--color-primary)' : 'text-(--text-heading)'">{{ type.name }}</span>
+                            <span class="text-xxs text-(--text-muted)">{{ type.annualAllowance }} days/yr</span>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- Date & Duration -->
+                <section class="glass-card rounded-2xl p-6 border border-(--border-color) space-y-5">
+                    <header>
+                        <h3 class="text-xs font-semibold uppercase tracking-widest text-(--text-muted) flex items-center gap-2">
+                            <i class="ti ti-calendar-time text-sm" />Date &amp; Duration
+                        </h3>
+                        <p class="text-xxs text-(--text-muted) mt-1">Specify when you will be away and for how long.</p>
+                    </header>
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div>
                             <label class="form-label form-label-required">Start Date</label>
                             <div class="input-with-icon">
                                 <i class="ti ti-calendar input-icon"></i>
-                                <input type="date" v-model="form.start_date" class="form-control bg-(--bg-muted) border-transparent focus:border-primary focus:bg-transparent" required />
+                                <input type="date" v-model="form.start_date" class="form-control bg-(--bg-muted) border-transparent focus:border-(--color-primary) focus:ring-1 focus:ring-(--color-primary) focus:bg-transparent" required />
                             </div>
                         </div>
                         <div>
                             <label class="form-label form-label-required">End Date</label>
                             <div class="input-with-icon">
                                 <i class="ti ti-calendar-event input-icon"></i>
-                                <input type="date" v-model="form.end_date" :min="form.start_date" :required="form.leave_session === 'full_day'" :disabled="form.leave_session !== 'full_day'" class="form-control bg-(--bg-muted) border-transparent focus:border-primary focus:bg-transparent" />
+                                <input type="date" v-model="form.end_date" :min="form.start_date" :required="form.leave_session === 'full_day'" :disabled="form.leave_session !== 'full_day'" class="form-control bg-(--bg-muted) border-transparent focus:border-(--color-primary) focus:ring-1 focus:ring-(--color-primary) focus:bg-transparent disabled:opacity-50" />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Job Handover -->
-                    <div>
-                        <label class="form-label">Job Handover (Optional)</label>
-                        <div class="input-with-icon">
-                            <i class="ti ti-user input-icon"></i>
-                            <select v-model="form.handover_employee_id" class="form-control bg-(--bg-muted) border-transparent focus:border-primary focus:bg-transparent appearance-none">
-                                <option value="">Select a colleague to cover your tasks...</option>
-                                <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{ e.employeeId }})</option>
-                            </select>
-                        </div>
-                        <p class="form-hint">
-                            <i class="ti ti-info-circle mr-1"></i>Select the colleague who will handle your responsibilities while you are away.
-                        </p>
-                    </div>
-
-                    <!-- Session -->
                     <div>
                         <label class="form-label form-label-required">Session</label>
-                        <div class="flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
+                        <div class="flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1 max-w-md">
                             <button v-for="opt in (['full_day', 'morning', 'afternoon'] as const)" :key="opt"
                                 type="button"
                                 class="flex-1 px-4 py-2 rounded text-xs uppercase tracking-widest font-bold transition-colors"
@@ -92,47 +100,83 @@
                             <span v-else>Half-day requests are locked to the start date and consume 0.5 days.</span>
                         </p>
                     </div>
+                </section>
 
-                    <!-- Reason -->
+                <!-- Handover & Reason -->
+                <section class="glass-card rounded-2xl p-6 border border-(--border-color) space-y-5">
+                    <header>
+                        <h3 class="text-xs font-semibold uppercase tracking-widest text-(--text-muted) flex items-center gap-2">
+                            <i class="ti ti-user-star text-sm" />Handover &amp; Reason
+                        </h3>
+                        <p class="text-xxs text-(--text-muted) mt-1">Provide context for your approver and assign cover.</p>
+                    </header>
+
                     <div>
-                        <label class="form-label form-label-required">Reason</label>
-                        <textarea v-model="form.reason" rows="4" placeholder="Briefly describe the reason for your leave..." class="form-control bg-(--bg-muted) border-transparent focus:border-primary focus:bg-transparent resize-none" required></textarea>
+                        <label class="form-label">Job Handover (Optional)</label>
+                        <div class="input-with-icon">
+                            <i class="ti ti-user input-icon"></i>
+                            <select v-model="form.handover_employee_id" class="form-control bg-(--bg-muted) border-transparent focus:border-(--color-primary) focus:ring-1 focus:ring-(--color-primary) focus:bg-transparent appearance-none">
+                                <option value="">Select a colleague to cover your tasks...</option>
+                                <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{ e.employeeId }})</option>
+                            </select>
+                        </div>
+                        <p class="form-hint">
+                            <i class="ti ti-info-circle mr-1"></i>Select the colleague who will handle your responsibilities while you are away.
+                        </p>
                     </div>
 
-                    <!-- Attachment -->
                     <div>
-                        <label class="form-label">Attachment (Optional)</label>
-                        
-                        <div v-if="form.attachment" class="border border-(--border-color) rounded-xl p-4 flex items-center gap-4 bg-(--bg-card) shadow-sm">
-                            <div class="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-(--bg-muted) flex items-center justify-center border border-(--border-color)">
+                        <label class="form-label form-label-required">Reason</label>
+                        <textarea v-model="form.reason" rows="4" placeholder="Briefly describe the reason for your leave..." class="form-control bg-(--bg-muted) border-transparent focus:border-(--color-primary) focus:ring-1 focus:ring-(--color-primary) focus:bg-transparent resize-none" required></textarea>
+                    </div>
+                </section>
+
+                <!-- Attachments -->
+                <section class="glass-card rounded-2xl p-6 border border-(--border-color) space-y-5">
+                    <header>
+                        <h3 class="text-xs font-semibold uppercase tracking-widest text-(--text-muted) flex items-center gap-2">
+                            <i class="ti ti-paperclip text-sm" />Attachments
+                        </h3>
+                        <p class="text-xxs text-(--text-muted) mt-1">Upload any supporting documents (e.g., medical certificates).</p>
+                    </header>
+
+                    <div>
+                        <div v-if="form.attachment" class="border border-(--border-color) rounded-xl p-4 flex items-center gap-4 bg-(--bg-muted)/30 shadow-sm">
+                            <div class="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-(--bg-card) flex items-center justify-center border border-(--border-color)">
                                 <img v-if="attachmentPreview" :src="attachmentPreview" class="w-full h-full object-cover" />
-                                <i v-else class="ti ti-file-text text-2xl text-(--text-muted)"></i>
+                                <i v-else class="ti ti-file-text text-2xl text-(--color-primary)"></i>
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-semibold text-(--text-heading) truncate">{{ form.attachment.name }}</p>
                                 <p class="text-xs text-(--text-muted)">{{ (form.attachment.size / 1024 / 1024).toFixed(2) }} MB</p>
                             </div>
                             <button type="button" @click="clearAttachment" class="w-8 h-8 rounded-full bg-danger/10 text-danger flex items-center justify-center hover:bg-danger/20 transition-colors" title="Remove file">
-                                <i class="ti ti-trash"></i>
+                                <i class="ti ti-trash text-sm"></i>
                             </button>
                         </div>
 
-                        <div v-else class="border-2 border-dashed border-(--border-color) hover:border-primary/50 transition-colors rounded-xl p-6 flex flex-col items-center justify-center bg-(--bg-muted)/50 cursor-pointer relative group">
+                        <div v-else class="border-2 border-dashed border-(--border-color) hover:border-(--color-primary)/50 transition-colors rounded-xl p-8 flex flex-col items-center justify-center bg-(--bg-muted)/30 cursor-pointer relative group">
                             <input type="file" @change="handleFileUpload" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,.png,.jpg,.jpeg" />
-                            <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <div class="w-12 h-12 rounded-full bg-(--color-primary)/10 text-(--color-primary) flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                 <i class="ti ti-upload text-xl"></i>
                             </div>
-                            <span class="text-sm font-medium mb-1">Click to upload or drag and drop</span>
+                            <span class="text-sm font-medium mb-1 text-(--text-heading)">Click to upload or drag and drop</span>
                             <span class="text-xs text-(--text-muted)">PNG, JPG or PDF (max. 5MB)</span>
                         </div>
                     </div>
+                </section>
 
-                    <div v-if="formError" class="text-sm text-(--color-danger) bg-(--color-danger-subtle) px-4 py-3 rounded-xl border border-(--color-danger)/20">
-                        <i class="ti ti-alert-circle mr-1"></i> {{ formError }}
-                    </div>
+                <div v-if="formError" class="text-sm text-(--color-danger) bg-(--color-danger-subtle) px-4 py-3 rounded-xl border border-(--color-danger)/20">
+                    <i class="ti ti-alert-circle mr-1"></i> {{ formError }}
+                </div>
 
-                    <!-- Actions -->
-                    <div class="pt-4 border-t border-(--border-color) flex justify-end gap-3">
+                <!-- Sticky-feeling action footer -->
+                <div class="appointment-footer">
+                    <p class="text-xxs text-(--text-muted) sm:flex-1">
+                        <i class="ti ti-shield-check mr-1 text-(--color-success)" />
+                        This request is subject to approval workflow.
+                    </p>
+                    <div class="flex items-center gap-3 shrink-0">
                         <button type="button" @click="router.back()" class="btn btn-secondary px-6">Cancel</button>
                         <button type="submit" class="btn btn-primary px-8 flex items-center gap-2" :disabled="isSubmitting || !form.leave_type_id">
                             <i v-if="isSubmitting" class="ti ti-loader animate-spin"></i>
@@ -140,8 +184,8 @@
                             <span>{{ isSubmitting ? 'Submitting...' : 'Submit Request' }}</span>
                         </button>
                     </div>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </NuxtLayout>
 </template>
@@ -261,3 +305,27 @@ onMounted(() => {
     loadLookups()
 })
 </script>
+
+<style scoped>
+.appointment-footer {
+    position: sticky;
+    bottom: 0.5rem;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 12px 24px -16px rgb(0 0 0 / 0.25);
+}
+
+@media (min-width: 640px) {
+    .appointment-footer {
+        flex-direction: row;
+        align-items: center;
+    }
+}
+</style>
