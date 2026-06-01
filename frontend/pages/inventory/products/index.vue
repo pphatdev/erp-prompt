@@ -16,7 +16,7 @@
             </header>
 
             <!-- Metric row — computed from the actual loaded catalogue. -->
-            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 <MetricCard variant="primary" icon="ti-package" label="Products" :value="fmtInt(metrics.total)"
                     sub="Active" :sub-value="fmtInt(metrics.active)" />
                 <MetricCard variant="info" icon="ti-device-laptop" label="Hardware" :value="fmtInt(metrics.hardware)"

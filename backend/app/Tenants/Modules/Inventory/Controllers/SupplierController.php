@@ -39,6 +39,9 @@ class SupplierController extends Controller
         if ($minRating = $request->query('min_rating')) {
             $query->where('rating', '>=', (int) $minRating);
         }
+        if ($request->boolean('vendor_only')) {
+            $query->where('is_vendor', true);
+        }
 
         return $this->paginatedResponse(SupplierResource::class, $this->paginateQuery($query, $request), $request);
     }
@@ -108,6 +111,16 @@ class SupplierController extends Controller
             'rating'         => 'sometimes|nullable|integer|min:1|max:5',
             'is_active'      => 'sometimes|boolean',
             'notes'          => 'sometimes|nullable|string|max:2000',
+
+            // AP / Vendor extension.
+            'is_vendor'                  => 'sometimes|boolean',
+            'payment_method'             => 'sometimes|nullable|string|max:40',
+            'bank_name'                  => 'sometimes|nullable|string|max:160',
+            'bank_account_name'          => 'sometimes|nullable|string|max:160',
+            'bank_account_number'        => 'sometimes|nullable|string|max:60',
+            'bank_swift'                 => 'sometimes|nullable|string|max:20',
+            'default_payable_account_id' => 'sometimes|nullable|uuid|exists:accounts,id',
+            'default_expense_account_id' => 'sometimes|nullable|uuid|exists:accounts,id',
         ]);
     }
 }

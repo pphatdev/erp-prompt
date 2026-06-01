@@ -26,6 +26,17 @@ class SupplierResource extends JsonResource
             'rating'        => $this->rating,
             'isActive'      => (bool) $this->is_active,
             'notes'         => $this->notes,
+
+            // AP / Vendor extension.
+            'isVendor'                 => (bool) $this->is_vendor,
+            'paymentMethod'            => $this->payment_method,
+            'bankName'                 => $this->bank_name,
+            'bankAccountName'          => $this->bank_account_name,
+            'bankAccountNumber'        => $this->bank_account_number,
+            'bankSwift'                => $this->bank_swift,
+            'defaultPayableAccountId'  => $this->default_payable_account_id,
+            'defaultExpenseAccountId'  => $this->default_expense_account_id,
+
             'createdAt'     => $this->created_at?->toIso8601String(),
             'updatedAt'     => $this->updated_at?->toIso8601String(),
         ];

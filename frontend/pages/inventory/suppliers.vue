@@ -82,6 +82,16 @@
                             :class="filterActive === s ? 'bg-(--bg-card) text-(--color-primary) shadow-(--shadow-sm)' : 'text-(--text-muted) hover:text-(--text-heading)'"
                             @click="filterActive = s">{{ s }}</button>
                     </div>
+                    <button type="button"
+                        class="px-2.5 py-1.5 rounded-lg border text-xxs uppercase tracking-widest font-bold transition-colors flex items-center gap-1.5 shrink-0"
+                        :class="vendorOnly
+                            ? 'bg-(--color-primary)/12 text-(--color-primary) border-(--color-primary)/40'
+                            : 'bg-(--bg-card) text-(--text-muted) border-(--border-color) hover:text-(--text-heading)'"
+                        :title="vendorOnly ? 'Showing vendors only' : 'Click to show vendors only'"
+                        @click="vendorOnly = !vendorOnly">
+                        <i class="ti ti-cash-banknote" />
+                        Vendors{{ vendorOnly ? ` (${vendorCountAnim})` : '' }}
+                    </button>
                 </div>
             </section>
 
@@ -113,9 +123,16 @@
                                 <h3 class="text-sm font-semibold text-(--text-heading) mt-0.5 truncate group-hover:text-(--color-primary) transition-colors">{{ s.name }}</h3>
                                 <p v-if="s.contactName" class="text-xxs text-(--text-muted) mt-0.5 truncate font-sans">{{ s.contactName }}</p>
                             </div>
-                            <Badge :variant="s.isActive ? 'success' : 'secondary'" class="shrink-0">
-                                {{ s.isActive ? 'Active' : 'Inactive' }}
-                            </Badge>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <span v-if="s.isVendor"
+                                    class="badge-soft-info text-xxs px-1.5 py-0.5 rounded font-bold uppercase tracking-widest flex items-center gap-1"
+                                    title="Enabled for AP / disbursements">
+                                    <i class="ti ti-cash-banknote text-xxs" />AP
+                                </span>
+                                <Badge :variant="s.isActive ? 'success' : 'secondary'">
+                                    {{ s.isActive ? 'Active' : 'Inactive' }}
+                                </Badge>
+                            </div>
                         </header>
 
                         <div class="text-xs space-y-1.5 border-t border-b border-(--border-color)/50 py-3 my-1">
@@ -270,6 +287,84 @@
                             <input v-model="form.is_active" type="checkbox" class="rounded border-(--border-color)" />
                             <span class="text-xs">Active</span>
                         </label>
+
+                        <!-- Vendor / AP Details -->
+                        <section class="border-t border-(--border-color) pt-4 mt-2 space-y-3">
+                            <header class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="text-xs font-bold text-(--text-heading) uppercase tracking-widest flex items-center gap-2">
+                                        <i class="ti ti-cash-banknote text-(--color-primary)" />
+                                        Vendor / AP Details
+                                    </h4>
+                                    <p class="text-xxs text-(--text-muted) mt-1">Enable to use this supplier in Accounts Payable, disbursements, and journal pickers.</p>
+                                </div>
+                                <label class="inline-flex items-center gap-2 cursor-pointer shrink-0">
+                                    <input v-model="form.is_vendor" type="checkbox" class="rounded border-(--border-color)" />
+                                    <span class="text-xs">Is Vendor</span>
+                                </label>
+                            </header>
+
+                            <div v-if="form.is_vendor" class="space-y-3">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="space-y-1">
+                                        <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Payment Method</label>
+                                        <select v-model="form.payment_method" class="form-control text-xs">
+                                            <option :value="null">— None —</option>
+                                            <option v-for="m in PAYMENT_METHODS" :key="m.value" :value="m.value">{{ m.label }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Bank Name</label>
+                                        <input v-model="form.bank_name" type="text" maxlength="160" placeholder="e.g. ABA Bank"
+                                            class="form-control text-xs" />
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="space-y-1">
+                                        <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Beneficiary Name</label>
+                                        <input v-model="form.bank_account_name" type="text" maxlength="160" placeholder="As shown on bank record"
+                                            class="form-control text-xs" />
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Account Number</label>
+                                        <input v-model="form.bank_account_number" type="text" maxlength="60" placeholder="000-000-000"
+                                            class="form-control text-xs font-mono" />
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div class="space-y-1 col-span-1">
+                                        <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">SWIFT / BIC</label>
+                                        <input v-model="form.bank_swift" type="text" maxlength="20" placeholder="ABCDKHPP"
+                                            class="form-control text-xs font-mono uppercase" />
+                                    </div>
+                                    <div class="space-y-1 col-span-1">
+                                        <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Default AP Account</label>
+                                        <select v-model="form.default_payable_account_id" class="form-control text-xs" :disabled="accountsLoading">
+                                            <option :value="null">— None —</option>
+                                            <option v-for="a in payableAccounts" :key="a.id" :value="a.id">
+                                                {{ a.code }} · {{ a.name }} ({{ a.type }})
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div class="space-y-1 col-span-1">
+                                        <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Default Expense Account</label>
+                                        <select v-model="form.default_expense_account_id" class="form-control text-xs" :disabled="accountsLoading">
+                                            <option :value="null">— None —</option>
+                                            <option v-for="a in expenseAccounts" :key="a.id" :value="a.id">
+                                                {{ a.code }} · {{ a.name }} ({{ a.type }})
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <p v-if="accountsList.length === 0 && !accountsLoading" class="text-xxs text-(--text-muted) flex items-center gap-1.5">
+                                    <i class="ti ti-info-circle" />
+                                    No accounts in the Chart yet. Defaults can be set later — disbursements will prompt at the line level.
+                                </p>
+                            </div>
+                        </section>
                     </div>
                     <footer class="p-5 border-t border-(--border-color) flex justify-end gap-2">
                         <button type="button" class="btn btn-ghost text-xs" @click="showFormModal = false">Cancel</button>
@@ -314,14 +409,24 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useInventory } from '~/composables/useInventory'
+import { useFinance } from '~/composables/useFinance'
 import { useToast } from '~/composables/useToast'
 import { useCountUp } from '~/composables/useCountUp'
 import { useAuthStore } from '~/stores/auth'
-import type { Supplier, CreateSupplierPayload } from '~/types/inventory'
+import type { Supplier, CreateSupplierPayload, SupplierPaymentMethod } from '~/types/inventory'
+import type { Account } from '~/types/finance'
+
+const PAYMENT_METHODS: { value: SupplierPaymentMethod; label: string }[] = [
+    { value: 'bank_transfer', label: 'Bank Transfer' },
+    { value: 'cheque',        label: 'Cheque' },
+    { value: 'cash',          label: 'Cash' },
+    { value: 'wire',          label: 'Wire' },
+]
 
 definePageMeta({ breadcrumb: 'Suppliers' })
 
 const inventory = useInventory()
+const finance = useFinance()
 const toast = useToast()
 const authStore = useAuthStore()
 
@@ -337,6 +442,38 @@ const suppliersList = ref<Supplier[]>([])
 const search = ref('')
 const filterActive = ref<'all' | 'active' | 'inactive'>('all')
 const filterRating = ref<number>(0)
+const vendorOnly = ref<boolean>(false)
+
+// Lazy-loaded flat account list for AP account pickers (only fetched once,
+// on the first modal open). Sourced from the CoA tree.
+const accountsList = ref<Account[]>([])
+const accountsLoading = ref(false)
+
+const payableAccounts = computed(() => accountsList.value.filter(a => a.type === 'liability' || a.type === 'equity'))
+const expenseAccounts = computed(() => accountsList.value.filter(a => a.type === 'expense' || a.type === 'asset'))
+
+const ensureAccountsLoaded = async () => {
+    if (accountsList.value.length || accountsLoading.value) return
+    accountsLoading.value = true
+    try {
+        const res = await finance.accounts.tree()
+        const flat: Account[] = []
+        const walk = (nodes: Account[]) => nodes.forEach(n => { flat.push(n); if (n.children?.length) walk(n.children) })
+        walk(res.data)
+        flat.sort((a, b) => a.code.localeCompare(b.code))
+        accountsList.value = flat
+    } catch (err: any) {
+        toast.error('Failed to load accounts', err?.data?.message)
+    } finally {
+        accountsLoading.value = false
+    }
+}
+
+const accountLabel = (id: string | null) => {
+    if (!id) return ''
+    const a = accountsList.value.find(x => x.id === id)
+    return a ? `${a.code} · ${a.name}` : ''
+}
 
 const activeCount = computed(() => suppliersList.value.filter(s => s.isActive).length)
 const avgRatingNumeric = computed(() => {
@@ -366,8 +503,11 @@ const filteredList = computed(() => suppliersList.value.filter(s => {
         (filterActive.value === 'active' && s.isActive) ||
         (filterActive.value === 'inactive' && !s.isActive)
     const matchRating = filterRating.value === 0 || (s.rating !== null && s.rating >= filterRating.value)
-    return matchSearch && matchActive && matchRating
+    const matchVendor = !vendorOnly.value || s.isVendor
+    return matchSearch && matchActive && matchRating && matchVendor
 }))
+
+const vendorCountAnim = useCountUp(() => suppliersList.value.filter(s => s.isVendor).length)
 
 const showFormModal = ref(false)
 const isEdit = ref(false)
@@ -386,6 +526,14 @@ const form = reactive<CreateSupplierPayload>({
     rating: null,
     is_active: true,
     notes: null,
+    is_vendor: false,
+    payment_method: null,
+    bank_name: null,
+    bank_account_name: null,
+    bank_account_number: null,
+    bank_swift: null,
+    default_payable_account_id: null,
+    default_expense_account_id: null,
 })
 
 const resetForm = () => {
@@ -402,6 +550,14 @@ const resetForm = () => {
     form.rating = null
     form.is_active = true
     form.notes = null
+    form.is_vendor = false
+    form.payment_method = null
+    form.bank_name = null
+    form.bank_account_name = null
+    form.bank_account_number = null
+    form.bank_swift = null
+    form.default_payable_account_id = null
+    form.default_expense_account_id = null
 }
 
 const openCreateModal = () => {
@@ -409,6 +565,7 @@ const openCreateModal = () => {
     editId.value = null
     resetForm()
     showFormModal.value = true
+    ensureAccountsLoaded()
 }
 
 const openEditModal = (s: Supplier) => {
@@ -427,7 +584,16 @@ const openEditModal = (s: Supplier) => {
     form.rating = s.rating
     form.is_active = s.isActive
     form.notes = s.notes
+    form.is_vendor = s.isVendor
+    form.payment_method = s.paymentMethod
+    form.bank_name = s.bankName
+    form.bank_account_name = s.bankAccountName
+    form.bank_account_number = s.bankAccountNumber
+    form.bank_swift = s.bankSwift
+    form.default_payable_account_id = s.defaultPayableAccountId
+    form.default_expense_account_id = s.defaultExpenseAccountId
     showFormModal.value = true
+    ensureAccountsLoaded()
 }
 
 const saveSupplier = async () => {
