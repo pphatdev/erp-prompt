@@ -207,13 +207,13 @@
                     </button>
                 </div>
 
-                <div class="hidden lg:flex items-center w-80 relative">
-                    <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm" />
-                    <input type="search" placeholder="Search transactions, files, roles..."
-                        class="form-control pl-9 pr-12 py-1.5 text-xs" />
-                    <span
-                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xxs font-mono font-semibold px-1.5 py-0.5 rounded border border-(--border-color) bg-(--bg-muted) text-(--text-muted)">⌘K</span>
-                </div>
+                <button type="button" class="hidden lg:flex items-center justify-between w-80 px-3 py-1.5 rounded-xl border border-(--border-color) bg-(--bg-card) hover:border-(--color-primary) transition-colors group text-left shadow-sm" @click="commandPaletteOpen = true">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <i class="ti ti-search text-(--text-muted) text-sm group-hover:text-(--color-primary) transition-colors shrink-0" />
+                        <span class="text-xs text-(--text-muted) truncate mt-0.5">Search modules, apps, or settings...</span>
+                    </div>
+                    <span class="shrink-0 text-xxs font-mono font-semibold px-1.5 py-0.5 rounded border border-(--border-color) bg-(--bg-muted) text-(--text-muted) group-hover:text-(--color-primary) group-hover:border-(--color-primary)/30 transition-colors ml-2">⌘K</span>
+                </button>
 
                 <div class="flex items-center gap-1.5">
                     <!-- Mega menu -->
@@ -431,6 +431,7 @@
             </footer> -->
         </div>
 
+        <CommandPalette v-model="commandPaletteOpen" :nav-groups="visibleNavGroups" />
         <CustomizerOffcanvas v-model="customizerOpen" />
     </div>
 </template>
@@ -461,6 +462,24 @@ const sidebarOpen = ref(false)
 const sidebarCollapsed = ref(false)
 const sidebarHovered = ref(false)
 const customizerOpen = ref(false)
+const commandPaletteOpen = ref(false)
+
+const handleKeydown = (e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        commandPaletteOpen.value = true
+    }
+}
+
+import { onUnmounted } from 'vue'
+
+onMounted(() => {
+    window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeydown)
+})
 
 // Compact (icon-only) mode applies on desktop only. When the mobile drawer is
 // open OR the user hovers the collapsed rail, we render the full-width sidebar
@@ -535,6 +554,14 @@ interface NavItem {
      * counterpart. Omit to show unconditionally to authenticated users.
      */
     permission?: string | string[]
+    /**
+     * Permission slug(s) that, if held, HIDE this item. Inverse of `permission`.
+     * Use for cross-link entries that would duplicate a row the user can already
+     * reach via the owning module — e.g. Accounting > Disbursement > Vendor is
+     * a cross-link to /inventory/suppliers, so we hide it when the user already
+     * has direct Suppliers access. Array means "any one of" (OR).
+     */
+    hidePermission?: string | string[]
     /**
      * DB module slug this item maps to. When set, the item is hidden unless the
      * current tenant has that module active (is_core or entitled via subscription).
@@ -617,6 +644,45 @@ const navGroups = reactive<NavGroup[]>([
                     { label: 'Payments', icon: 'ti-cash', route: '/finance/payments', operational: false },
                     { label: 'Estimates', icon: 'ti-file-invoice', route: '/finance/estimates', operational: false },
                     { label: 'Exchange Rates', icon: 'ti-currency-dollar', route: '/finance/exchange-rates', operational: true, permission: ['fms.exchange_rate.read', 'fms.exchange_rate.write'] }
+                ]
+            },
+            {
+                label: 'Accounting',
+                icon: 'ti-book-2',
+                moduleSlug: 'accounting',
+                children: [
+                    { label: 'Chart of Accounts', icon: 'ti-tree', route: '/accounting/accounts', operational: true, permission: ['fms.accounts.read', 'fms.accounts.write'] },
+                    { label: 'Journals', icon: 'ti-book', route: '/accounting/journals', operational: true, permission: ['fms.ledger.read', 'fms.ledger.write'] },
+                    { label: 'Bank', icon: 'ti-building-bank', route: '/accounting/bank', operational: true, permission: ['fms.bank_accounts.read', 'fms.bank_accounts.write'] },
+                    { label: 'Bank Reconciliation', icon: 'ti-checks', route: '/accounting/bank-reconciliation', operational: true, permission: ['fms.bank_recon.read', 'fms.bank_recon.write'] },
+                    { label: 'Budgets', icon: 'ti-target', route: '/accounting/budgets', operational: true, permission: ['fms.budgets.read', 'fms.budgets.write'] },
+                    { label: 'Fiscal Periods', icon: 'ti-calendar-check', route: '/accounting/fiscal-periods', operational: true, permission: ['fms.fiscal_periods.read', 'fms.fiscal_periods.write'] },
+                    {
+                        label: 'Disbursement', icon: 'ti-cash-banknote', moduleSlug: 'accounting-disbursement',
+                        children: [
+                            // Vendor master lives in Inventory (Supplier extension, is_vendor=true).
+                            // Hidden if user has inventory.suppliers.read — they can reach Suppliers
+                            // directly under Inventory > Suppliers and don't need the cross-link.
+                            { label: 'Vendor', icon: 'ti-truck-delivery', route: '/inventory/suppliers?vendor_only=1', operational: true, permission: ['inventory.suppliers.read', 'inventory.suppliers.write'], hidePermission: 'inventory.suppliers.read' },
+                            { label: 'Bills', icon: 'ti-file-invoice', route: '/accounting/disbursement/bills', operational: true, permission: ['fms.bills.read', 'fms.bills.write'] },
+                            { label: 'Pay Bill', icon: 'ti-cash-register', route: '/accounting/disbursement/pay-bills', operational: true, permission: ['fms.bill_payments.read', 'fms.bill_payments.write'] },
+                            { label: 'Reimbursement', icon: 'ti-receipt-2', route: '/accounting/disbursement/reimbursements', operational: true, permission: ['fms.reimbursements.read', 'fms.reimbursements.write'] },
+                            { label: 'Cash Advance', icon: 'ti-wallet', route: '/accounting/disbursement/cash-advances', operational: true, permission: ['fms.cash_advances.read', 'fms.cash_advances.write'] },
+                            { label: 'Advance Settlement', icon: 'ti-receipt-refund', route: '/accounting/disbursement/advance-settlements', operational: true, permission: ['fms.cash_advances.read', 'fms.cash_advances.settle'] },
+                            { label: 'Expense', icon: 'ti-receipt-tax', route: '/accounting/disbursement/expenses', operational: true, permission: ['fms.expenses.read', 'fms.expenses.write'] }
+                        ]
+                    },
+                    {
+                        label: 'Receivable', icon: 'ti-arrow-down-right', moduleSlug: 'accounting-receivable',
+                        children: [
+                            // Customer master lives in Sales. Hidden when the user already has
+                            // sales.customers.read — they reach it directly under Sales > Customers.
+                            { label: 'Customer', icon: 'ti-users', route: '/sales/customers', operational: true, permission: ['sales.crm.read', 'sales.crm.write'], hidePermission: 'sales.crm.read' },
+                            { label: 'Receipts', icon: 'ti-cash', route: '/accounting/receivable/receipts', operational: true, permission: ['fms.receipts.read', 'fms.receipts.write'] },
+                            { label: 'Credit Notes', icon: 'ti-file-arrow-left', route: '/accounting/receivable/credit-notes', operational: true, permission: ['fms.credit_notes.read', 'fms.credit_notes.write'] },
+                            { label: 'Debit Notes', icon: 'ti-file-arrow-right', route: '/accounting/receivable/debit-notes', operational: true, permission: ['fms.debit_notes.read', 'fms.debit_notes.write'] }
+                        ]
+                    }
                 ]
             },
             {
@@ -788,6 +854,13 @@ const navGroups = reactive<NavGroup[]>([
  */
 const canSeeItem = (item: NavItem): boolean => {
     if (item.moduleSlug && !hasModule(item.moduleSlug)) return false
+    // Inverse gate: holding any `hidePermission` slug hides this item. Used
+    // for cross-link entries that would duplicate a row the user can already
+    // reach via the owning module (e.g. Disbursement > Vendor cross-link).
+    if (item.hidePermission) {
+        const hideSlugs = Array.isArray(item.hidePermission) ? item.hidePermission : [item.hidePermission]
+        if (hideSlugs.some(slug => authStore.hasPermission(slug))) return false
+    }
     if (item.children) {
         return item.children.some(canSeeItem)
     }
@@ -990,6 +1063,24 @@ const SLUG_LABELS: Record<string, string> = {
     finance: 'Finance',
     payments: 'Payments',
     estimates: 'Estimates',
+    accounting: 'Accounting',
+    accounts: 'Chart of Accounts',
+    journals: 'Journals',
+    bank: 'Bank',
+    bills: 'Bills',
+    disbursement: 'Disbursement',
+    'pay-bills': 'Pay Bill',
+    reimbursements: 'Reimbursements',
+    'cash-advances': 'Cash Advances',
+    'advance-settlements': 'Advance Settlements',
+    expenses: 'Expenses',
+    receivable: 'Receivable',
+    receipts: 'Receipts',
+    'credit-notes': 'Credit Notes',
+    'debit-notes': 'Debit Notes',
+    'bank-reconciliation': 'Bank Reconciliation',
+    budgets: 'Budgets',
+    'fiscal-periods': 'Fiscal Periods',
     crm: 'CRM',
     leads: 'Leads',
     opportunities: 'Sales Pipeline',

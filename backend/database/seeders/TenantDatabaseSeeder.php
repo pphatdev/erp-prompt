@@ -132,6 +132,89 @@ class TenantDatabaseSeeder extends Seeder
             ['name' => 'Write Exchange Rates',  'slug' => 'fms.exchange_rate.write',  'module' => 'fms', 'feature' => 'exchange_rate', 'action' => 'write'],
             ['name' => 'Delete Exchange Rates', 'slug' => 'fms.exchange_rate.delete', 'module' => 'fms', 'feature' => 'exchange_rate', 'action' => 'delete'],
 
+            // FMS — Chart of Accounts
+            ['name' => 'Read Accounts',   'slug' => 'fms.accounts.read',   'module' => 'fms', 'feature' => 'accounts', 'action' => 'read'],
+            ['name' => 'Write Accounts',  'slug' => 'fms.accounts.write',  'module' => 'fms', 'feature' => 'accounts', 'action' => 'write'],
+            ['name' => 'Delete Accounts', 'slug' => 'fms.accounts.delete', 'module' => 'fms', 'feature' => 'accounts', 'action' => 'delete'],
+
+            // FMS — General Ledger (no delete: ledger postings are immutable, reverse via offsetting entry)
+            ['name' => 'Read Ledger',  'slug' => 'fms.ledger.read',  'module' => 'fms', 'feature' => 'ledger', 'action' => 'read'],
+            ['name' => 'Write Ledger', 'slug' => 'fms.ledger.write', 'module' => 'fms', 'feature' => 'ledger', 'action' => 'write'],
+
+            // FMS — Bank Accounts (specialized asset accounts; foundation for AR/AP cash flows)
+            ['name' => 'Read Bank Accounts',   'slug' => 'fms.bank_accounts.read',   'module' => 'fms', 'feature' => 'bank_accounts', 'action' => 'read'],
+            ['name' => 'Write Bank Accounts',  'slug' => 'fms.bank_accounts.write',  'module' => 'fms', 'feature' => 'bank_accounts', 'action' => 'write'],
+            ['name' => 'Delete Bank Accounts', 'slug' => 'fms.bank_accounts.delete', 'module' => 'fms', 'feature' => 'bank_accounts', 'action' => 'delete'],
+
+            // FMS — Bills (AP). approve / cancel are gated by `write`; once a bill is posted it becomes immutable.
+            ['name' => 'Read Bills',   'slug' => 'fms.bills.read',   'module' => 'fms', 'feature' => 'bills', 'action' => 'read'],
+            ['name' => 'Write Bills',  'slug' => 'fms.bills.write',  'module' => 'fms', 'feature' => 'bills', 'action' => 'write'],
+            ['name' => 'Delete Bills', 'slug' => 'fms.bills.delete', 'module' => 'fms', 'feature' => 'bills', 'action' => 'delete'],
+
+            // FMS — Bill Payments (Pay Bill). No `delete` — payments are immutable once recorded; cancel via reverse JE.
+            ['name' => 'Read Bill Payments',  'slug' => 'fms.bill_payments.read',  'module' => 'fms', 'feature' => 'bill_payments', 'action' => 'read'],
+            ['name' => 'Write Bill Payments', 'slug' => 'fms.bill_payments.write', 'module' => 'fms', 'feature' => 'bill_payments', 'action' => 'write'],
+
+            // FMS — Reimbursements (employee out-of-pocket). Same immutability rule as bill_payments.
+            ['name' => 'Read Reimbursements',  'slug' => 'fms.reimbursements.read',  'module' => 'fms', 'feature' => 'reimbursements', 'action' => 'read'],
+            ['name' => 'Write Reimbursements', 'slug' => 'fms.reimbursements.write', 'module' => 'fms', 'feature' => 'reimbursements', 'action' => 'write'],
+
+            // FMS — Cash Advances. `settle` perm gates the Advance Settlement entity which
+            // posts actuals against an open advance (DR Expense + DR Cash on returns / CR Receivable).
+            ['name' => 'Read Cash Advances',    'slug' => 'fms.cash_advances.read',   'module' => 'fms', 'feature' => 'cash_advances', 'action' => 'read'],
+            ['name' => 'Write Cash Advances',   'slug' => 'fms.cash_advances.write',  'module' => 'fms', 'feature' => 'cash_advances', 'action' => 'write'],
+            ['name' => 'Settle Cash Advances',  'slug' => 'fms.cash_advances.settle', 'module' => 'fms', 'feature' => 'cash_advances', 'action' => 'settle'],
+
+            // FMS — Expenses (non-AP, pay-as-you-go). Same immutability rule as bill_payments;
+            // no `delete` perm — cancellation posts a reversing JE.
+            ['name' => 'Read Expenses',  'slug' => 'fms.expenses.read',  'module' => 'fms', 'feature' => 'expenses', 'action' => 'read'],
+            ['name' => 'Write Expenses', 'slug' => 'fms.expenses.write', 'module' => 'fms', 'feature' => 'expenses', 'action' => 'write'],
+
+            // FMS — Receipts (AR cycle). AR-side mirror of bill_payments. Same immutability rule;
+            // no `delete` perm — cancellation posts a reversing JE.
+            ['name' => 'Read Receipts',  'slug' => 'fms.receipts.read',  'module' => 'fms', 'feature' => 'receipts', 'action' => 'read'],
+            ['name' => 'Write Receipts', 'slug' => 'fms.receipts.write', 'module' => 'fms', 'feature' => 'receipts', 'action' => 'write'],
+
+            // FMS — Credit Notes (AR adjustment). DR Sales Returns / CR AR.
+            // Immutable once issued; no `delete` — cancellation posts a reversing JE.
+            ['name' => 'Read Credit Notes',  'slug' => 'fms.credit_notes.read',  'module' => 'fms', 'feature' => 'credit_notes', 'action' => 'read'],
+            ['name' => 'Write Credit Notes', 'slug' => 'fms.credit_notes.write', 'module' => 'fms', 'feature' => 'credit_notes', 'action' => 'write'],
+
+            // FMS — Debit Notes (AR adjustment, opposite of Credit). DR AR / CR Revenue.
+            // Immutable once issued; no `delete` — cancellation posts a reversing JE.
+            ['name' => 'Read Debit Notes',  'slug' => 'fms.debit_notes.read',  'module' => 'fms', 'feature' => 'debit_notes', 'action' => 'read'],
+            ['name' => 'Write Debit Notes', 'slug' => 'fms.debit_notes.write', 'module' => 'fms', 'feature' => 'debit_notes', 'action' => 'write'],
+
+            // FMS — Bank Reconciliation. Sessions immutable once closed; `reopen` is gated separately
+            // so that closing a session is a real lock by default.
+            ['name' => 'Read Bank Reconciliation',   'slug' => 'fms.bank_recon.read',   'module' => 'fms', 'feature' => 'bank_recon', 'action' => 'read'],
+            ['name' => 'Write Bank Reconciliation',  'slug' => 'fms.bank_recon.write',  'module' => 'fms', 'feature' => 'bank_recon', 'action' => 'write'],
+            ['name' => 'Reopen Bank Reconciliation', 'slug' => 'fms.bank_recon.reopen', 'module' => 'fms', 'feature' => 'bank_recon', 'action' => 'reopen'],
+
+            // FMS - Budgets. Drafts editable, active/archived locked.
+            ['name' => 'Read Budgets',   'slug' => 'fms.budgets.read',   'module' => 'fms', 'feature' => 'budgets', 'action' => 'read'],
+            ['name' => 'Write Budgets',  'slug' => 'fms.budgets.write',  'module' => 'fms', 'feature' => 'budgets', 'action' => 'write'],
+            ['name' => 'Delete Budgets', 'slug' => 'fms.budgets.delete', 'module' => 'fms', 'feature' => 'budgets', 'action' => 'delete'],
+
+            // FMS - Fiscal Periods. Locked periods refuse new JE posts. close and reopen
+            // are gated separately from write because the lifecycle transitions are
+            // significantly higher impact than editing period metadata.
+            ['name' => 'Read Fiscal Periods',   'slug' => 'fms.fiscal_periods.read',   'module' => 'fms', 'feature' => 'fiscal_periods', 'action' => 'read'],
+            ['name' => 'Write Fiscal Periods',  'slug' => 'fms.fiscal_periods.write',  'module' => 'fms', 'feature' => 'fiscal_periods', 'action' => 'write'],
+            ['name' => 'Close Fiscal Periods',  'slug' => 'fms.fiscal_periods.close',  'module' => 'fms', 'feature' => 'fiscal_periods', 'action' => 'close'],
+            ['name' => 'Reopen Fiscal Periods', 'slug' => 'fms.fiscal_periods.reopen', 'module' => 'fms', 'feature' => 'fiscal_periods', 'action' => 'reopen'],
+
+            // Projects (Project Management module).
+            ['name' => 'Read Projects',     'slug' => 'projects.project.read',     'module' => 'projects', 'feature' => 'project',   'action' => 'read'],
+            ['name' => 'Write Projects',    'slug' => 'projects.project.write',    'module' => 'projects', 'feature' => 'project',   'action' => 'write'],
+            ['name' => 'Delete Projects',   'slug' => 'projects.project.delete',   'module' => 'projects', 'feature' => 'project',   'action' => 'delete'],
+            ['name' => 'Read Tasks',        'slug' => 'projects.task.read',        'module' => 'projects', 'feature' => 'task',      'action' => 'read'],
+            ['name' => 'Write Tasks',       'slug' => 'projects.task.write',       'module' => 'projects', 'feature' => 'task',      'action' => 'write'],
+            ['name' => 'Delete Tasks',      'slug' => 'projects.task.delete',      'module' => 'projects', 'feature' => 'task',      'action' => 'delete'],
+            ['name' => 'Read Timesheets',   'slug' => 'projects.timesheet.read',   'module' => 'projects', 'feature' => 'timesheet', 'action' => 'read'],
+            ['name' => 'Write Timesheets',  'slug' => 'projects.timesheet.write',  'module' => 'projects', 'feature' => 'timesheet', 'action' => 'write'],
+            ['name' => 'Delete Timesheets', 'slug' => 'projects.timesheet.delete', 'module' => 'projects', 'feature' => 'timesheet', 'action' => 'delete'],
+
             // eApprovals
             ['name' => 'Read Approval Requests',   'slug' => 'approvals.requests.read',   'module' => 'approvals', 'feature' => 'requests', 'action' => 'read'],
             ['name' => 'Write Approval Requests',  'slug' => 'approvals.requests.write',  'module' => 'approvals', 'feature' => 'requests', 'action' => 'write'],

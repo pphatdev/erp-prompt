@@ -30,6 +30,7 @@ interface ListQuery {
     parent_id?: string | null
     category_id?: string | null
     tree?: boolean
+    vendor_only?: boolean | string
 }
 
 const buildQuery = (q: ListQuery = {}): string => {

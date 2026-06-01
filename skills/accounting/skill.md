@@ -8,16 +8,45 @@ Use this skill when implementing accounting models, general ledger entries, mult
 
 ## Module Surface & Routing
 
-The Accounting features are exposed via the following logical navigation pathways:
+Accounting is the accountant's lens across the whole ERP. The top-level `accounting` sidebar group is organised in eight families. Some leaves are **owned** by Accounting (Bank, Budget, Journal, the AP/AR-specific entities). Others are **cross-links** to operational modules where the master data already lives (Sales, Inventory, HRM, Assets).
 
-```
-Accounting
-├── Chart of Accounts — /accounting/accounts, /api/v1/fms/accounts
-├── Journal Entries   — /accounting/journals, /api/v1/fms/ledger (list and post)
-└── Exchange Rates    — /accounting/exchange-rates, /api/v1/fms/exchange-rates
-```
+| Group | Leaf | Route | Owner Module | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **Bank** | Bank Accounts | `/accounting/bank` | accounting | planned |
+| **Budget** | Budgets | `/accounting/budgets` | accounting | planned |
+| **Sales (AR)** | Customers | `/sales/customers` | sales | shipped (cross-link) |
+| | Quotation | `/sales/quotations` | sales | shipped (cross-link) |
+| | Invoice | `/sales/invoices` | sales | shipped (cross-link) |
+| | Receipt Payment | `/accounting/receipts` | accounting | planned |
+| | Credit Note | `/accounting/credit-notes` | accounting | planned |
+| | Debit Note | `/accounting/debit-notes` | accounting | planned |
+| **Disbursement (AP)** | Vendor | `/inventory/suppliers?vendor_only=1` | inventory | shipped (cross-link) |
+| | Bill | `/accounting/disbursement/bills` | accounting | shipped |
+| | Pay Bill | `/accounting/disbursement/bills/pay` | accounting | planned |
+| | Reimbursement | `/accounting/disbursement/reimbursements` | accounting | planned |
+| | Cash Advance | `/accounting/disbursement/cash-advances` | accounting | planned |
+| | Advance Settlement | `/accounting/disbursement/cash-advances/{id}/settle` | accounting | planned |
+| | Expense | `/accounting/disbursement/expenses` | accounting | planned |
+| **Inventory (lens)** | Create new item | `/inventory/products` | inventory | shipped (cross-link) |
+| | Purchase Order | `/inventory/purchase-orders` | inventory | shipped (cross-link) |
+| | Cost of Purchase | `/inventory/products` (WAC inline) | inventory | shipped (cross-link) |
+| | Inventory Adjustment | `/inventory/products` (stock movements) | inventory | shipped (cross-link) |
+| | Request Order | `/inventory/purchase-requests` | inventory | planned |
+| **Employees (lens)** | Personal Administration | `/hrm/employees` | hrm | shipped (cross-link) |
+| | Payroll Accounting | `/hrm/payroll/periods` | hrm | shipped (cross-link) |
+| **Journal** | Journals | `/accounting/journals` | accounting | shipped |
+| **Non-Current Asset** | Purchase Order | `/inventory/purchase-orders` (capitalizable) | inventory | shipped (cross-link) |
+| | Register new Asset | `/assets` | assets | shipped (cross-link) |
+| | Depreciation & Amortization | `/assets/depreciation` | assets | planned |
+| | Asset Disposal | `/assets/disposal` | assets | planned |
+| **Core (always owned)** | Chart of Accounts | `/accounting/accounts` | accounting | shipped |
+| | Exchange Rates | `/finance/exchange-rates` | accounting | shipped |
 
-* **Note**: Controllers and endpoints are served by the `FMS` backend module under `App\Tenants\Modules\FMS\*` but represent the core accounting system. All routes are prefixed with `/api/v1/` and scoped to the active tenant using the `InitializeTenancyByHandle` middleware.
+### Backend namespacing
+
+* Controllers and endpoints for the **core** features (CoA, ledger, exchange rates, plus the upcoming Bank/Budget/Bill/Pay Bill/Receipt/Credit Note/Debit Note/Reimbursement/Cash Advance/Expense entities) are served by `App\Tenants\Modules\FMS\*`.
+* **Cross-link** features (Customers, Quotations, Invoices, PO, Products, Employees, Payroll, Assets) keep their existing namespaces (`Sales`, `Inventory`, `HRM`, `Assets`) — Accounting only navigates to them.
+* All routes are prefixed with `/api/v1/` and scoped to the active tenant via the `InitializeTenancyByHandle` middleware.
 
 ---
 

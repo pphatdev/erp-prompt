@@ -42,7 +42,66 @@ graph TD
 
 ---
 
-## 3. Period Closing Workflow
+## 3. AR Cycle — Sales to Cash
+
+End-to-end revenue flow from a quote to the receipted cash and any post-billing adjustment.
+
+```mermaid
+graph TD
+    Q[Quotation <br> /sales/quotations] -- accept --> I[Invoice <br> /sales/invoices]
+    I -- confirm --> POST_AR[Post DR AR / CR Revenue]
+    POST_AR --> O{Customer outcome?}
+    O -- pays --> R[Receipt Payment <br> /accounting/receipts]
+    R --> POST_R[Post DR Cash / CR AR]
+    O -- returns / discount --> CN[Credit Note <br> /accounting/credit-notes]
+    CN --> POST_CN[Post DR Sales Returns / CR AR]
+    O -- under-billed --> DN[Debit Note <br> /accounting/debit-notes]
+    DN --> POST_DN[Post DR AR / CR Revenue]
+```
+
+---
+
+## 4. AP Cycle — Purchase to Payment
+
+End-to-end disbursement flow covering both supplier and employee cash-outs.
+
+```mermaid
+graph TD
+    subgraph Supplier
+        PR[Request Order / PR <br> /inventory/purchase-requests] --> PO[Purchase Order <br> /inventory/purchase-orders]
+        PO -- receipt --> GRN[Goods Receipt <br> DR Inventory / CR GR-IR]
+        GRN --> B[Bill <br> /accounting/bills <br> DR Expense or GR-IR / CR AP]
+        B --> PB[Pay Bill <br> /accounting/bills/pay <br> DR AP / CR Cash]
+        B -- under/over-billed --> SDN[Supplier Debit Note <br> DR AP / CR Expense]
+    end
+
+    subgraph Employee
+        CA[Cash Advance <br> /accounting/cash-advances <br> DR Emp Advances / CR Cash]
+        CA --> AS[Advance Settlement <br> DR Expense / CR Emp Advances <br> + DR Cash on unused]
+
+        OOP[Out-of-Pocket Spend] --> RM[Reimbursement <br> /accounting/reimbursements <br> DR Expense / CR Cash]
+    end
+
+    subgraph Direct
+        EX[Expense <br> /accounting/expenses <br> DR Expense / CR Cash or Credit Card]
+    end
+```
+
+---
+
+## 5. Non-Current Asset Lifecycle
+
+```mermaid
+graph TD
+    CPO[Capitalizable PO <br> /inventory/purchase-orders] --> REG[Register Asset <br> /assets <br> DR Asset / CR AP or Cash]
+    REG -- monthly close --> DEP[Depreciation <br> /assets/depreciation <br> DR Depreciation Exp / CR Accum Depr]
+    REG -- retire --> DIS[Asset Disposal <br> /assets/disposal]
+    DIS --> POST_DIS[Post DR Cash + DR Accum Depr <br> CR Asset <br> ± DR/CR Gain or Loss]
+```
+
+---
+
+## 6. Period Closing Workflow
 
 This flow represents the end-of-period closing sequence that freezes historical accounts, rolls balances forward, and prepares the tenant's ledger for a new fiscal period.
 

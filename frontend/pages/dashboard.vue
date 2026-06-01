@@ -402,7 +402,7 @@
 
                     <!-- HRM block -->
                     <template v-if="hasModule('hrm')">
-                        <div class="glass-card rounded-2xl p-5 space-y-2">
+                        <div v-if="authStore.hasPermission('hrm.employee.read')" class="glass-card rounded-2xl p-5 space-y-2">
                             <div class="flex items-center justify-between">
                                 <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">My
                                     Team</span>
@@ -417,7 +417,7 @@
                             <p class="text-xxs text-(--text-muted)">{{ summary?.kpis?.employees?.on_leave ?? 0 }} on
                                 leave today</p>
                         </div>
-                        <div class="glass-card rounded-2xl p-5 space-y-2">
+                        <div v-if="authStore.hasPermission('hrm.leave.read')" class="glass-card rounded-2xl p-5 space-y-2">
                             <div class="flex items-center justify-between">
                                 <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Leave
                                     Requests</span>
@@ -437,7 +437,7 @@
 
                     <!-- Sales block -->
                     <template v-if="hasModule('sales')">
-                        <div class="glass-card rounded-2xl p-5 space-y-2">
+                        <div v-if="authStore.hasPermission('sales.orders.read')" class="glass-card rounded-2xl p-5 space-y-2">
                             <div class="flex items-center justify-between">
                                 <span class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Revenue
                                     MTD</span>
@@ -453,7 +453,7 @@
                                 {{ revenueChangePct >= 0 ? '+' : '' }}{{ revenueChangePct }}% vs last month
                             </p>
                         </div>
-                        <div class="glass-card rounded-2xl p-5 space-y-2">
+                        <div v-if="authStore.hasPermission('sales.customers.read')" class="glass-card rounded-2xl p-5 space-y-2">
                             <div class="flex items-center justify-between">
                                 <span
                                     class="text-xxs font-bold uppercase tracking-widest text-(--text-muted)">Customers</span>
@@ -482,7 +482,7 @@
                 </section>
 
                 <!-- Revenue trend (sales module) -->
-                <div v-if="hasModule('sales')" class="glass-card rounded-2xl p-6">
+                <div v-if="hasModule('sales') && authStore.hasPermission('sales.orders.read')" class="glass-card rounded-2xl p-6">
                     <header
                         class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 pb-5 border-b border-(--border-color)">
                         <div>
@@ -516,7 +516,7 @@
                 </div>
 
                 <!-- HRM quick table -->
-                <div v-if="hasModule('hrm')" class="glass-card rounded-2xl">
+                <div v-if="hasModule('hrm') && authStore.hasPermission('hrm.leave.read')" class="glass-card rounded-2xl">
                     <header class="flex items-center justify-between px-5 py-4 border-b border-(--border-color)">
                         <h3 class="flex items-center gap-2">
                             <span class="w-1.5 h-4 rounded-sm bg-(--color-warning)" />

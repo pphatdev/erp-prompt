@@ -1,6 +1,6 @@
 # ERP Master Progress Registry
 
-> Last synced: 2026-05-29
+> Last synced: 2026-06-01 (Accounting > Cash Advance shipped)
 
 ## Infrastructure & Platform
 - [x] Laravel multi-tenant backend (stancl/tenancy v3, multi-database)
@@ -97,6 +97,8 @@
 - [x] Vacancies, Applications, Candidates (Kanban)
 - [x] Appraisals
 - [x] Public careers portal (no-auth)
+- [x] Fixed Asset Custody integration — setup model relations and resource JSON structures (eager-loaded endpoints & tab details planned)
+
 
 ## Inventory
 - [x] Products CRUD (with variants, module linking for software type)
@@ -105,6 +107,7 @@
 - [x] Stock Movements ledger & service (recordMovement, transferStock)
 - [x] Warehouse management API & PrimeVue UI (`/inventory/warehouses` — CRUD + KPI cards, archive blocked by on-hand stock guard)
 - [x] Supplier directory API & PrimeVue UI (`/inventory/suppliers` — CRUD + rating/lead-time/terms, archive blocked by open PO guard)
+- [x] Vendor / AP extension on Supplier (`is_vendor` flag, payment method, bank details, default Payable + Expense account FKs to `accounts`). Frontend modal gains a Vendor / AP Details section; list gains "Vendors only" filter and AP badge. Migration 000078.
 - [x] Purchase Orders & P2P system (PR -> PO -> eApprovals -> GRN) — full FSM (`draft→submitted→approved→receiving→received`) with `/inventory/purchase-orders` list + `create` wizard + `[id]` detail/receive page. eApprovals routing in `ProcurementService::submit`.
 - [x] Cost valuation integration (Weighted Average Costing inline on receive — see Phase 2 INV-WAC)
 - [x] Low-Stock Alert & automated reorder suggestions engine (INV-LOWSTOCK backend completed)
@@ -127,20 +130,32 @@
 
 ## Accounting & General Ledger
 > Full task: [`.task/accounting/task.md`](./.task/accounting/task.md) | Rule: [`skills/accounting/rules.md`](./skills/accounting/rules.md)
+>
+> **Scope** (per 2026-06-01 taxonomy merge): Accounting is the cross-cutting accountant's lens. Owned features: Chart of Accounts, Journals, Bank, Budget, AR (Receipts / Credit Note / Debit Note), AP (Bill / Pay Bill / Reimbursement / Cash Advance / Advance Settlement / Expense), Exchange Rates. Cross-linked from operational modules: Sales (Customers/Quotation/Invoice), Inventory (Items/PO/WAC/Adjustment/PR), HRM (Employees/Payroll), Assets (Register/Depreciation/Disposal). See [`skills/accounting/overview.md`](./skills/accounting/overview.md).
 - [x] Chart of Accounts table migration, hierarchical `Account` model, and CRUD controllers.
 - [x] Journal Entries & Ledger table structures, `JournalEntry` and `LedgerEntry` models, and balanced `AccountingService::postEntry` postings.
 - [x] Exchange rates database migration, uppercase standardization logic, `ExchangeRateService` converter, and PrimeVue dynamic currency converter UI.
-- [ ] COA circular parent-child loops prevention safeguards and deletion protection — **P1 open**
-- [ ] Tree view dynamic balance summation component and COA UI page (`/accounting/accounts`) — **P2 open**
-- [ ] General Ledger immutability policies, reverse-posting corrections utility, and form posting validators — **P1 open**
+- [x] CoA circular parent-child loops prevention safeguards and deletion protection (`AccountService::update` cycle/parent-type guard; `archive` blocks on children or ledger history).
+- [x] Tree view dynamic balance summation (`AccountController@index?tree=1`) and CoA UI page (`/accounting/accounts`) with per-type KPI cards + filter chips.
+- [x] Top-level "Accounting" sidebar group (CoA moved out of Finance) + Journals page (`/accounting/journals`) with line builder, live balance indicator, and account picker from CoA tree.
+- [x] General Ledger immutability (`JournalEntryPolicy` + `LedgerEntryPolicy` block update/delete; explicit routes replace `apiResource`) and reverse-posting utility (`AccountingService::reverseEntry` with row lock + self-FK link cols).
+- [x] Reversal UI on `/accounting/journals` — status chips, per-row Reverse action + modal, inline reversal-link badges, muted/strikethrough styling for reversed rows.
 - [ ] Fiscal period lock statuses, post-write validation block middlewares, and closing balance rollover automatons — **P1 open**
 
-## Projects
-- [x] Projects CRUD (backend)
-- [x] Tasks CRUD + status update
-- [x] Timesheets
-- [ ] Project dashboard UI page
-- [ ] Kanban board UI
+## Projects & Time Tracking
+> Full task: [`.task/projects/task.md`](./.task/projects/task.md) | Rule: [`skills/projects/rules.md`](../skills/projects/rules.md)
+- [x] Hierarchical database migrations (Projects, Tasks, Timesheets) and Eloquent UUID bootstrapping
+- [x] Tenant connection scoping via `BelongsToTenant` and event-auditing via `Auditable` P0 guards
+- [x] Basic CRUD REST API controllers, camelCase resources, and RBAC policy permission checks
+- [ ] Circular Dependency cycles detection DFS engine (P1 backend open)
+- [ ] Recursive Date Recalculation Gantt scheduling cascades (P1 backend open)
+- [ ] Timesheet hour limits, approved leave blocks, and payroll locks (P1 backend open)
+- [ ] Nuxt 3 flat routing, composables (`useProjects.ts`), and Pinia project state stores (Planned UI open)
+- [ ] WBS hierarchical TreeTable editor & Gantt interactive timeline schedule (Planned UI open)
+- [ ] Kanban Board with PrimeVue drag-and-drop & optimistic UI status updates (Planned UI open)
+- [ ] Task detail side drawers with checklist manager, inline comments, and secure attachments (Planned UI open)
+- [ ] Self-service daily hours logging portal & Manager timesheet approvals board (Planned UI open)
+- [ ] FMS/HRM cost accounting, unbilled AR integration ledger, and Pest test suites (Planned UI open)
 
 ## Assets
 > Full task: [`.task/assets/task.md`](./.task/assets/task.md) | Rule: [`skills/assets/rules.md`](./skills/assets/rules.md)
@@ -187,6 +202,15 @@
 - [ ] Document explorer UI (folders, files, breadcrumbs, search)
 - [ ] Concurrency check-in/out visual flow & modal integrations
 - [ ] Dynamic PDF / Image previewer modals
+
+## Point of Sale (POS)
+> Full task: [`.task/pos/task.md`](./.task/pos/task.md) | Rule: [`skills/pos/rules.md`](../skills/pos/rules.md)
+- [ ] Schema: Multi-tenant database migrations for 5 POS tables, unique client_uuids, and model constraints
+- [ ] Shift Float controls: cashier shifts open/close tracking, cash skims/paid-outs, and mathematical expected cash totals
+- [ ] Supervisor variance approvals: over/short balance flagging, FMS Cash Over/Short postings, and cashier session unlocks
+- [ ] Transaction checkout: transaction-wrapped sales checkout, WAC stock-outs, and FMS AccountingService GL bookings
+- [ ] Offline Resiliency: IndexedDB local product/barcode caching, offline checkouts, and idempotent heartbeat sync daemon
+- [ ] Touch Register Interface: touch quick keys grid catalog, barcode scanners focus listener, and thermal receipt css printing
 
 ## Reporting & Analytics
 - [x] Dashboard/Widget CRUD infrastructure

@@ -77,6 +77,38 @@ class ModuleSeeder extends Seeder
         ['slug' => 'fms-estimates',     'prefix' => 'FMSE', 'name' => 'Estimates',     'icon' => 'ti-file-invoice',    'route' => '/finance/estimates',        'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'fms'],
         ['slug' => 'fms-exchange-rates','prefix' => 'FMSX', 'name' => 'Exchange Rates','icon' => 'ti-currency-dollar', 'route' => '/finance/exchange-rates',   'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'fms'],
 
+        // Apps: Accounting (general ledger surface — split from Finance for ICP/audit clarity)
+        ['slug' => 'accounting',          'prefix' => 'ACC',  'name' => 'Accounting',        'icon' => 'ti-book-2',       'route' => null,                  'group' => 'apps', 'sort_order' => 4, 'parent_slug' => null],
+        ['slug' => 'accounting-accounts', 'prefix' => 'ACCA', 'name' => 'Chart of Accounts', 'icon' => 'ti-tree',         'route' => '/accounting/accounts', 'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'accounting'],
+        ['slug' => 'accounting-journals', 'prefix' => 'ACCJ', 'name' => 'Journals',          'icon' => 'ti-book',         'route' => '/accounting/journals', 'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'accounting'],
+        ['slug' => 'accounting-bank',                'prefix' => 'ACCB',  'name' => 'Bank',         'icon' => 'ti-building-bank',  'route' => '/accounting/bank',                  'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'accounting'],
+        // Disbursement is a nested grouping (no route of its own). Vendor cross-links to the Supplier extension; Bills + others (Pay Bill, Reimbursement, Cash Advance, Settlement, Expense) live here as they ship.
+        ['slug' => 'accounting-disbursement',        'prefix' => 'ACCD',  'name' => 'Disbursement', 'icon' => 'ti-cash-banknote',  'route' => null,                                'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'accounting'],
+        ['slug' => 'accounting-disbursement-vendor', 'prefix' => 'ACCDV', 'name' => 'Vendor',       'icon' => 'ti-truck-delivery', 'route' => '/inventory/suppliers?vendor_only=1','group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'accounting-disbursement'],
+        // Bills slug kept stable (`accounting-bills`) — only `parent_slug`, `sort_order`, and `route` moved when
+        // the Disbursement IA was introduced. Any code referencing the slug string keeps working.
+        ['slug' => 'accounting-bills',                  'prefix' => 'ACCBL', 'name' => 'Bills',     'icon' => 'ti-file-invoice', 'route' => '/accounting/disbursement/bills',     'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'accounting-disbursement'],
+        ['slug' => 'accounting-disbursement-pay-bills',      'prefix' => 'ACCPB',  'name' => 'Pay Bill',      'icon' => 'ti-cash-register', 'route' => '/accounting/disbursement/pay-bills',      'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'accounting-disbursement'],
+        ['slug' => 'accounting-disbursement-reimbursements', 'prefix' => 'ACCRM',  'name' => 'Reimbursement', 'icon' => 'ti-receipt-2',     'route' => '/accounting/disbursement/reimbursements', 'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'accounting-disbursement'],
+        ['slug' => 'accounting-disbursement-cash-advances',  'prefix' => 'ACCCA',  'name' => 'Cash Advance',  'icon' => 'ti-wallet',        'route' => '/accounting/disbursement/cash-advances',  'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'accounting-disbursement'],
+        ['slug' => 'accounting-disbursement-advance-settlements', 'prefix' => 'ACCAS',  'name' => 'Advance Settlement', 'icon' => 'ti-receipt-refund', 'route' => '/accounting/disbursement/advance-settlements', 'group' => 'apps', 'sort_order' => 6, 'parent_slug' => 'accounting-disbursement'],
+        ['slug' => 'accounting-disbursement-expenses',            'prefix' => 'ACCEX',  'name' => 'Expense',            'icon' => 'ti-receipt-tax',    'route' => '/accounting/disbursement/expenses',            'group' => 'apps', 'sort_order' => 7, 'parent_slug' => 'accounting-disbursement'],
+
+        // Receivable is a nested grouping mirroring Disbursement. Customers cross-links to the Sales/Customers page;
+        // Receipts + (planned) Credit/Debit Notes live here as they ship.
+        ['slug' => 'accounting-receivable',           'prefix' => 'ACCR',  'name' => 'Receivable', 'icon' => 'ti-arrow-down-right', 'route' => null,                   'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'accounting'],
+        ['slug' => 'accounting-receivable-customer',  'prefix' => 'ACCRC', 'name' => 'Customer',   'icon' => 'ti-users',            'route' => '/sales/customers',     'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'accounting-receivable'],
+        ['slug' => 'accounting-receivable-receipts',     'prefix' => 'ACCRR',  'name' => 'Receipts',     'icon' => 'ti-cash',           'route' => '/accounting/receivable/receipts',     'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'accounting-receivable'],
+        ['slug' => 'accounting-receivable-credit-notes', 'prefix' => 'ACCRCN', 'name' => 'Credit Notes', 'icon' => 'ti-file-arrow-left', 'route' => '/accounting/receivable/credit-notes', 'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'accounting-receivable'],
+        ['slug' => 'accounting-receivable-debit-notes',  'prefix' => 'ACCRDN', 'name' => 'Debit Notes',  'icon' => 'ti-file-arrow-right','route' => '/accounting/receivable/debit-notes',  'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'accounting-receivable'],
+
+        // Bank Reconciliation sits as a sibling of Bank (rather than nested under it) to avoid
+        // restructuring the existing /accounting/bank route. Future IA pass may collapse them
+        // under a Bank subgroup; the slug is stable as `accounting-bank-reconciliation`.
+        ['slug' => 'accounting-bank-reconciliation', 'prefix' => 'ACCBR', 'name' => 'Bank Reconciliation', 'icon' => 'ti-checks', 'route' => '/accounting/bank-reconciliation', 'group' => 'apps', 'sort_order' => 6, 'parent_slug' => 'accounting'],
+        ['slug' => 'accounting-budgets',             'prefix' => 'ACCBG', 'name' => 'Budgets',             'icon' => 'ti-target','route' => '/accounting/budgets',             'group' => 'apps', 'sort_order' => 7, 'parent_slug' => 'accounting'],
+        ['slug' => 'accounting-fiscal-periods',      'prefix' => 'ACCFP', 'name' => 'Fiscal Periods',      'icon' => 'ti-calendar-check','route' => '/accounting/fiscal-periods', 'group' => 'apps', 'sort_order' => 8, 'parent_slug' => 'accounting'],
+
         // Apps: Inventory & SCM
         // `ecom-products` slug retained (re-parented to `inventory`) — `product_modules` FKs reference it.
         ['slug' => 'inventory',            'prefix' => 'INV',  'name' => 'Inventory',       'icon' => 'ti-building-warehouse', 'route' => null,                           'group' => 'apps', 'sort_order' => 5],
@@ -137,7 +169,10 @@ class ModuleSeeder extends Seeder
         ['slug' => 'assets-revaluation','prefix' => 'ASTV', 'name' => 'Revaluation',   'icon' => 'ti-stars',          'route' => '/assets/revaluation', 'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'assets'],
         ['slug' => 'assets-disposal',   'prefix' => 'ASTX', 'name' => 'Disposal',      'icon' => 'ti-archive',        'route' => '/assets/disposal',    'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'assets'],
         ['slug' => 'assets-audits',     'prefix' => 'ASTA', 'name' => 'Audit Campaigns','icon'=> 'ti-calendar-stats', 'route' => '/assets/audits',      'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'assets'],
-        ['slug' => 'projects',   'prefix' => 'PROJ', 'name' => 'Project Management', 'icon' => 'ti-presentation', 'route' => '#', 'group' => 'apps', 'sort_order' => 8],
+        ['slug' => 'projects',            'prefix' => 'PROJ',  'name' => 'Project Management', 'icon' => 'ti-presentation', 'route' => null,                  'group' => 'apps', 'sort_order' => 8],
+        ['slug' => 'projects-overview',   'prefix' => 'PROJP', 'name' => 'Projects',           'icon' => 'ti-folder-open',  'route' => '/projects',           'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'projects'],
+        ['slug' => 'projects-tasks',      'prefix' => 'PROJT', 'name' => 'Tasks',              'icon' => 'ti-checkbox',     'route' => '/projects/tasks',     'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'projects'],
+        ['slug' => 'projects-timesheets', 'prefix' => 'PROJH', 'name' => 'Timesheets',         'icon' => 'ti-clock-hour-3', 'route' => '/projects/timesheets','group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'projects'],
         ['slug' => 'eapprovals', 'prefix' => 'EAPP', 'name' => 'eApprovals',         'icon' => 'ti-circle-check', 'route' => '#', 'group' => 'apps', 'sort_order' => 9],
         ['slug' => 'edocuments', 'prefix' => 'EDOC', 'name' => 'eDocuments',         'icon' => 'ti-file-text',    'route' => '#', 'group' => 'apps', 'sort_order' => 10],
         ['slug' => 'reporting',  'prefix' => 'RPT',  'name' => 'Reports & Analytics','icon' => 'ti-chart-bar',    'route' => '#', 'group' => 'apps', 'sort_order' => 11],

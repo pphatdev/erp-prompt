@@ -96,6 +96,11 @@ Self-service `.self` permissions pair with ownership policies — e.g. `Employee
 - Quiz answer keys are encrypted at rest (`'encrypted'` cast) to prevent answer leakage from a DB dump.
 - Auto-grading on submission updates `quiz_attempts` and writes the score back to the Application.
 
+### 7. Fixed Asset Custodian Scoping (Fixed Asset Management Link)
+- Employees in active custody of company property (e.g., laptops, vehicles) must have their physical assets displayed in a dedicated **Assets** tab on their profile workspace (both admin and self-service views).
+- The single employee fetch queries (`show` and `me` inside `EmployeeController`) must eagerly load the `assets` relationship.
+- `EmployeeResource` serializes the custody records under the `assets` key using `AssetResource` conditionally to avoid N+1 queries.
+
 ## Frontend integration
 
 - **Self-service pages** live under `My Workspace` sidebar group (hidden for admins via `.filter(group => !(group.id === 'self-service' && authStore.isAdmin))`).
@@ -118,6 +123,8 @@ Self-service `.self` permissions pair with ownership policies — e.g. `Employee
 | Candidate quiz (magic link, sandboxed, auto-graded) | ✅ | ✅ |
 | Appraisals | ✅ | ✅ |
 | Explicit candidate→employee conversion (single + bulk + revert) | ✅ | ✅ |
+| Fixed Asset Custody Integration (Assets tab) | ✅ | ✅ |
+
 
 ## Troubleshooting
 

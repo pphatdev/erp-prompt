@@ -49,6 +49,8 @@ export interface CreateWarehousePayload {
     notes?: string | null
 }
 
+export type SupplierPaymentMethod = 'bank_transfer' | 'cheque' | 'cash' | 'wire' | string
+
 export interface Supplier {
     id: string
     code: string | null
@@ -64,6 +66,17 @@ export interface Supplier {
     rating: number | null
     isActive: boolean
     notes: string | null
+
+    // AP / Vendor extension.
+    isVendor: boolean
+    paymentMethod: SupplierPaymentMethod | null
+    bankName: string | null
+    bankAccountName: string | null
+    bankAccountNumber: string | null
+    bankSwift: string | null
+    defaultPayableAccountId: string | null
+    defaultExpenseAccountId: string | null
+
     createdAt: string
     updatedAt: string
 }
@@ -82,6 +95,16 @@ export interface CreateSupplierPayload {
     rating?: number | null
     is_active?: boolean
     notes?: string | null
+
+    // AP / Vendor extension.
+    is_vendor?: boolean
+    payment_method?: SupplierPaymentMethod | null
+    bank_name?: string | null
+    bank_account_name?: string | null
+    bank_account_number?: string | null
+    bank_swift?: string | null
+    default_payable_account_id?: string | null
+    default_expense_account_id?: string | null
 }
 
 export type PurchaseOrderStatus =

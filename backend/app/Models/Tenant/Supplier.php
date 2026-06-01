@@ -22,6 +22,10 @@ class Supplier extends Model
         'email', 'phone', 'address', 'website', 'tax_id',
         'payment_terms', 'lead_time_days', 'rating',
         'is_active', 'notes',
+        // AP / Vendor extension — see migration 000078.
+        'is_vendor', 'payment_method',
+        'bank_name', 'bank_account_name', 'bank_account_number', 'bank_swift',
+        'default_payable_account_id', 'default_expense_account_id',
         'tenant_id',
     ];
 
@@ -29,7 +33,18 @@ class Supplier extends Model
         'lead_time_days' => 'integer',
         'rating'         => 'integer',
         'is_active'      => 'boolean',
+        'is_vendor'      => 'boolean',
     ];
+
+    public function defaultPayableAccount()
+    {
+        return $this->belongsTo(Account::class, 'default_payable_account_id');
+    }
+
+    public function defaultExpenseAccount()
+    {
+        return $this->belongsTo(Account::class, 'default_expense_account_id');
+    }
 
     public function isActive(): bool
     {

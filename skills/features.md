@@ -122,3 +122,12 @@
 - Branding & UI Customization (Logos, Colors)
 - Module Enablement & Feature Toggles
 - Global Security Policies
+
+## 14. Point of Sale (POS) — ❌
+- **[Detailed Specification: POS](./pos/overview.md)** · **[Operational skill](./pos/skill.md)**
+- Cashier Terminal & Drawer Shift Logs (opening float, cash variances)
+- Interactive Touch Register Grid & Barcode Parser Scanning
+- Split Payments & Tender Settlement (Cash, Card, CRM Store Credits)
+- Offline IndexedDB Catalog Lookup & Resilient Sync Daemon Queue
+- Real-time stock out cuts & WAC inventory ledger valuations
+- Automated balanced general ledger postings (FMS Accounting integration)

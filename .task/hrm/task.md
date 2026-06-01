@@ -99,3 +99,10 @@ Stand up the backend API for the HRM module: workforce records, leave workflow, 
 - [x] Schema update: Add `employee_id` (nullable foreign key) to `applications` table to link hired candidates to their employee profiles
 - [x] History linkage: Update `Employee` model and services to link and traverse pre-hire details (applications, quiz assessments, interviews, panel feedback, offer letters) in the employee's timeline/profile
 - [x] Workforce listing: Assert that the newly provisioned employee record defaults to the initial `active` status so they are instantly searchable and displayed in the global employee directory listing (`GET /employees`)
+
+### Fixed Asset Custody Integration (Assets tab)
+- [x] Model relationship: Add `assets()` HasMany relationship on the `Employee` model pointing to `Asset` on `custodian_employee_id`.
+- [x] Response serialization: Update `EmployeeResource` to serialize `assets` via conditional `whenLoaded` closure using `AssetResource::collection`.
+- [ ] API Eager Loading: Load `assets` relationship inside `EmployeeController@show` and `@me` endpoints.
+- [ ] Profile Assets UI Tab: Update `frontend/pages/hrm/employees/[id].vue` to display a dedicated **Assets** tab showing all physical fixed assets currently in custody of the employee (asset code, name, category, condition, status).
+

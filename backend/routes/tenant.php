@@ -20,8 +20,21 @@ use App\Tenants\Modules\Fleet\Controllers\FuelLogController;
 use App\Tenants\Modules\Fleet\Controllers\MaintenanceLogController;
 use App\Tenants\Modules\Fleet\Controllers\VehicleController;
 use App\Tenants\Modules\FMS\Controllers\AccountController;
+use App\Tenants\Modules\FMS\Controllers\BankAccountController;
+use App\Tenants\Modules\FMS\Controllers\BillController;
+use App\Tenants\Modules\FMS\Controllers\BillPaymentController;
+use App\Tenants\Modules\FMS\Controllers\CashAdvanceController;
+use App\Tenants\Modules\FMS\Controllers\CashAdvanceSettlementController;
+use App\Tenants\Modules\FMS\Controllers\BankReconController;
+use App\Tenants\Modules\FMS\Controllers\BudgetController;
+use App\Tenants\Modules\FMS\Controllers\CreditNoteController;
+use App\Tenants\Modules\FMS\Controllers\DebitNoteController;
+use App\Tenants\Modules\FMS\Controllers\ExpenseController;
+use App\Tenants\Modules\FMS\Controllers\FiscalPeriodController;
+use App\Tenants\Modules\FMS\Controllers\ReceiptController;
 use App\Tenants\Modules\FMS\Controllers\ExchangeRateController;
 use App\Tenants\Modules\FMS\Controllers\LedgerController;
+use App\Tenants\Modules\FMS\Controllers\ReimbursementController;
 use App\Tenants\Modules\HRM\Controllers\ApplicationController;
 use App\Tenants\Modules\HRM\Controllers\AppraisalController;
 use App\Tenants\Modules\HRM\Controllers\EmployeeAppointmentController;
@@ -203,12 +216,127 @@ Route::middleware([
 
         // FMS Module
         Route::apiResource('accounts', AccountController::class);
-        Route::apiResource('ledger', LedgerController::class);
+
+        // Ledger: immutable postings. apiResource is intentionally NOT used so
+        // PUT/PATCH/DELETE on /ledger/{journal} never reach a handler — the
+        // policy refuses them, but the route surface mirrors that contract.
+        // Corrections go through POST /ledger/{journal}/reverse.
+        Route::get('/ledger',                       [LedgerController::class, 'index']);
+        Route::post('/ledger',                      [LedgerController::class, 'store']);
+        Route::get('/ledger/{journal}',             [LedgerController::class, 'show']);
+        Route::post('/ledger/{journal}/reverse',    [LedgerController::class, 'reverse']);
 
         Route::get('/exchange-rates/latest',  [ExchangeRateController::class, 'latest']);
         Route::get('/exchange-rates/convert', [ExchangeRateController::class, 'convert']);
         Route::apiResource('exchange-rates', ExchangeRateController::class)
             ->parameters(['exchange-rates' => 'exchangeRate']);
+
+        // Accounting — Bank Accounts (foundation for Pay Bill / Receipt / Reimbursement / Expense).
+        Route::apiResource('bank-accounts', BankAccountController::class)
+            ->parameters(['bank-accounts' => 'bankAccount']);
+
+        // Accounting — Bills (AP cycle). Custom actions before the apiResource
+        // so /bills/{bill}/approve doesn't get routed through {bill} only.
+        Route::post('/bills/{bill}/approve', [BillController::class, 'approve']);
+        Route::post('/bills/{bill}/cancel',  [BillController::class, 'cancel']);
+        Route::apiResource('bills', BillController::class);
+
+        // Accounting — Pay Bill. Payments are immutable once recorded; only
+        // index/store/show/cancel are surfaced. Update/destroy intentionally
+        // omitted so PUT/PATCH/DELETE never reach a handler (matches policy).
+        Route::post('/bill-payments/{billPayment}/cancel', [BillPaymentController::class, 'cancel']);
+        Route::get('/bill-payments',                       [BillPaymentController::class, 'index']);
+        Route::post('/bill-payments',                      [BillPaymentController::class, 'store']);
+        Route::get('/bill-payments/{billPayment}',         [BillPaymentController::class, 'show']);
+
+        // Accounting — Reimbursements. Same immutable shape as bill_payments.
+        Route::post('/reimbursements/{reimbursement}/cancel', [ReimbursementController::class, 'cancel']);
+        Route::get('/reimbursements',                         [ReimbursementController::class, 'index']);
+        Route::post('/reimbursements',                        [ReimbursementController::class, 'store']);
+        Route::get('/reimbursements/{reimbursement}',         [ReimbursementController::class, 'show']);
+
+        // Accounting — Cash Advances. Issuance posts DR Receivable / CR Cash.
+        // Cancellation only allowed before any settlement is applied; otherwise
+        // reverse the settlement(s) first (settlement is a separate phase).
+        Route::post('/cash-advances/{cashAdvance}/cancel', [CashAdvanceController::class, 'cancel']);
+        Route::get('/cash-advances',                       [CashAdvanceController::class, 'index']);
+        Route::post('/cash-advances',                      [CashAdvanceController::class, 'store']);
+        Route::get('/cash-advances/{cashAdvance}',         [CashAdvanceController::class, 'show']);
+
+        // Accounting — Advance Settlements. Settles actuals against an open
+        // cash advance; rolls advance.settled_amount and status forward
+        // (open -> partially_settled -> closed). Immutable once posted.
+        Route::post('/cash-advance-settlements/{cashAdvanceSettlement}/cancel', [CashAdvanceSettlementController::class, 'cancel']);
+        Route::get('/cash-advance-settlements',                                 [CashAdvanceSettlementController::class, 'index']);
+        Route::post('/cash-advance-settlements',                                [CashAdvanceSettlementController::class, 'store']);
+        Route::get('/cash-advance-settlements/{cashAdvanceSettlement}',         [CashAdvanceSettlementController::class, 'show']);
+
+        // Accounting — Expenses (non-AP). Pay-as-you-go spend that does not
+        // route through Bills: DR Expense (per line) / CR Cash. Immutable once
+        // posted (matches the bill_payments / reimbursements / cash_advances shape).
+        Route::post('/expenses/{expense}/cancel', [ExpenseController::class, 'cancel']);
+        Route::get('/expenses',                   [ExpenseController::class, 'index']);
+        Route::post('/expenses',                  [ExpenseController::class, 'store']);
+        Route::get('/expenses/{expense}',         [ExpenseController::class, 'show']);
+
+        // Accounting — Receipts (AR cycle continuation). AR-side mirror of
+        // bill_payments: DR Bank's GL / CR AR (per applied invoice). Immutable
+        // once posted; the open-invoices helper powers the picker on the UI.
+        Route::get('/receipts/open-invoices/{customer}', [ReceiptController::class, 'openInvoicesForCustomer']);
+        Route::post('/receipts/{receipt}/cancel',        [ReceiptController::class, 'cancel']);
+        Route::get('/receipts',                          [ReceiptController::class, 'index']);
+        Route::post('/receipts',                         [ReceiptController::class, 'store']);
+        Route::get('/receipts/{receipt}',                [ReceiptController::class, 'show']);
+
+        // Accounting — Credit Notes (AR adjustment). DR Sales Returns / CR AR.
+        // Optional invoice link rolls into invoice.paid_amount alongside receipts.
+        // Immutable once issued.
+        Route::post('/credit-notes/{creditNote}/cancel', [CreditNoteController::class, 'cancel']);
+        Route::get('/credit-notes',                      [CreditNoteController::class, 'index']);
+        Route::post('/credit-notes',                     [CreditNoteController::class, 'store']);
+        Route::get('/credit-notes/{creditNote}',         [CreditNoteController::class, 'show']);
+
+        // Accounting — Debit Notes (AR adjustment, opposite of Credit). DR AR / CR Revenue.
+        // Optional invoice link is traceability only — does NOT modify invoice.paid_amount.
+        // The debit-note balance stands as its own AR and is settled by a future Receipt.
+        // Immutable once issued.
+        Route::post('/debit-notes/{debitNote}/cancel', [DebitNoteController::class, 'cancel']);
+        Route::get('/debit-notes',                     [DebitNoteController::class, 'index']);
+        Route::post('/debit-notes',                    [DebitNoteController::class, 'store']);
+        Route::get('/debit-notes/{debitNote}',         [DebitNoteController::class, 'show']);
+
+        // Accounting — Bank Reconciliation. Sessions pair a bank statement period
+        // with posted ledger_entries on the bank's GL. Immutable once closed
+        // (reopen requires a separate `fms.bank_recon.reopen` perm).
+        Route::get('/bank-reconciliations',                                  [BankReconController::class, 'index']);
+        Route::post('/bank-reconciliations',                                 [BankReconController::class, 'store']);
+        Route::get('/bank-reconciliations/{bankReconciliation}',             [BankReconController::class, 'show']);
+        Route::post('/bank-reconciliations/{bankReconciliation}/close',      [BankReconController::class, 'close']);
+        Route::post('/bank-reconciliations/{bankReconciliation}/reopen',     [BankReconController::class, 'reopen']);
+        Route::post('/bank-reconciliations/{bankReconciliation}/statement-lines', [BankReconController::class, 'addLine']);
+        Route::get('/bank-reconciliations/{bankReconciliation}/period-ledger-entries', [BankReconController::class, 'periodLedgerEntries']);
+        Route::delete('/bank-reconciliation-statement-lines/{line}',         [BankReconController::class, 'removeLine']);
+        Route::post('/bank-reconciliation-statement-lines/{line}/match',     [BankReconController::class, 'matchLine']);
+        Route::post('/bank-reconciliation-statement-lines/{line}/unmatch',   [BankReconController::class, 'unmatchLine']);
+
+        // Accounting - Budgets. Drafts are mutable, active/archived are locked.
+        // Variance is computed at read time against posted ledger_entries.
+        Route::post('/budgets/{budget}/activate', [BudgetController::class, 'activate']);
+        Route::post('/budgets/{budget}/archive',  [BudgetController::class, 'archive']);
+        Route::get('/budgets/{budget}/variance',  [BudgetController::class, 'variance']);
+        Route::post('/budgets/{budget}/lines',    [BudgetController::class, 'addLine']);
+        Route::patch('/budget-lines/{line}',      [BudgetController::class, 'updateLine']);
+        Route::delete('/budget-lines/{line}',     [BudgetController::class, 'removeLine']);
+        Route::apiResource('budgets', BudgetController::class);
+
+        // Accounting - Fiscal Periods. Locked periods refuse new JE posts via the
+        // write-block in AccountingService::postEntry. Close posts the rollover JE
+        // (DR revenues, CR expenses, RE for the net) before flipping the lock.
+        Route::get('/fiscal-periods/{fiscalPeriod}/closing-preview', [FiscalPeriodController::class, 'closingPreview']);
+        Route::post('/fiscal-periods/{fiscalPeriod}/close',          [FiscalPeriodController::class, 'close']);
+        Route::post('/fiscal-periods/{fiscalPeriod}/reopen',         [FiscalPeriodController::class, 'reopen']);
+        Route::apiResource('fiscal-periods', FiscalPeriodController::class)
+            ->parameters(['fiscal-periods' => 'fiscalPeriod']);
 
         // HRM Module — Phase 1: Workforce
         // Self-service profile lookup/edit. Listed before the apiResource so
@@ -418,10 +546,11 @@ Route::middleware([
         Route::post('/purchase-orders/{purchaseOrder}/cancel',  [\App\Tenants\Modules\Inventory\Controllers\PurchaseOrderController::class, 'cancel']);
 
         // Projects Module
-        Route::apiResource('projects', ProjectController::class);
+        Route::get('/projects/kpis', [ProjectController::class, 'kpis']);
         Route::get('/projects/{project}/budget-status', [ProjectController::class, 'budgetStatus']);
-        Route::apiResource('tasks', TaskController::class);
+        Route::apiResource('projects', ProjectController::class);
         Route::patch('/tasks/{task}/status', [TaskController::class, 'updateStatus']);
+        Route::apiResource('tasks', TaskController::class);
         Route::apiResource('timesheets', TimesheetController::class);
 
         // Documents (CMS) Module
