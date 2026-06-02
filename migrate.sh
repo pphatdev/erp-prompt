@@ -108,3 +108,10 @@ update_env "PASSPORT_PASSWORD_CLIENT_ID" "$PASSWORD_ID"
 update_env "PASSPORT_PASSWORD_CLIENT_SECRET" "$PASSWORD_SECRET"
 
 heading "Database migration and seeding complete!"
+
+info "Newly configured Passport Client credentials inside your .env:"
+echo -e "  ${YELLOW}PASSPORT_PERSONAL_ACCESS_CLIENT_ID=${NC}${PERSONAL_ID}"
+echo -e "  ${YELLOW}PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET=${NC}${PERSONAL_SECRET}"
+echo -e "  ${YELLOW}PASSPORT_PASSWORD_CLIENT_ID=${NC}${PASSWORD_ID}"
+echo -e "  ${YELLOW}PASSPORT_PASSWORD_CLIENT_SECRET=${NC}${PASSWORD_SECRET}"
+echo ""
