@@ -72,8 +72,8 @@ class CheckoutController extends Controller
         }
 
         return response()->json([
-            'order' => (new EcomOrderResource($result['order']))->toArray($request),
-            'payment' => (new EcomPaymentResource($result['payment']))->toArray($request),
+            'order'   => (new EcomOrderResource($result['order']))->resolve($request),
+            'payment' => (new EcomPaymentResource($result['payment']))->resolve($request),
         ], 201);
     }
 

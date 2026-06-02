@@ -101,6 +101,10 @@ Self-service `.self` permissions pair with ownership policies — e.g. `Employee
 - The single employee fetch queries (`show` and `me` inside `EmployeeController`) must eagerly load the `assets` relationship.
 - `EmployeeResource` serializes the custody records under the `assets` key using `AssetResource` conditionally to avoid N+1 queries.
 
+### 8. Tenant-configurable settings
+- All module thresholds, probation rules, working week maps, geofence radius coordinates, FMS account mapping codes, and appraisal calculation ratios must be loaded from `tenant_settings` via `SettingService::get('hrm.*')`.
+- Hardcoding rules or account mappings is strictly forbidden. Developers must declare default values in `SettingService::defaults()` and follow the dotted-key registry specified in [`rules.md`](./rules.md) § 10.
+
 ## Frontend integration
 
 - **Self-service pages** live under `My Workspace` sidebar group (hidden for admins via `.filter(group => !(group.id === 'self-service' && authStore.isAdmin))`).

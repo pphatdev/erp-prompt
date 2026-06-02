@@ -14,10 +14,73 @@ export interface StorefrontProduct {
     sku: string
     name: string
     description?: string | null
+    descriptionLong?: string | null
+    productType?: string
+    categoryId?: string | null
+    categoryName?: string | null
+    categorySlug?: string | null
+    availableStock?: number
+    inStock?: boolean
+    /**
+     * Set by `PublicCatalogController` when the request hits an aggregator
+     * handle (demo, root). Each product carries the owning tenant so the
+     * storefront can route detail clicks + show attribution.
+     */
+    tenantHandle?: string | null
+    tenantName?: string | null
+    createdAt?: string | null
+    updatedAt?: string | null
+    // Accept both shapes — PublicCatalogController returns camelCase
+    // (unitPrice/imagePath) but earlier consumers read snake_case.
+    unitPrice?: number
+    imagePath?: string | null
+    unit_price?: number
     image_path?: string | null
-    unit_price: number
     is_active?: boolean
-    variants?: Array<{ id: string; sku: string; attributes?: Record<string, any>; price?: number | null }>
+    variants?: Array<{
+        id: string
+        sku: string
+        name?: string | null
+        attributes?: Record<string, any> | null
+        price?: number | null
+    }>
+}
+
+export interface StorefrontAvailability {
+    productId: string
+    sku: string
+    totalAvailable: number
+    warehouseBreakdown: Array<{
+        warehouseId: string
+        warehouseCode: string
+        warehouseName: string
+        physicalStock: number
+        reservedStock: number
+        availableStock: number
+    }>
+}
+
+export interface StorefrontCategory {
+    id: string
+    slug: string
+    name: string
+    color?: string | null
+    parentId?: string | null
+    productCount: number
+}
+
+export type CatalogSort = 'featured' | 'price_asc' | 'price_desc' | 'newest'
+
+export interface CatalogListQuery {
+    search?: string
+    category_id?: string
+    category_ids?: string[]
+    min_price?: number
+    max_price?: number
+    in_stock?: 'all' | 'in' | 'out'
+    sort?: CatalogSort
+    page?: number
+    limit?: number
 }
 
 export interface CartItem {
@@ -27,7 +90,10 @@ export interface CartItem {
     variantId: string | null
     productName?: string
     productSku?: string
+    productImage?: string | null
     variantSku?: string | null
+    variantName?: string | null
+    variantAttributes?: Record<string, any> | null
     quantity: number
     unitPrice: number
     lineTotal: number
@@ -104,14 +170,37 @@ export const useShop = () => {
 
     // ───── Public catalog ─────
     const catalog = {
-        list: (q: { search?: string; category_id?: string; page?: number; limit?: number } = {}) => {
+        list: (q: CatalogListQuery = {}) => {
             const qs = new URLSearchParams()
-            Object.entries(q).forEach(([k, v]) => v !== undefined && v !== null && v !== '' && qs.set(k, String(v)))
+            const { category_ids, in_stock, ...rest } = q
+            Object.entries(rest).forEach(([k, v]) => {
+                if (v === undefined || v === null || v === '') return
+                qs.set(k, String(v))
+            })
+            // Skip the all sentinel — backend already treats absence as "all".
+            if (in_stock && in_stock !== 'all') {
+                qs.set('in_stock', in_stock === 'in' ? 'true' : 'false')
+            }
+            // `category_ids[]=A&category_ids[]=B` — Laravel parses repeated
+            // params with `[]` suffix into an array.
+            if (Array.isArray(category_ids)) {
+                category_ids.filter(Boolean).forEach(id => qs.append('category_ids[]', id))
+            }
             const s = qs.toString()
             return get<PaginatedResponse<StorefrontProduct>>(`public/catalog${s ? `?${s}` : ''}`)
         },
-        show: (id: string) => get<{ data: StorefrontProduct }>(`public/catalog/${id}`),
-        availability: (id: string) => get<{ data: { available: number } }>(`public/catalog/${id}/availability`),
+        // `tenant` is required when the active tenant is an aggregator (demo /
+        // root). The backend resolves the owning tenant and switches DB
+        // context before reading the product. Ignored on tenant-local routes.
+        show: (id: string, tenant?: string | null) => {
+            const qs = tenant ? `?tenant=${encodeURIComponent(tenant)}` : ''
+            return get<{ data: StorefrontProduct }>(`public/catalog/${id}${qs}`)
+        },
+        availability: (id: string, tenant?: string | null) => {
+            const qs = tenant ? `?tenant=${encodeURIComponent(tenant)}` : ''
+            return get<StorefrontAvailability>(`public/catalog/${id}/availability${qs}`)
+        },
+        categories: () => get<{ data: StorefrontCategory[] }>('public/catalog/categories'),
     }
 
     // ───── Cart ─────

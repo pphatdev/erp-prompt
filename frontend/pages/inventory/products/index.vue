@@ -143,7 +143,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 font-mono text-xxs text-(--text-body)">{{ p.sku }}</td>
+                                <td class="px-4 py-3 font-mono  whitespace-nowrap text-xxs text-(--text-body)">{{ p.sku }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex flex-col gap-1">
                                         <span class="px-2 py-0.5 rounded text-xxs font-mono uppercase w-fit"
@@ -171,12 +171,14 @@
                                     </span>
                                     <span v-else class="text-xxs text-(--text-muted) italic">uncategorised</span>
                                 </td>
-                                <td class="px-4 py-3 text-right font-mono text-xs" :class="stockClass(p)">{{
-                                    p.current_stock }}</td>
+                                <td class="px-4 py-3 text-right font-mono text-xs  whitespace-nowrap" :class="stockClass(p)">
+                                    {{ p.current_stock }}
+                                </td>
                                 <td class="px-4 py-3 text-right font-mono text-xxs text-(--text-muted)">{{
                                     p.minimum_stock_level ?? '—' }}</td>
                                 <td class="px-4 py-3 text-right font-mono text-xs font-semibold text-(--text-heading)">
-                                    {{ fmtMoney(p.unit_price) }}</td>
+                                    {{ fmtMoney(p.unit_price) }}
+                                </td>
                                 <td class="px-4 py-3">
                                     <button v-if="p.variants?.length" type="button"
                                         class="text-xxs text-(--color-primary) hover:underline"
@@ -187,7 +189,7 @@
                                     </button>
                                     <span v-else class="text-xxs text-(--text-muted) italic">none</span>
                                 </td>
-                                <td class="px-4 py-3">
+                                <td class="px-4 py-3 whitespace-nowrap">
                                     <Badge :variant="statusVariant(p)">{{ statusLabel(p) }}</Badge>
                                 </td>
                                 <td class="px-4 py-3 text-center">

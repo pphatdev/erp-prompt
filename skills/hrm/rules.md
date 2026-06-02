@@ -108,7 +108,111 @@ Service contracts:
 Defaults are seeded by `TenantDatabaseSeeder::seedWorkflowStatuses()` (idempotent). Tenant admins can rename labels, change colors/icons, reorder, or add new statuses via `GET/POST/PUT/DELETE /api/v1/workflow-statuses`. Removing a terminal-only status is safe; removing a status that's still referenced by live records will leave those records with an unknown status — transition validation then fails fast.
 
 ### Frontend (Nuxt/PrimeVue)
-- **Path**: `src/modules/hrm/`
+- **Path**: `frontend/pages/hrm/`
 - **Self-Service**: Implement a dedicated `/me` portal for employees to view payslips and apply for leave.
 - **Directives**: Hide sensitive compensation data using `v-can="'hrm.payroll.read'"` or similar.
 - **Candidate Assessment Portal**: Dedicated sandboxed `/candidate/quiz` route authenticating via secure magic-link token (`GET /api/v1/candidate/auth?token=...` which exchanges token for a limited JWT scope).
+
+---
+
+## 10. Tenant-Configurable HRM Settings
+
+To support multi-tenant operational flexibility, all business rules, thresholds, and account mappings for the HRM module are driven by settings stored in the central `tenant_settings` table.
+
+### Key Design and Architecture Rules:
+1. **Authoritative Access**: Always retrieve settings using `SettingService::get('hrm.xxx.yyy')` with a strict `empty()` check fallback. Do NOT query `Setting::class` directly in service layers.
+2. **Key Namespace**: Keys must strictly follow the `hrm.{submodule}.{setting_name}` format. The first segment auto-resolves the `group` as `hrm` (all settings belong to the `hrm` group to simplify retrieval, or sub-grouped where central tabs require).
+3. **Lazy Default Seeding**: All default settings must be declared inside `SettingService::defaults()` in the `hrm` group so that they are auto-populated for new tenants upon their first setting read or settings panel access.
+4. **Validation**: Any updates to settings via `PUT /api/v1/settings` must be validated against the data types (boolean, integer, string, json, array) and rules specified below.
+
+---
+
+### Exhaustive HRM Setting Registry
+
+| Setting Key | Default Value | Type | Submodule | Description & Enforcement Rules |
+|---|---|---|---|---|
+| **Recruitment & Hiring** | | | | |
+| `hrm.recruitment.probation_period_default` | `3` | `integer` | Recruitment | Default probation period in months applied during candidate-to-employee conversion when not overridden. |
+| `hrm.recruitment.revert_window_days` | `7` | `integer` | Recruitment | The bounded time window (in days) inside which an admin/recruiter can revert a converted employee back to candidate status. |
+| `hrm.recruitment.enable_public_careers` | `true` | `boolean` | Recruitment | Global switch to expose or hide the `/public/job-vacancies` endpoint. |
+| **Leave & Time Off** | | | | |
+| `hrm.leave.standard_work_week` | `[1, 2, 3, 4, 5]` | `json` | Leave | Array of active working days (1=Mon, 7=Sun). Used by `LeaveService` to calculate duration by skipping weekends/non-working days. |
+| `hrm.leave.accrual_cycle_start` | `"calendar_year"` | `string` | Leave | Boundaries for leave accumulation. Allowed values: `"calendar_year"` (Jan 1), `"fiscal_year"` (Oct 1), or `"hire_date"` (anniversary). |
+| `hrm.leave.allow_negative_balance` | `false` | `boolean` | Leave | When `true`, bypassed balance validation allows employees to request leave even if requested days exceed their current balance. |
+| `hrm.leave.max_carryover_days` | `5.0` | `float` | Leave | Maximum number of unused leave days allowed to carry over to the next year cycle. Exceeded days are forfeited during cycle reset. |
+| **Attendance & Clocking** | | | | |
+| `hrm.attendance.enable_geofencing` | `false` | `boolean` | Attendance | If `true`, requires mobile clock-in/out to pass GPS coordinate validation. |
+| `hrm.attendance.geofence_radius_meters` | `100` | `integer` | Attendance | Distance threshold in meters. Validated via the Haversine formula against the department office coordinate. |
+| `hrm.attendance.enable_ip_whitelisting` | `false` | `boolean` | Attendance | If `true`, blocks clock-in/out requests originating from unauthorized network IP addresses. |
+| `hrm.attendance.ip_whitelist` | `""` | `string` | Attendance | Comma-separated list of authorized corporate IP addresses or CIDR ranges. |
+| `hrm.attendance.auto_clock_out_hours` | `12` | `integer` | Attendance | Auto-closes un-ended attendance log sessions after specified hours during reconciliation. |
+| **Payroll & FMS Posting** | | | | |
+| `hrm.payroll.monthly_work_hours_standard` | `160` | `integer` | Payroll | Standard work hours per month. Used to compute standard hourly rates for overtime and deductions (`Base Salary / Standard Work Hours`). |
+| `hrm.payroll.default_payday` | `25` | `integer` | Payroll | Calendar day of the month for auto-generating and processing draft payroll periods (1-31). |
+| `hrm.payroll.fms_posting_enabled` | `true` | `boolean` | Payroll | If `true`, closing a payroll period automatically publishes double-entry accrual transactions to the FMS ledger. |
+| `hrm.payroll.account_wages_expense` | `"EXP-WAGES"` | `string` | Payroll | FMS chart of accounts code for matching salary/wage expenses. |
+| `hrm.payroll.account_tax_payable` | `"LIA-TAX"` | `string` | Payroll | FMS chart of accounts code for payroll tax withholding liabilities. |
+| `hrm.payroll.account_social_security_payable`| `"LIA-NSSF"` | `string` | Payroll | FMS chart of accounts code for social security (NSSF) liabilities. |
+| `hrm.payroll.account_wages_payable` | `"LIA-WAGES"` | `string` | Payroll | FMS chart of accounts code for employee net salary payout liabilities. |
+| **Performance Appraisals** | | | | |
+| `hrm.appraisal.self_evaluation_weight` | `20` | `integer` | Performance | Weight (%) of employee self-review contribution toward the final performance score. |
+| `hrm.appraisal.manager_evaluation_weight`| `80` | `integer` | Performance | Weight (%) of direct manager evaluation toward the final performance score. Sum of weights must equal 100%. |
+
+---
+
+### Service Enforcement Contracts
+
+#### 1. Leave Accrual & Working Week Check
+When calculating request duration in `LeaveService::calculateDuration(Employee, StartDate, EndDate)`:
+```php
+$workWeek = app(SettingService::class)->get('hrm.leave.standard_work_week') ?: [1, 2, 3, 4, 5];
+// Parse array and filter out dates whose ISO day-of-week is not in $workWeek
+```
+
+#### 2. Leave Balance Enforcement
+```php
+$allowNegative = app(SettingService::class)->get('hrm.leave.allow_negative_balance') ?: false;
+if (!$allowNegative && $requestedDays > $availableBalance) {
+    throw new DomainException("Insufficient leave balance. Remaining: {$availableBalance} days.", 422);
+}
+```
+
+#### 3. IP and Geofence Verification
+Inside `/attendance/clock-in` controller action:
+```php
+$settings = app(SettingService::class);
+if ($settings->get('hrm.attendance.enable_ip_whitelisting')) {
+    $whitelist = array_filter(explode(',', $settings->get('hrm.attendance.ip_whitelist') ?: ''));
+    if (!in_array($request->ip(), $whitelist)) {
+        throw new DomainException("Unauthorized clock-in IP address.", 403);
+    }
+}
+if ($settings->get('hrm.attendance.enable_geofencing')) {
+    $radius = $settings->get('hrm.attendance.geofence_radius_meters') ?: 100;
+    // Calculate distance and throw 422 if distance > $radius
+}
+```
+
+#### 4. FMS Ledger Posting Account Resolver
+```php
+$settings = app(SettingService::class);
+if ($settings->get('hrm.payroll.fms_posting_enabled') ?: true) {
+    $accounts = [
+        'expense' => $settings->get('hrm.payroll.account_wages_expense') ?: 'EXP-WAGES',
+        'tax'     => $settings->get('hrm.payroll.account_tax_payable') ?: 'LIA-TAX',
+        'nssf'    => $settings->get('hrm.payroll.account_social_security_payable') ?: 'LIA-NSSF',
+        'payable' => $settings->get('hrm.payroll.account_wages_payable') ?: 'LIA-WAGES',
+    ];
+    // Map totals and dispatch postEntry() via AccountingService
+}
+```
+
+### Frontend settings Integration
+1. Extend the **HRM Settings** sub-section within `frontend/pages/settings/index.vue`.
+2. Design custom interactive cards/tabs under the main "HRM Settings" panel:
+   - **Recruitment Tab**: Inputs for probation months, revert window, and careers portal toggle.
+   - **Leave & Time Off**: Work week day checkboxes, negative balance toggle, accrual cycle dropdown.
+   - **Attendance Config**: Geofence toggle, radius slider/number input, whitelisting checkboxes.
+   - **Payroll Mapping**: Dropdown selects for FMS wage/tax/payable accounts (populated from `/api/v1/fms/accounts`).
+   - **Performance Weighting**: Percentage sliders for Self/Manager weights ensuring total sums to `100%`.
+

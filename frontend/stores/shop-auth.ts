@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { useTenantStore } from '~/stores/tenant'
 
 export interface Shopper {
     id: string
@@ -38,12 +39,16 @@ const TOKEN_KEY = 'shop_token'
 const TOKEN_EXPIRES_KEY = 'shop_token_expires'
 const SHOPPER_KEY = 'shop_shopper'
 const CART_SESSION_KEY = 'shop_cart_session'
+// Track which tenant a token was issued against so the auth gate can
+// invalidate when the shopper navigates to a different subdomain.
+const TOKEN_TENANT_KEY = 'shop_token_tenant'
 
 export const useShopAuthStore = defineStore('shop-auth', {
     state: () => ({
         shopper: null as Shopper | null,
         accessToken: null as string | null,
         tokenExpiresAt: null as string | null,
+        tokenTenantHandle: null as string | null,
         cartSessionToken: null as string | null,
         loading: false,
         error: null as string | null,
@@ -58,6 +63,7 @@ export const useShopAuthStore = defineStore('shop-auth', {
             if (import.meta.client) {
                 this.accessToken = localStorage.getItem(TOKEN_KEY)
                 this.tokenExpiresAt = localStorage.getItem(TOKEN_EXPIRES_KEY)
+                this.tokenTenantHandle = localStorage.getItem(TOKEN_TENANT_KEY)
                 const raw = localStorage.getItem(SHOPPER_KEY)
                 this.shopper = raw ? JSON.parse(raw) : null
                 let session = localStorage.getItem(CART_SESSION_KEY)
@@ -69,14 +75,38 @@ export const useShopAuthStore = defineStore('shop-auth', {
             }
         },
 
+        /**
+         * Clear the in-memory token + shopper without touching the cart
+         * session. Used by the auth gate when the persisted token was
+         * issued for a tenant other than the one the shopper is currently
+         * on — the token would 401 anyway, this just short-circuits.
+         */
+        clearTokenForTenantMismatch() {
+            this.shopper = null
+            this.accessToken = null
+            this.tokenExpiresAt = null
+            this.tokenTenantHandle = null
+            if (import.meta.client) {
+                localStorage.removeItem(TOKEN_KEY)
+                localStorage.removeItem(TOKEN_EXPIRES_KEY)
+                localStorage.removeItem(SHOPPER_KEY)
+                localStorage.removeItem(TOKEN_TENANT_KEY)
+            }
+        },
+
         persist(payload: AuthResponse) {
             this.shopper = payload.customer
             this.accessToken = payload.access_token
             this.tokenExpiresAt = payload.expires_at
+            // Tag the persisted token with the tenant it was issued for so
+            // the auth gate can detect cross-subdomain mismatches.
+            const tenantStore = useTenantStore()
+            this.tokenTenantHandle = tenantStore.activeHandle
             if (import.meta.client) {
                 localStorage.setItem(TOKEN_KEY, payload.access_token)
                 if (payload.expires_at) localStorage.setItem(TOKEN_EXPIRES_KEY, payload.expires_at)
                 localStorage.setItem(SHOPPER_KEY, JSON.stringify(payload.customer))
+                localStorage.setItem(TOKEN_TENANT_KEY, tenantStore.activeHandle)
             }
         },
 
@@ -134,10 +164,12 @@ export const useShopAuthStore = defineStore('shop-auth', {
                 this.shopper = null
                 this.accessToken = null
                 this.tokenExpiresAt = null
+                this.tokenTenantHandle = null
                 if (import.meta.client) {
                     localStorage.removeItem(TOKEN_KEY)
                     localStorage.removeItem(TOKEN_EXPIRES_KEY)
                     localStorage.removeItem(SHOPPER_KEY)
+                    localStorage.removeItem(TOKEN_TENANT_KEY)
                 }
             }
         },

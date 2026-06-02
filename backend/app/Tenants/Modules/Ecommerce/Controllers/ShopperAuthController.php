@@ -86,7 +86,7 @@ class ShopperAuthController extends Controller
         $token = $customer->createToken('storefront');
 
         return response()->json([
-            'customer' => (new EcomCustomerResource($customer))->toArray($request),
+            'customer' => (new EcomCustomerResource($customer->load('addresses')))->resolve($request),
             'token_type' => 'Bearer',
             'access_token' => $token->accessToken,
             'expires_at' => optional($token->token->expires_at)->toIso8601String(),
@@ -109,7 +109,7 @@ class ShopperAuthController extends Controller
         $token = $customer->createToken('storefront');
 
         return response()->json([
-            'customer' => (new EcomCustomerResource($customer->load('addresses')))->toArray($request),
+            'customer' => (new EcomCustomerResource($customer->load('addresses')))->resolve($request),
             'token_type' => 'Bearer',
             'access_token' => $token->accessToken,
             'expires_at' => optional($token->token->expires_at)->toIso8601String(),

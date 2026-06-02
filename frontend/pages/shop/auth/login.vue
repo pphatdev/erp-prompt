@@ -31,23 +31,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useShopAuthStore } from '~/stores/shop-auth'
 
 definePageMeta({ layout: false })
 
+const route = useRoute()
 const shopAuth = useShopAuthStore()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
+// Already logged in? Skip the login page entirely.
+onMounted(() => {
+    shopAuth.initFromStorage()
+    if (shopAuth.isAuthenticated) {
+        navigateTo(destinationAfterLogin(), { replace: true })
+    }
+})
+
+/**
+ * Bounce back to the URL the shop-auth middleware stashed in `?redirect=`
+ * when it caught an unauthenticated request. Defaults to `/shop`. Strips
+ * any URL that doesn't start with `/shop/` so a malicious referrer can't
+ * use this as an open redirect.
+ */
+function destinationAfterLogin(): string {
+    const raw = String(route.query.redirect ?? '/shop')
+    return raw.startsWith('/shop') ? raw : '/shop'
+}
+
 async function submit() {
     loading.value = true
     error.value = ''
     try {
         await shopAuth.login(email.value, password.value)
-        navigateTo('/shop/account')
+        navigateTo(destinationAfterLogin())
     } catch (e: any) {
         error.value = shopAuth.error || e?.data?.message || 'Login failed.'
     } finally {

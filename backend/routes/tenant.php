@@ -132,6 +132,7 @@ Route::middleware([
     // Tenant resolved by X-Tenant-Handle header (same as the public careers
     // endpoints above). Returns only sellable fields; no cost/WAC leaks.
     Route::get('/public/catalog', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'index']);
+    Route::get('/public/catalog/categories', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'categories']);
     Route::get('/public/catalog/{product}', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'show']);
     Route::get('/public/catalog/{product}/availability', [\App\Tenants\Modules\Inventory\Controllers\PublicCatalogController::class, 'availability']);
 

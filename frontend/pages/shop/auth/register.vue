@@ -45,22 +45,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useShopAuthStore } from '~/stores/shop-auth'
 
 definePageMeta({ layout: false })
 
+const route = useRoute()
 const shopAuth = useShopAuthStore()
 const form = ref({ email: '', password: '', first_name: '', last_name: '', phone: '' })
 const loading = ref(false)
 const error = ref('')
+
+onMounted(() => {
+    shopAuth.initFromStorage()
+    if (shopAuth.isAuthenticated) {
+        navigateTo(destinationAfterRegister(), { replace: true })
+    }
+})
+
+function destinationAfterRegister(): string {
+    const raw = String(route.query.redirect ?? '/shop')
+    return raw.startsWith('/shop') ? raw : '/shop'
+}
 
 async function submit() {
     loading.value = true
     error.value = ''
     try {
         await shopAuth.register({ ...form.value })
-        navigateTo('/shop/account')
+        navigateTo(destinationAfterRegister())
     } catch (e: any) {
         error.value = shopAuth.error || e?.data?.message || 'Registration failed.'
     } finally {

@@ -89,6 +89,7 @@
 - [x] **Appointments / Schedules calendar** — `crm_appointments` entity + service + REST + `crm.appointments.*` perms + policy + `pages/crm/schedules.vue` (agenda/week/month). See `.task/crm/task.md` § Phase 8.
 
 ## HRM
+> Full task: [`.task/hrm/task.md`](./.task/hrm/task.md) | Rule: [`skills/hrm/rules.md`](../skills/hrm/rules.md)
 - [x] Employees CRUD
 - [x] Departments, Positions
 - [x] Leave Requests + Leave Types
@@ -98,6 +99,8 @@
 - [x] Appraisals
 - [x] Public careers portal (no-auth)
 - [x] Fixed Asset Custody integration — setup model relations and resource JSON structures (eager-loaded endpoints & tab details planned)
+- [/] Tenant-configurable HRM Settings (Phase 9: Rules and specifications defined, implementation pending)
+
 
 ## Calendar & Holiday Management
 > Full task: [`.task/calendar/task.md`](./.task/calendar/task.md) | Rule: [`skills/calendar/rules.md`](../skills/calendar/rules.md)

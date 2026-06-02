@@ -36,10 +36,15 @@ class EcomOrderResource extends JsonResource
             'cancelledAt' => optional($this->cancelled_at)->toIso8601String(),
             'cancelReason' => $this->cancel_reason,
             'notes' => $this->notes,
-            'customer' => new EcomCustomerResource($this->whenLoaded('customer')),
-            'items' => EcomOrderItemResource::collection($this->whenLoaded('items')),
-            'payments' => EcomPaymentResource::collection($this->whenLoaded('payments')),
-            'refunds' => EcomRefundResource::collection($this->whenLoaded('refunds')),
+            // Closure form: when the relation isn't eager-loaded, whenLoaded()
+            // returns a MissingValue sentinel that filter() strips during
+            // resolve(). Wrapping the MissingValue directly in a Resource
+            // constructor (the eager form) ships a corrupted Resource that
+            // later crashes with "Undefined property: MissingValue::$id".
+            'customer' => $this->whenLoaded('customer', fn () => new EcomCustomerResource($this->customer)),
+            'items'    => $this->whenLoaded('items',    fn () => EcomOrderItemResource::collection($this->items)),
+            'payments' => $this->whenLoaded('payments', fn () => EcomPaymentResource::collection($this->payments)),
+            'refunds'  => $this->whenLoaded('refunds',  fn () => EcomRefundResource::collection($this->refunds)),
             'createdAt' => optional($this->created_at)->toIso8601String(),
         ];
     }

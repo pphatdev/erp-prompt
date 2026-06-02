@@ -16,6 +16,46 @@ interface PublicSettingRow {
 
 const DEFAULT_PRIMARY = '59 130 246' // #3b82f6 Electric Indigo (design.md §2.1)
 
+/**
+ * Local-dev TLDs that should be treated as "no second-level domain" — so
+ * `acme.localhost` reads as subdomain "acme" instead of trying to parse
+ * "acme" as a TLD.
+ */
+const DEV_TLDS = new Set(['localhost', 'test', 'local', 'lan'])
+
+/**
+ * Subdomain labels that don't represent a tenant — used for system surfaces
+ * (www, api, admin, etc.). When the leading label matches one of these we
+ * fall back to the configured default handle.
+ */
+const RESERVED_SUBDOMAINS = new Set(['www', 'api', 'admin', 'app', 'mail', 'static', 'cdn'])
+
+/**
+ * Parse the leading subdomain from a hostname. Returns the tenant handle
+ * candidate or null when the hostname is bare (e.g., `example.com`,
+ * `localhost`, an IPv4 address) or the leading label is reserved.
+ */
+function parseTenantSubdomain(hostname: string | null | undefined): string | null {
+    if (!hostname) return null
+    // IPv4 literal — no concept of subdomain.
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return null
+
+    const parts = hostname.split('.').filter(Boolean)
+    if (parts.length < 2) return null
+
+    const leading = parts[0].toLowerCase()
+    if (RESERVED_SUBDOMAINS.has(leading)) return null
+
+    // 2-part hostname: subdomain only if the second label looks like a dev TLD.
+    // Without this, `example.com` would resolve "example" as a tenant handle.
+    if (parts.length === 2) {
+        return DEV_TLDS.has(parts[1].toLowerCase()) ? leading : null
+    }
+
+    // 3+ parts: leading label is the subdomain.
+    return leading
+}
+
 export const useTenantStore = defineStore('tenant', {
     state: () => ({
         currentTenant: null as TenantConfig | null,
@@ -81,11 +121,36 @@ export const useTenantStore = defineStore('tenant', {
             )
         },
 
+        /**
+         * Resolution order on init:
+         *   1. Subdomain from `window.location.hostname` (e.g., `demo.example.com` → `demo`)
+         *   2. `localStorage.tenant_handle` (existing admin/multi-handle workflow)
+         *   3. Configured fallback (`NUXT_PUBLIC_SHOP_TENANT_FALLBACK`, defaults to `demo`)
+         *
+         * Subdomain wins over localStorage so visiting `acme.example.com`
+         * after using `demo.example.com` doesn't carry the wrong tenant.
+         */
         initializeTenant() {
-            if (import.meta.client) {
-                const stored = localStorage.getItem('tenant_handle')
-                this.setTenantByHandle(stored || 'test')
+            if (!import.meta.client) return
+
+            const fromSubdomain = parseTenantSubdomain(window.location.hostname)
+            if (fromSubdomain) {
+                this.setTenantByHandle(fromSubdomain)
+                // Keep localStorage in sync so any non-shop code path that
+                // reads `tenant_handle` directly stays consistent.
+                localStorage.setItem('tenant_handle', fromSubdomain)
+                return
             }
+
+            const stored = localStorage.getItem('tenant_handle')
+            if (stored) {
+                this.setTenantByHandle(stored)
+                return
+            }
+
+            const config = useRuntimeConfig()
+            const fallback = String(config.public.shopTenantFallback || 'demo')
+            this.setTenantByHandle(fallback)
         },
 
         /**

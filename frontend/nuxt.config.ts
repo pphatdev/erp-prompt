@@ -30,7 +30,11 @@ export default defineNuxtConfig({
 
     runtimeConfig: {
         public: {
-            apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1'
+            apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8000/api/v1',
+            // Fallback tenant handle used by the storefront when the request
+            // hostname has no subdomain (e.g., `example.com/shop` or
+            // `localhost:3000/shop`). Override via NUXT_PUBLIC_SHOP_TENANT_FALLBACK.
+            shopTenantFallback: process.env.NUXT_PUBLIC_SHOP_TENANT_FALLBACK || 'demo'
         }
     },
 

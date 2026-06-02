@@ -18,7 +18,16 @@ class CartItemResource extends JsonResource
             'variantId' => $this->variant_id,
             'productName' => $this->whenLoaded('product', fn () => $this->product?->name),
             'productSku' => $this->whenLoaded('product', fn () => $this->product?->sku),
+            // Resolved to a public URL so the storefront can hand it straight
+            // to <img src>. The raw `image_path` is a relative storage path
+            // (e.g. `products/demo/abc.webp`) — passing it without prefixing
+            // `/storage/` 404s.
+            'productImage' => $this->whenLoaded('product', fn () => $this->product?->image_path
+                ? asset('storage/' . $this->product->image_path)
+                : null),
             'variantSku' => $this->whenLoaded('variant', fn () => $this->variant?->sku),
+            'variantName' => $this->whenLoaded('variant', fn () => $this->variant?->name),
+            'variantAttributes' => $this->whenLoaded('variant', fn () => $this->variant?->attributes),
             'quantity' => (float) $this->quantity,
             'unitPrice' => (float) $this->unit_price,
             'lineTotal' => (float) $this->line_total,

@@ -116,3 +116,12 @@ Stand up the backend API for the HRM module: workforce records, leave workflow, 
 - [ ] API Eager Loading: Load `assets` relationship inside `EmployeeController@show` and `@me` endpoints.
 - [ ] Profile Assets UI Tab: Update `frontend/pages/hrm/employees/[id].vue` to display a dedicated **Assets** tab showing all physical fixed assets currently in custody of the employee (asset code, name, category, condition, status).
 
+### Phase 9 — Tenant-Configurable HRM Settings
+- [x] Document and define settings rules: Declare exhaustive registry for HRM settings (probation, revert conversion window, standard work week, accrual cycle, negative balance, geofencing, IP whitelisting, monthly work hours standard, default payday, FMS posting, appraisal weights) in `skills/hrm/rules.md` § 10 and `skills/hrm/skill.md` § 8.
+- [ ] Backend: Declare settings default registry inside `SettingService::defaults()` for the `hrm` group.
+- [ ] Backend: Refactor `LeaveService` to retrieve and enforce standard work week and negative balance setting validation rules.
+- [ ] Backend: Refactor `AttendanceController` and geofencing calculations to enforce coordinate radius, IP whitelisting, and auto clock-out settings.
+- [ ] Backend: Refactor `PayrollService` to dynamically load work hours standard, monthly default payday, FMS posting toggle, and FMS ledger account mappings from the `hrm.payroll.*` settings.
+- [ ] Backend: Refactor `PerformanceService` to read and compute appraisal scores using dynamic self-appraisal and manager-appraisal weighting settings.
+- [ ] Frontend: Extend the settings workspace (`frontend/pages/settings/index.vue`) with an **HRM Settings** tab containing sub-tab control groups for Recruitment, Leave, Attendance, Payroll, and Appraisals.
+
