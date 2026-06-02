@@ -45,6 +45,13 @@ return [
             'driver' => 'passport',
             'provider' => 'users',
         ],
+
+        // Storefront shopper guard — separate Passport client so a leaked
+        // shopper token can never act on admin endpoints, and vice versa.
+        'shop' => [
+            'driver' => 'passport',
+            'provider' => 'ecom_customers',
+        ],
     ],
 
     /*
@@ -68,6 +75,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => App\Models\Tenant\User::class,
+        ],
+
+        'ecom_customers' => [
+            'driver' => 'eloquent',
+            'model' => App\Models\Tenant\EcomCustomer::class,
         ],
     ],
 

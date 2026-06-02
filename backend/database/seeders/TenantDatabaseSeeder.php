@@ -412,6 +412,12 @@ class TenantDatabaseSeeder extends Seeder
         // Seed the minimal Chart of Accounts required for FMS operations
         $this->seedChartOfAccounts();
 
+        // Ensure Passport's personal-access OAuth client exists. Required by
+        // EcomCustomer / storefront token issuance ($customer->createToken()).
+        // Idempotent: checks `oauth_personal_access_clients` first and skips
+        // when a row already exists.
+        $this->seedPassportPersonalAccessClient();
+
         // Backfill the fleet.* permission catalogue + .self grants. Safe to
         // re-run because it syncWithoutDetaching's onto the admin/employee
         // roles after upserting each permission row by slug.
@@ -424,6 +430,14 @@ class TenantDatabaseSeeder extends Seeder
         // Backfill the assets.* permission catalogue + custodian .self grants.
         // Idempotent — slugs upsert by `slug` and roles syncWithoutDetaching.
         $this->call(AssetsPermissionSeeder::class);
+
+        // Backfill the ecommerce.* permission catalogue + create the `shopper`
+        // role (used by EcomCustomer accounts via the `shop` guard). Idempotent.
+        $this->call(EcommercePermissionSeeder::class);
+
+        // Backfill the pos.* permission catalogue + create the `cashier` role.
+        // Idempotent (slug upsert + syncWithoutDetaching).
+        $this->call(PosPermissionSeeder::class);
 
         // Demo fixed-asset register: 12 assets across categories with depreciation
         // history, one revaluation surplus, one scrap disposal, and an active
@@ -730,6 +744,56 @@ class TenantDatabaseSeeder extends Seeder
      * extra configuration.  All rows are upserted on `code` so re-running
      * this seeder is safe.
      */
+    /**
+     * Creates a Passport personal-access OAuth client for the tenant.
+     *
+     * Required by `EcomCustomer::createToken('storefront')` (storefront
+     * registration + login) and any other code path that issues personal
+     * access tokens. Without this, Passport throws an obscure
+     * "Attempt to read property 'map' on null" when it tries to read the
+     * personal-access client config.
+     *
+     * Idempotent: skips when a row already exists in
+     * `oauth_personal_access_clients`. Safe to re-run on existing tenants
+     * as part of the standard seed pass.
+     */
+    private function seedPassportPersonalAccessClient(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('oauth_personal_access_clients')) {
+            return;
+        }
+        if (\Illuminate\Support\Facades\DB::table('oauth_personal_access_clients')->exists()) {
+            return;
+        }
+
+        try {
+            $clientRepo = app(\Laravel\Passport\ClientRepository::class);
+            $client = $clientRepo->create(
+                null,                                       // user_id
+                'Storefront Personal Access Client',       // name
+                'http://localhost',                         // redirect
+                'users',                                    // provider (matches config/auth.php)
+                true,                                       // personal access
+                false,                                      // password grant
+                false                                       // confidential
+            );
+
+            \Illuminate\Support\Facades\DB::table('oauth_personal_access_clients')->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'client_id' => $client->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // Don't block the entire seed pipeline if Passport hiccups -
+            // the ShopperAuthController has the same self-heal as a fallback.
+            \Illuminate\Support\Facades\Log::warning(
+                'TenantDatabaseSeeder: Passport personal-access client setup failed - ShopperAuthController will retry on first storefront hit.',
+                ['error' => $e->getMessage()]
+            );
+        }
+    }
+
     private function seedChartOfAccounts(): void
     {
         if (!\Illuminate\Support\Facades\Schema::hasTable('accounts')) {
@@ -739,7 +803,9 @@ class TenantDatabaseSeeder extends Seeder
         $accounts = [
             // ── Assets (1xxx) ──────────────────────────────────────────────
             ['code' => '1000', 'name' => 'Cash & Bank',            'type' => 'asset'],
-            ['code' => '1100', 'name' => 'Petty Cash',             'type' => 'asset'],
+            ['code' => '1100', 'name' => 'Petty Cash',             'type' => 'asset'],   // POS cash drawer default
+            ['code' => '1110', 'name' => 'Card Acquirer Holding',  'type' => 'asset'],   // POS / Ecom card tender
+            ['code' => '1120', 'name' => 'Digital Wallet Holding', 'type' => 'asset'],   // POS / Ecom wallet tender
             ['code' => '1200', 'name' => 'Accounts Receivable',    'type' => 'asset'],   // AR — invoice confirm
             ['code' => '1300', 'name' => 'Prepaid Expenses',       'type' => 'asset'],
             ['code' => '1400', 'name' => 'Inventory',              'type' => 'asset'],
@@ -762,6 +828,7 @@ class TenantDatabaseSeeder extends Seeder
             ['code' => '4100', 'name' => 'Service Revenue',        'type' => 'revenue'],
             ['code' => '4200', 'name' => 'Other Income',           'type' => 'revenue'],
             ['code' => '4300', 'name' => 'Gain/Loss on Disposal',  'type' => 'revenue'],  // fixed asset disposal P&L
+            ['code' => '4900', 'name' => 'Sales Returns & Allowances','type' => 'revenue'], // contra-revenue — ecom credit note
 
             // ── Expenses (5xxx) ────────────────────────────────────────────
             ['code' => '5000', 'name' => 'Cost of Goods Sold',     'type' => 'expense'],
@@ -770,6 +837,10 @@ class TenantDatabaseSeeder extends Seeder
             ['code' => '5300', 'name' => 'General & Administrative','type' => 'expense'],
             ['code' => '5400', 'name' => 'Depreciation',           'type' => 'expense'],
             ['code' => '5500', 'name' => 'Revaluation Loss',       'type' => 'expense'],  // fixed asset revaluation loss
+            ['code' => '5900', 'name' => 'Cash Over/Short',        'type' => 'expense'],  // POS shift variance reconcile
+
+            // ── Other Expenses (6xxx) ──────────────────────────────────────
+            ['code' => '6900', 'name' => 'Payment Gateway Fees',   'type' => 'expense'],  // Ecom Stripe/ABA/Wing fees
         ];
 
         foreach ($accounts as $account) {

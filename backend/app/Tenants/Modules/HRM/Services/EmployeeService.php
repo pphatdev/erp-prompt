@@ -46,12 +46,17 @@ class EmployeeService
     {
         $data['status'] ??= $this->statuses->initialFor('hrm.employee');
 
-        if (empty($data['employee_id'])) {
-            $data['employee_id'] = app(\App\Tenants\Modules\HRM\Services\RecruitmentService::class)->generateNextEmployeeId();
-        }
-
-        return DB::transaction(function () use ($data) {
-            return Employee::create($data);
+        // Retry the (generate -> insert) tuple on a 23505 unique violation
+        // so concurrent createEmployee calls don't collide on employee_id.
+        // The generator is re-invoked inside the closure each attempt so a
+        // fresh MAX scan happens after a colliding row was committed.
+        $autoGenerate = empty($data['employee_id']);
+        return \App\Support\GenerationRetry::handle(function () use ($data, $autoGenerate) {
+            if ($autoGenerate) {
+                $data['employee_id'] = app(\App\Tenants\Modules\HRM\Services\RecruitmentService::class)
+                    ->generateNextEmployeeId();
+            }
+            return DB::transaction(fn () => Employee::create($data));
         });
     }
 

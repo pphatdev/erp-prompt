@@ -20,7 +20,10 @@ class DatabaseSeeder extends Seeder
 
         // After creating the tenant, stancl/tenancy usually fires events to create the DB and run migrations,
         // but if not, we can trigger it manually, or the user can run `php artisan tenants:migrate` and `php artisan tenants:seed`.
-        
-        $this->command->info('Central database seeded! Demo tenant is ready.');
+
+        $this->command?->info('Central database seeded! Demo tenant is ready.');
+        $this->command?->info('');
+        $this->command?->info('To populate three additional demo tenants (acme + mekong + sokimex) with realistic data, run:');
+        $this->command?->info('  php artisan db:seed --class=Database\\Seeders\\DemoTenantsSeeder');
     }
 }

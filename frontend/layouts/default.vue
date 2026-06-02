@@ -125,10 +125,13 @@
                                         <!-- No sub-children -->
                                         <template v-if="!child.children">
                                             <NuxtLink v-if="child.operational" :to="child.route!"
+                                                :external="child.external"
+                                                :target="child.target"
                                                 class="nav-link nav-link-sub"
                                                 :class="isRouteActive(child.route, child.exact, child.excludePrefixes) ? 'nav-link-active' : ''">
                                                 <span class="nav-icon"><i :class="['ti', child.icon]" /></span>
                                                 <span class="truncate">{{ child.label }}</span>
+                                                <i v-if="child.target === '_blank'" class="ti ti-external-link text-xs ml-auto opacity-60" />
                                             </NuxtLink>
                                             <button v-else type="button"
                                                 class="nav-link nav-link-sub nav-link-disabled w-full"
@@ -615,8 +618,21 @@ const navGroups = reactive<NavGroup[]>([
                 icon: 'ti-shopping-cart',
                 moduleSlug: 'ecommerce',
                 children: [
-                    { label: 'Orders', icon: 'ti-receipt', route: '#', operational: false },
-                    { label: 'Refunds', icon: 'ti-receipt-refund', route: '#', operational: false }
+                    { label: 'Orders', icon: 'ti-receipt', route: '/ecommerce/orders', operational: true, permission: ['ecommerce.orders.read', 'ecommerce.orders.write'], moduleSlug: 'ecom-orders' },
+                    { label: 'Refunds', icon: 'ti-receipt-refund', route: '/ecommerce/refunds', operational: true, permission: ['ecommerce.refunds.read', 'ecommerce.refunds.write'], moduleSlug: 'ecom-refunds' },
+                    { label: 'Customers', icon: 'ti-users', route: '/ecommerce/customers', operational: true, permission: ['ecommerce.customers.read', 'ecommerce.customers.write'], moduleSlug: 'ecom-customers' },
+                    { label: 'Portal Shop', icon: 'ti-building-store', route: '/shop', operational: true, moduleSlug: 'ecom-portal', target: '_blank', external: true }
+                ]
+            },
+            {
+                label: 'POS',
+                icon: 'ti-cash-register',
+                moduleSlug: 'pos',
+                children: [
+                    { label: 'Register', icon: 'ti-device-tablet', route: '/pos/register', operational: true, permission: ['pos.order.write', 'pos.order.read'], moduleSlug: 'pos-register' },
+                    { label: 'Shifts', icon: 'ti-clock', route: '/pos/shifts', operational: true, permission: ['pos.shift.read', 'pos.shift.write'], moduleSlug: 'pos-shifts' },
+                    { label: 'Sales', icon: 'ti-receipt', route: '/pos/orders', operational: true, permission: ['pos.order.read', 'pos.order.write'], moduleSlug: 'pos-orders' },
+                    { label: 'Terminals', icon: 'ti-device-desktop', route: '/pos/terminals', operational: true, permission: ['pos.terminal.read', 'pos.terminal.write'], moduleSlug: 'pos-terminals' }
                 ]
             },
             {

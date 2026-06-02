@@ -32,7 +32,14 @@ use App\Models\Tenant\CrmContact;
 use App\Models\Tenant\Dashboard;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Document;
+use App\Models\Tenant\EcomCustomer;
+use App\Models\Tenant\EcomOrder;
+use App\Models\Tenant\EcomRefund;
 use App\Models\Tenant\Employee;
+use App\Models\Tenant\CalendarEvent;
+use App\Models\Tenant\PosOrder;
+use App\Models\Tenant\PosShift;
+use App\Models\Tenant\PosTerminal;
 use App\Models\Tenant\Folder;
 use App\Models\Tenant\Interview;
 use App\Models\Tenant\JobVacancy;
@@ -94,6 +101,13 @@ use App\Policies\DashboardPolicy;
 use App\Policies\DepartmentPolicy;
 use App\Policies\DocumentPolicy;
 use App\Policies\DocumentTagPolicy;
+use App\Policies\EcomCustomerPolicy;
+use App\Policies\EcomOrderPolicy;
+use App\Policies\EcomRefundPolicy;
+use App\Policies\CalendarEventPolicy;
+use App\Policies\PosOrderPolicy;
+use App\Policies\PosShiftPolicy;
+use App\Policies\PosTerminalPolicy;
 use App\Policies\EmployeePolicy;
 use App\Policies\FolderPolicy;
 use App\Policies\InterviewPolicy;
@@ -213,6 +227,19 @@ class TenantServiceProvider extends ServiceProvider
         // Assets (fixed asset management)
         Gate::policy(Asset::class, AssetPolicy::class);
         Gate::policy(AssetAuditCampaign::class, AssetAuditCampaignPolicy::class);
+
+        // Ecommerce
+        Gate::policy(EcomOrder::class, EcomOrderPolicy::class);
+        Gate::policy(EcomRefund::class, EcomRefundPolicy::class);
+        Gate::policy(EcomCustomer::class, EcomCustomerPolicy::class);
+
+        // POS
+        Gate::policy(PosTerminal::class, PosTerminalPolicy::class);
+        Gate::policy(PosShift::class, PosShiftPolicy::class);
+        Gate::policy(PosOrder::class, PosOrderPolicy::class);
+
+        // Calendar
+        Gate::policy(CalendarEvent::class, CalendarEventPolicy::class);
 
         // Super Admin bypass: users holding the `admin` role short-circuit all
         // policy checks. Must return null (not false) for non-admins so other

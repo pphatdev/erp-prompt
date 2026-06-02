@@ -174,7 +174,15 @@ class RecruitmentService
         $data['applied_at'] ??= now();
         $data['status'] = $this->statuses->initialFor('hrm.application');
 
-        return DB::transaction(fn () => Application::create($data));
+        // candidate_code is auto-generated in Application::boot() from
+        // `numbering.candidate_code_prefix`. Concurrent submissions can race
+        // on the MAX(suffix) scan -> retry on 23505 by letting the boot
+        // hook recompute the code on the next attempt.
+        return \App\Support\GenerationRetry::handle(function () use ($data) {
+            // Clear stale code so the boot hook recomputes after a collision.
+            unset($data['candidate_code']);
+            return DB::transaction(fn () => Application::create($data));
+        });
     }
 
     /**

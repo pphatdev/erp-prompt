@@ -187,6 +187,112 @@ class SettingService
                 'label' => 'Fixed asset code prefix',
                 'value' => 'AST-'
             ],
+            [
+                'key' => 'numbering.ecommerce_order_prefix',
+                'group' => 'numbering',
+                'type' => 'string',
+                'label' => 'Ecommerce order number prefix',
+                'value' => 'ECOO-'
+            ],
+            [
+                'key' => 'numbering.ecommerce_refund_prefix',
+                'group' => 'numbering',
+                'type' => 'string',
+                'label' => 'Ecommerce refund number prefix',
+                'value' => 'ECOR-'
+            ],
+            [
+                'key' => 'numbering.pos_order_prefix',
+                'group' => 'numbering',
+                'type' => 'string',
+                'label' => 'POS order number prefix',
+                'value' => 'POS-'
+            ],
+
+            // POS - default GL account codes for tender postings. Terminal-level
+            // `petty_cash_account_id` (when set) overrides the cash account.
+            [
+                'key' => 'pos.cash_account_code',
+                'group' => 'pos',
+                'type' => 'string',
+                'label' => 'POS default cash drawer account code',
+                'value' => '1100'
+            ],
+            [
+                'key' => 'pos.card_account_code',
+                'group' => 'pos',
+                'type' => 'string',
+                'label' => 'POS card-acquirer holding account code',
+                'value' => '1110'
+            ],
+            [
+                'key' => 'pos.wallet_account_code',
+                'group' => 'pos',
+                'type' => 'string',
+                'label' => 'POS digital wallet holding account code',
+                'value' => '1120'
+            ],
+            [
+                'key' => 'pos.cash_over_short_account_code',
+                'group' => 'pos',
+                'type' => 'string',
+                'label' => 'POS cash over/short account code',
+                'value' => '5900'
+            ],
+
+            // Calendar - drives HolidayService::getCompensatoryDay. When true,
+            // a holiday on Saturday/Sunday spawns a virtual Monday compensatory
+            // entry and the attendance reconciler applies holiday status to it.
+            [
+                'key' => 'calendar.compensatory_day',
+                'group' => 'calendar',
+                'type' => 'boolean',
+                'label' => 'Mint a Monday compensatory holiday when a holiday falls on a weekend',
+                'value' => true
+            ],
+            [
+                'key' => 'calendar.default_overtime_multiplier',
+                'group' => 'calendar',
+                'type' => 'string',
+                'label' => 'Default holiday overtime multiplier (used when a holiday row has none set)',
+                'value' => '3.00'
+            ],
+
+            // Ecommerce — account codes for the cash receipt journal posted by
+            // CheckoutService::confirm and the gateway-fee expense line.
+            [
+                'key' => 'ecommerce.cash_account_code',
+                'group' => 'ecommerce',
+                'type' => 'string',
+                'label' => 'Cash / gateway holding account code',
+                'value' => '1100'
+            ],
+            [
+                'key' => 'ecommerce.gateway_fee_account_code',
+                'group' => 'ecommerce',
+                'type' => 'string',
+                'label' => 'Payment gateway fee expense account code',
+                'value' => '6900'
+            ],
+
+            // FMS — toggles the Credit Note path on refund approval. When true,
+            // RefundService::approve issues a CreditNote (DR Sales Returns / CR AR)
+            // instead of reversing the original AR journal. Leave false until a
+            // 'Sales Returns' account exists in the Chart of Accounts.
+            [
+                'key' => 'fms.credit_notes_enabled',
+                'group' => 'fms',
+                'type' => 'boolean',
+                'label' => 'Issue Credit Notes on ecom refund approve',
+                'value' => false
+            ],
+            [
+                'key' => 'fms.sales_returns_account_code',
+                'group' => 'fms',
+                'type' => 'string',
+                'label' => 'Sales returns / contra-revenue account code',
+                'value' => '4900'
+            ],
         ];
     }
 

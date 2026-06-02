@@ -48,14 +48,16 @@ class ModuleSeeder extends Seeder
         ['slug' => 'my-appraisals', 'prefix' => 'MYAP', 'name' => 'My Appraisals', 'icon' => 'ti-clipboard-list', 'route' => '/hrm/appraisals',         'group' => 'self-service', 'sort_order' => 4],
 
         // Apps: Ecommerce
-        ['slug' => 'ecommerce',      'prefix' => 'ECO',  'name' => 'Ecommerce',  'icon' => 'ti-shopping-cart',  'route' => null, 'group' => 'apps', 'sort_order' => 1],
-        ['slug' => 'ecom-orders',    'prefix' => 'ECOO', 'name' => 'Orders',     'icon' => 'ti-receipt',        'route' => '#',         'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'ecommerce'],
-        ['slug' => 'ecom-refunds',   'prefix' => 'ECOR', 'name' => 'Refunds',    'icon' => 'ti-receipt-refund', 'route' => '#',         'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'ecommerce'],
+        ['slug' => 'ecommerce',      'prefix' => 'ECO',  'name' => 'Ecommerce',  'icon' => 'ti-shopping-cart',    'route' => null,                   'group' => 'apps', 'sort_order' => 1],
+        ['slug' => 'ecom-orders',    'prefix' => 'ECOO', 'name' => 'Orders',     'icon' => 'ti-receipt',          'route' => '/ecommerce/orders',    'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'ecommerce'],
+        ['slug' => 'ecom-refunds',   'prefix' => 'ECOR', 'name' => 'Refunds',    'icon' => 'ti-receipt-refund',   'route' => '/ecommerce/refunds',   'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'ecommerce'],
+        ['slug' => 'ecom-customers', 'prefix' => 'ECOC', 'name' => 'Customers',  'icon' => 'ti-users',            'route' => '/ecommerce/customers', 'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'ecommerce'],
+        ['slug' => 'ecom-portal',    'prefix' => 'ECOP', 'name' => 'Portal Shop','icon' => 'ti-building-store',   'route' => '/shop',                'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'ecommerce'],
 
         // Apps: CRM
         // Sales Pipeline is a single Kanban page with all stages as columns —
         // no per-stage sub-nav. Stage filtering happens on the page itself.
-        ['slug' => 'crm',           'prefix' => 'CRM',  'name' => 'CRM',                  'icon' => 'ti-users',          'route' => null,                 'group' => 'apps', 'sort_order' => 2],
+        ['slug' => 'crm',           'prefix' => 'CRM',  'name' => 'CRM',                  'icon' => 'ti-users',          'route' => null,                 'group' => 'apps', 'sort_order' => 3],
         ['slug' => 'crm-leads',     'prefix' => 'CRML', 'name' => 'Leads',                'icon' => 'ti-address-book',   'route' => '/crm/leads',         'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'crm'],
         ['slug' => 'crm-pipeline',  'prefix' => 'CRMP', 'name' => 'Sales Pipeline',       'icon' => 'ti-layout-kanban',  'route' => '/crm/opportunities', 'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'crm'],
         ['slug' => 'crm-schedules', 'prefix' => 'CRMS', 'name' => 'Schedules',            'icon' => 'ti-calendar-event', 'route' => '/crm/schedules',     'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'crm'],
@@ -63,14 +65,14 @@ class ModuleSeeder extends Seeder
         ['slug' => 'crm-contacts',  'prefix' => 'CRMC', 'name' => 'B2B Contacts',         'icon' => 'ti-users-group',    'route' => '/crm/contacts',      'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'crm'],
 
         // Apps: Sales
-        ['slug' => 'sales',               'prefix' => 'SLS',  'name' => 'Sales',         'icon' => 'ti-address-book', 'route' => null,                'group' => 'apps', 'sort_order' => 3],
+        ['slug' => 'sales',               'prefix' => 'SLS',  'name' => 'Sales',         'icon' => 'ti-address-book', 'route' => null,                'group' => 'apps', 'sort_order' => 4],
         ['slug' => 'sales-customers',     'prefix' => 'SLSC', 'name' => 'Customers',     'icon' => 'ti-users',        'route' => '/sales/customers',  'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'sales'],
         ['slug' => 'sales-quotations',    'prefix' => 'SLSQ', 'name' => 'Quotations',    'icon' => 'ti-file-text',    'route' => '/sales/quotations', 'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'sales'],
         ['slug' => 'sales-orders',        'prefix' => 'SLSO', 'name' => 'Sales Orders',  'icon' => 'ti-shopping-cart','route' => '/sales/orders',     'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'sales'],
 
         // Apps: Finance
         // Invoices/Subscriptions are mirrored from Sales — backend routes unchanged.
-        ['slug' => 'fms',               'prefix' => 'FMS',  'name' => 'Finance',       'icon' => 'ti-coin',         'route' => null,                'group' => 'apps', 'sort_order' => 4],
+        ['slug' => 'fms',               'prefix' => 'FMS',  'name' => 'Finance',       'icon' => 'ti-coin',         'route' => null,                'group' => 'apps', 'sort_order' => 5],
         ['slug' => 'fms-invoices',      'prefix' => 'FMSI', 'name' => 'Invoices',      'icon' => 'ti-receipt',      'route' => '/sales/invoices',     'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'fms'],
         ['slug' => 'fms-subscriptions', 'prefix' => 'FMSS', 'name' => 'Subscriptions', 'icon' => 'ti-cloud',        'route' => '/sales/subscriptions','group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'fms'],
         ['slug' => 'fms-payments',      'prefix' => 'FMSP', 'name' => 'Payments',      'icon' => 'ti-cash',            'route' => '/finance/payments',         'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'fms'],
@@ -78,7 +80,7 @@ class ModuleSeeder extends Seeder
         ['slug' => 'fms-exchange-rates','prefix' => 'FMSX', 'name' => 'Exchange Rates','icon' => 'ti-currency-dollar', 'route' => '/finance/exchange-rates',   'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'fms'],
 
         // Apps: Accounting (general ledger surface — split from Finance for ICP/audit clarity)
-        ['slug' => 'accounting',          'prefix' => 'ACC',  'name' => 'Accounting',        'icon' => 'ti-book-2',       'route' => null,                  'group' => 'apps', 'sort_order' => 4, 'parent_slug' => null],
+        ['slug' => 'accounting',          'prefix' => 'ACC',  'name' => 'Accounting',        'icon' => 'ti-book-2',       'route' => null,                  'group' => 'apps', 'sort_order' => 5, 'parent_slug' => null],
         ['slug' => 'accounting-accounts', 'prefix' => 'ACCA', 'name' => 'Chart of Accounts', 'icon' => 'ti-tree',         'route' => '/accounting/accounts', 'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'accounting'],
         ['slug' => 'accounting-journals', 'prefix' => 'ACCJ', 'name' => 'Journals',          'icon' => 'ti-book',         'route' => '/accounting/journals', 'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'accounting'],
         ['slug' => 'accounting-bank',                'prefix' => 'ACCB',  'name' => 'Bank',         'icon' => 'ti-building-bank',  'route' => '/accounting/bank',                  'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'accounting'],
@@ -111,7 +113,7 @@ class ModuleSeeder extends Seeder
 
         // Apps: Inventory & SCM
         // `ecom-products` slug retained (re-parented to `inventory`) — `product_modules` FKs reference it.
-        ['slug' => 'inventory',            'prefix' => 'INV',  'name' => 'Inventory',       'icon' => 'ti-building-warehouse', 'route' => null,                           'group' => 'apps', 'sort_order' => 5],
+        ['slug' => 'inventory',            'prefix' => 'INV',  'name' => 'Inventory',       'icon' => 'ti-building-warehouse', 'route' => null,                           'group' => 'apps', 'sort_order' => 6],
         ['slug' => 'ecom-products',        'prefix' => 'ECOP', 'name' => 'Products',        'icon' => 'ti-package',            'route' => '/inventory/products',          'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'inventory'],
         ['slug' => 'inv-categories',       'prefix' => 'INVC', 'name' => 'Categories',      'icon' => 'ti-category',           'route' => '/inventory/categories',        'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'inventory'],
         ['slug' => 'inv-warehouses',       'prefix' => 'INVW', 'name' => 'Warehouses',      'icon' => 'ti-building-warehouse', 'route' => '/inventory/warehouses',        'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'inventory'],
@@ -121,10 +123,10 @@ class ModuleSeeder extends Seeder
         // Apps: HRM
         // Slugs are kept stable across label revisions so module pivots / product_modules FKs
         // and any code referencing slug strings keep working — only display fields change.
-        ['slug' => 'hrm',              'prefix' => 'HRM',    'name' => 'Human Resources', 'icon' => 'ti-users',          'route' => null,           'group' => 'apps', 'sort_order' => 6],
+        ['slug' => 'hrm',              'prefix' => 'HRM',    'name' => 'Human Resources', 'icon' => 'ti-users',          'route' => null,           'group' => 'apps', 'sort_order' => 7],
 
         // Apps: Calendar (cross-cutting time view, personal + admin)
-        ['slug' => 'calendar',          'prefix' => 'CAL',   'name' => 'Calendar',          'icon' => 'ti-calendar',        'route' => null,                     'group' => 'apps', 'sort_order' => 7],
+        ['slug' => 'calendar',          'prefix' => 'CAL',   'name' => 'Calendar',          'icon' => 'ti-calendar',        'route' => null,                     'group' => 'apps', 'sort_order' => 8],
         ['slug' => 'calendar-personal', 'prefix' => 'CALP',  'name' => 'My Calendar',       'icon' => 'ti-calendar-user',   'route' => '/calendar',              'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'calendar', 'is_core' => true],
         ['slug' => 'calendar-team',     'prefix' => 'CALT',  'name' => 'Team Calendar',     'icon' => 'ti-calendar-month',  'route' => '/hrm/timeoff/calendar',  'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'calendar'],
         ['slug' => 'calendar-holidays', 'prefix' => 'CALH',  'name' => 'Holidays',          'icon' => 'ti-confetti',        'route' => '/hrm/timeoff/holidays',  'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'calendar'],
@@ -162,7 +164,7 @@ class ModuleSeeder extends Seeder
         // clicks open the disclosure rather than navigating. The two non-active
         // leaves keep route='#' until their pages land — the sidebar renders
         // them as disabled "coming soon" buttons via the operational flag.
-        ['slug' => 'fleets',            'prefix' => 'FLT',  'name' => 'Fleets',      'icon' => 'ti-truck',        'route' => null,              'group' => 'apps', 'sort_order' => 7],
+        ['slug' => 'fleets',            'prefix' => 'FLT',  'name' => 'Fleets',      'icon' => 'ti-truck',        'route' => null,              'group' => 'apps', 'sort_order' => 8],
         ['slug' => 'fleet-vehicles',    'prefix' => 'FLTV', 'name' => 'Vehicles',    'icon' => 'ti-car',          'route' => '/fleet/vehicles', 'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'fleets'],
         ['slug' => 'fleet-maintenance', 'prefix' => 'FLTM', 'name' => 'Maintenance', 'icon' => 'ti-tool',         'route' => '/fleet/maintenance', 'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'fleets'],
         ['slug' => 'fleet-fuel',        'prefix' => 'FLTF', 'name' => 'Fuel Logs',   'icon' => 'ti-gas-station',  'route' => '/fleet/fuel',     'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'fleets'],
@@ -171,19 +173,26 @@ class ModuleSeeder extends Seeder
         // Sort-order intentionally collides with `fleets` (7) — the visual nav
         // order is driven by the literal navGroups array in layouts/default.vue;
         // the Modules admin page falls back to alphabetical within a tier.
-        ['slug' => 'assets',            'prefix' => 'AST',  'name' => 'Fixed Assets',  'icon' => 'ti-cube',           'route' => null,                  'group' => 'apps', 'sort_order' => 7],
+        ['slug' => 'assets',            'prefix' => 'AST',  'name' => 'Fixed Assets',  'icon' => 'ti-cube',           'route' => null,                  'group' => 'apps', 'sort_order' => 8],
         ['slug' => 'assets-registry',   'prefix' => 'ASTR', 'name' => 'Asset Registry','icon' => 'ti-list-check',     'route' => '/assets',             'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'assets'],
         ['slug' => 'assets-depreciation','prefix'=> 'ASTD', 'name' => 'Depreciation',  'icon' => 'ti-receipt',        'route' => '/assets/depreciation','group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'assets'],
         ['slug' => 'assets-revaluation','prefix' => 'ASTV', 'name' => 'Revaluation',   'icon' => 'ti-stars',          'route' => '/assets/revaluation', 'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'assets'],
         ['slug' => 'assets-disposal',   'prefix' => 'ASTX', 'name' => 'Disposal',      'icon' => 'ti-archive',        'route' => '/assets/disposal',    'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'assets'],
         ['slug' => 'assets-audits',     'prefix' => 'ASTA', 'name' => 'Audit Campaigns','icon'=> 'ti-calendar-stats', 'route' => '/assets/audits',      'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'assets'],
-        ['slug' => 'projects',            'prefix' => 'PROJ',  'name' => 'Project Management', 'icon' => 'ti-presentation', 'route' => null,                  'group' => 'apps', 'sort_order' => 8],
+        ['slug' => 'projects',            'prefix' => 'PROJ',  'name' => 'Project Management', 'icon' => 'ti-presentation', 'route' => null,                  'group' => 'apps', 'sort_order' => 9],
         ['slug' => 'projects-overview',   'prefix' => 'PROJP', 'name' => 'Projects',           'icon' => 'ti-folder-open',  'route' => '/projects',           'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'projects'],
         ['slug' => 'projects-tasks',      'prefix' => 'PROJT', 'name' => 'Tasks',              'icon' => 'ti-checkbox',     'route' => '/projects/tasks',     'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'projects'],
         ['slug' => 'projects-timesheets', 'prefix' => 'PROJH', 'name' => 'Timesheets',         'icon' => 'ti-clock-hour-3', 'route' => '/projects/timesheets','group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'projects'],
-        ['slug' => 'eapprovals', 'prefix' => 'EAPP', 'name' => 'eApprovals',         'icon' => 'ti-circle-check', 'route' => '#', 'group' => 'apps', 'sort_order' => 9],
-        ['slug' => 'edocuments', 'prefix' => 'EDOC', 'name' => 'eDocuments',         'icon' => 'ti-file-text',    'route' => '#', 'group' => 'apps', 'sort_order' => 10],
-        ['slug' => 'reporting',  'prefix' => 'RPT',  'name' => 'Reports & Analytics','icon' => 'ti-chart-bar',    'route' => '#', 'group' => 'apps', 'sort_order' => 11],
+        ['slug' => 'eapprovals', 'prefix' => 'EAPP', 'name' => 'eApprovals',         'icon' => 'ti-circle-check', 'route' => '#', 'group' => 'apps', 'sort_order' => 10],
+        ['slug' => 'edocuments', 'prefix' => 'EDOC', 'name' => 'eDocuments',         'icon' => 'ti-file-text',    'route' => '#', 'group' => 'apps', 'sort_order' => 11],
+        ['slug' => 'reporting',  'prefix' => 'RPT',  'name' => 'Reports & Analytics','icon' => 'ti-chart-bar',    'route' => '#', 'group' => 'apps', 'sort_order' => 12],
+
+        // Apps: POS (Point of Sale)
+        ['slug' => 'pos',            'prefix' => 'POS',  'name' => 'POS',        'icon' => 'ti-cash-register',  'route' => null,             'group' => 'apps', 'sort_order' => 2],
+        ['slug' => 'pos-register',   'prefix' => 'POSR', 'name' => 'Register',   'icon' => 'ti-device-tablet',  'route' => '/pos/register',  'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'pos'],
+        ['slug' => 'pos-shifts',     'prefix' => 'POSS', 'name' => 'Shifts',     'icon' => 'ti-clock',          'route' => '/pos/shifts',    'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'pos'],
+        ['slug' => 'pos-orders',     'prefix' => 'POSO', 'name' => 'Sales',      'icon' => 'ti-receipt',        'route' => '/pos/orders',    'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'pos'],
+        ['slug' => 'pos-terminals',  'prefix' => 'POST', 'name' => 'Terminals',  'icon' => 'ti-device-desktop', 'route' => '/pos/terminals', 'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'pos'],
 
         // Core: Configurations
         ['slug' => 'settings-apps',   'prefix' => 'SETA', 'name' => 'Apps Management', 'icon' => 'ti-box',        'route' => null,        'group' => 'apps', 'sort_order' => 12, 'is_core' => true],

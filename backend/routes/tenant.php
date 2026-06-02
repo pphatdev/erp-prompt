@@ -12,6 +12,15 @@ use App\Tenants\Modules\Assets\Controllers\DisposalController;
 use App\Tenants\Modules\Assets\Controllers\RevaluationController;
 use App\Tenants\Modules\Documents\Controllers\CmsDocumentController;
 use App\Tenants\Modules\Documents\Controllers\CmsFolderController;
+use App\Tenants\Modules\Ecommerce\Controllers\CartController as ShopCartController;
+use App\Tenants\Modules\Ecommerce\Controllers\CheckoutController as ShopCheckoutController;
+use App\Tenants\Modules\Ecommerce\Controllers\EcommerceCustomerController;
+use App\Tenants\Modules\Ecommerce\Controllers\EcommerceOrderController;
+use App\Tenants\Modules\Ecommerce\Controllers\EcommerceRefundController;
+use App\Tenants\Modules\Ecommerce\Controllers\ShopperAddressController;
+use App\Tenants\Modules\Ecommerce\Controllers\ShopperAuthController;
+use App\Tenants\Modules\Ecommerce\Controllers\ShopperOrderController;
+use App\Tenants\Modules\Ecommerce\Controllers\WebhookController as EcomWebhookController;
 use App\Tenants\Modules\EDocuments\Controllers\DocumentController;
 use App\Tenants\Modules\EDocuments\Controllers\FolderController;
 use App\Tenants\Modules\EDocuments\Controllers\ShareController as EDocsShareController;
@@ -59,6 +68,10 @@ use App\Tenants\Modules\IAM\Controllers\UserController;
 use App\Tenants\Modules\IAM\Controllers\WorkflowStatusController;
 use App\Tenants\Modules\Inventory\Controllers\ProductController;
 use App\Tenants\Modules\Inventory\Controllers\StockMovementController;
+use App\Tenants\Modules\Calendar\Controllers\CalendarEventController;
+use App\Tenants\Modules\POS\Controllers\PosOrderController;
+use App\Tenants\Modules\POS\Controllers\PosShiftController;
+use App\Tenants\Modules\POS\Controllers\PosTerminalController;
 use App\Tenants\Modules\Projects\Controllers\ProjectController;
 use App\Tenants\Modules\Projects\Controllers\TaskController;
 use App\Tenants\Modules\Projects\Controllers\TimesheetController;
@@ -126,6 +139,29 @@ Route::middleware([
     // ShareLinkService throws 410/403/429 directly; no Passport required.
     Route::get('/public/shares/{token}', [EDocsShareController::class, 'publicShow']);
     Route::get('/public/shares/{token}/download', [EDocsShareController::class, 'publicDownload']);
+
+    // Ecommerce — public storefront (cart + register + login + checkout).
+    // Tenant resolved via X-Tenant-Handle header. Guest carts use the
+    // X-Cart-Session header / `session_token` body field.
+    Route::post('/shop/auth/register', [ShopperAuthController::class, 'register']);
+    Route::post('/shop/auth/login', [ShopperAuthController::class, 'login']);
+
+    // Cart routes work for both authenticated shoppers and guests (resolution
+    // happens inside the controller). Guests must send X-Cart-Session.
+    Route::get('/shop/cart', [ShopCartController::class, 'show']);
+    Route::post('/shop/cart/items', [ShopCartController::class, 'addItem']);
+    Route::put('/shop/cart/items/{item}', [ShopCartController::class, 'updateItem']);
+    Route::delete('/shop/cart/items/{item}', [ShopCartController::class, 'removeItem']);
+
+    // Checkout — initiate works for guests + shoppers; confirmDirect and cancel
+    // need the actor to own the order (controller asserts).
+    Route::post('/shop/checkout/initiate', [ShopCheckoutController::class, 'initiate']);
+    Route::post('/shop/orders/{order}/confirm-direct', [ShopCheckoutController::class, 'confirmDirect']);
+    Route::post('/shop/orders/{order}/cancel', [ShopCheckoutController::class, 'cancel']);
+
+    // Payment gateway webhooks. No auth — provider signs the body and we
+    // verify in the controller. Tenant must still be resolved via header.
+    Route::post('/ecom/webhooks/{provider}', [EcomWebhookController::class, 'handle']);
 
     Route::middleware('auth:api')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
@@ -570,6 +606,71 @@ Route::middleware([
         Route::apiResource('dashboards', DashboardController::class);
         Route::get('/dashboards/{dashboard}/export', [DashboardController::class, 'export']);
         Route::apiResource('widgets', WidgetController::class);
+
+        // Ecommerce — admin surface (orders, refunds, customers).
+        // Permission-gated via EcomOrderPolicy / EcomRefundPolicy / EcomCustomerPolicy
+        // inside each controller; routes themselves require any admin login.
+        Route::get('/ecommerce/orders', [EcommerceOrderController::class, 'index']);
+        Route::get('/ecommerce/orders/{order}', [EcommerceOrderController::class, 'show']);
+        Route::post('/ecommerce/orders/{order}/fulfilling', [EcommerceOrderController::class, 'markFulfilling']);
+        Route::post('/ecommerce/orders/{order}/ship', [EcommerceOrderController::class, 'ship']);
+        Route::post('/ecommerce/orders/{order}/delivered', [EcommerceOrderController::class, 'markDelivered']);
+        Route::post('/ecommerce/orders/{order}/cancel', [EcommerceOrderController::class, 'cancel']);
+
+        Route::get('/ecommerce/refunds', [EcommerceRefundController::class, 'index']);
+        Route::get('/ecommerce/refunds/{refund}', [EcommerceRefundController::class, 'show']);
+        Route::post('/ecommerce/refunds', [EcommerceRefundController::class, 'store']);
+        Route::post('/ecommerce/refunds/{refund}/approve', [EcommerceRefundController::class, 'approve']);
+        Route::post('/ecommerce/refunds/{refund}/reject', [EcommerceRefundController::class, 'reject']);
+
+        Route::get('/ecommerce/customers', [EcommerceCustomerController::class, 'index']);
+        Route::get('/ecommerce/customers/{customer}', [EcommerceCustomerController::class, 'show']);
+
+        // POS — admin + cashier surface. Per-row policy gates inside controllers
+        // (PosTerminalPolicy / PosShiftPolicy / PosOrderPolicy). Cashiers reach
+        // the operational endpoints with the `cashier` role; admin/manager
+        // unlocks reconciliation + void + terminal CRUD.
+        Route::get('/pos/terminals', [PosTerminalController::class, 'index']);
+        Route::post('/pos/terminals', [PosTerminalController::class, 'store']);
+        Route::get('/pos/terminals/{terminal}', [PosTerminalController::class, 'show']);
+        Route::put('/pos/terminals/{terminal}', [PosTerminalController::class, 'update']);
+        Route::delete('/pos/terminals/{terminal}', [PosTerminalController::class, 'destroy']);
+
+        Route::get('/pos/shifts', [PosShiftController::class, 'index']);
+        Route::get('/pos/shifts/me', [PosShiftController::class, 'me']);
+        Route::post('/pos/shifts/open', [PosShiftController::class, 'open']);
+        Route::get('/pos/shifts/{shift}', [PosShiftController::class, 'show']);
+        Route::post('/pos/shifts/{shift}/close', [PosShiftController::class, 'close']);
+        Route::post('/pos/shifts/{shift}/reconcile', [PosShiftController::class, 'reconcile']);
+
+        Route::get('/pos/orders', [PosOrderController::class, 'index']);
+        Route::post('/pos/orders', [PosOrderController::class, 'store']);
+        Route::get('/pos/orders/{order}', [PosOrderController::class, 'show']);
+        Route::post('/pos/orders/{order}/void', [PosOrderController::class, 'void']);
+
+        // Calendar - unified events feed + custom event CRUD. Holiday CRUD
+        // stays on the existing HRM endpoints (`/holidays`); this is purely
+        // the per-employee calendar view.
+        Route::get('/calendar/events', [CalendarEventController::class, 'index']);
+        Route::post('/calendar/events', [CalendarEventController::class, 'store']);
+        Route::get('/calendar/events/{event}', [CalendarEventController::class, 'show']);
+        Route::put('/calendar/events/{event}', [CalendarEventController::class, 'update']);
+        Route::delete('/calendar/events/{event}', [CalendarEventController::class, 'destroy']);
     });
 
+    // Ecommerce — shopper-authenticated surface (requires the `shop` Passport
+    // guard, which is backed by the EcomCustomer model). Separate group from
+    // `auth:api` so a leaked shopper token can't act on admin endpoints.
+    Route::middleware('auth:shop')->group(function () {
+        Route::get('/shop/auth/me', [ShopperAuthController::class, 'me']);
+        Route::post('/shop/auth/logout', [ShopperAuthController::class, 'logout']);
+
+        Route::get('/shop/addresses', [ShopperAddressController::class, 'index']);
+        Route::post('/shop/addresses', [ShopperAddressController::class, 'store']);
+        Route::put('/shop/addresses/{address}', [ShopperAddressController::class, 'update']);
+        Route::delete('/shop/addresses/{address}', [ShopperAddressController::class, 'destroy']);
+
+        Route::get('/shop/orders', [ShopperOrderController::class, 'index']);
+        Route::get('/shop/orders/{order}', [ShopperOrderController::class, 'show']);
+    });
 });

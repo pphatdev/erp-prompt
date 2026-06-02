@@ -25,13 +25,43 @@ class Holiday extends Model
 
     protected $fillable = [
         'name', 'date', 'type', 'is_recurring', 'notes',
+        'overtime_multiplier', 'branch_id',
         'tenant_id',
     ];
 
     protected $casts = [
-        'date'         => 'date',
-        'is_recurring' => 'boolean',
+        'date'                => 'date',
+        'is_recurring'        => 'boolean',
+        'overtime_multiplier' => 'decimal:2',
     ];
+
+    /**
+     * True when the holiday falls on a Saturday or Sunday for the given
+     * calendar year. Used by HolidayService::getCompensatoryDay to decide
+     * whether to mint a Monday compensatory entry.
+     *
+     * For recurring holidays, the comparison uses MM-DD applied to $year.
+     * For one-off holidays, the stored `date` is the ground truth.
+     */
+    public function isOnWeekend(?int $year = null): bool
+    {
+        $date = $this->resolveDateForYear($year ?? (int) date('Y'));
+        $dow = (int) $date->format('N'); // 6=Saturday, 7=Sunday
+        return $dow === 6 || $dow === 7;
+    }
+
+    /**
+     * Returns the effective Carbon date for this holiday in the given year.
+     * Recurring holidays anchor MM-DD on `$year`; one-off holidays keep
+     * their stored date regardless of `$year`.
+     */
+    public function resolveDateForYear(int $year): \Carbon\CarbonImmutable
+    {
+        $base = \Carbon\CarbonImmutable::parse($this->date);
+        return $this->is_recurring
+            ? $base->setYear($year)
+            : $base;
+    }
 
     protected static function boot(): void
     {
