@@ -99,6 +99,17 @@
 - [x] Public careers portal (no-auth)
 - [x] Fixed Asset Custody integration — setup model relations and resource JSON structures (eager-loaded endpoints & tab details planned)
 
+## Calendar & Holiday Management
+> Full task: [`.task/calendar/task.md`](./.task/calendar/task.md) | Rule: [`skills/calendar/rules.md`](../skills/calendar/rules.md)
+- [ ] Schema: Multi-tenant database migrations for holidays and calendar events tables
+- [ ] Holiday Registry: configurator managing public dates, regional associations, and 3.0x overtime multipliers
+- [ ] Compensatory Days: automated Saturday/Sunday holiday compensations shifting paid days off to Mondays
+- [ ] Unified Events compilation: query aggregator consolidating holidays, leaves, shifts, and CRM schedules
+- [ ] Privacy Masking: conditional resource serialization hiding sick leave details from unauthorized employees
+- [ ] Attendance integration: Daily reconciler holiday status overrides and monthly workday counts adjustments
+- [ ] Responsive Dashboard UI: PrimeVue monthly, weekly, daily calendars with togglable checkbox layers
+
+
 
 ## Inventory
 - [x] Products CRUD (with variants, module linking for software type)

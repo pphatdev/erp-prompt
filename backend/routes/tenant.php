@@ -43,6 +43,7 @@ use App\Tenants\Modules\HRM\Controllers\DepartmentController;
 use App\Tenants\Modules\HRM\Controllers\InterviewController;
 use App\Tenants\Modules\HRM\Controllers\EmployeeController;
 use App\Tenants\Modules\HRM\Controllers\JobVacancyController;
+use App\Tenants\Modules\HRM\Controllers\HolidayController;
 use App\Tenants\Modules\HRM\Controllers\LeaveController;
 use App\Tenants\Modules\HRM\Controllers\LeaveTypeController;
 use App\Tenants\Modules\HRM\Controllers\PayrollPeriodController;
@@ -363,6 +364,11 @@ Route::middleware([
         Route::delete('/hrm/timeoff/leaves/{leave}', [LeaveController::class, 'destroy']);
         Route::post('/hrm/timeoff/leaves/{leave}/approve', [LeaveController::class, 'approve']);
         Route::post('/hrm/timeoff/leaves/{leave}/reject', [LeaveController::class, 'reject']);
+
+        // HRM Module - Holidays + Calendar feed (combined holidays + leaves).
+        Route::get('/hrm/calendar', [HolidayController::class, 'calendar']);
+        Route::get('/me/calendar',  [HolidayController::class, 'myCalendar']);
+        Route::apiResource('holidays', HolidayController::class);
 
         // HRM Module — Time Off & Attendance, Slice 1: Shifts + EmployeeShifts
         Route::apiResource('shifts', ShiftController::class);

@@ -42,10 +42,10 @@ class ModuleSeeder extends Seeder
         ['slug' => 'dashboard',    'prefix' => 'DASH',   'name' => 'Dashboard',          'icon' => 'ti-layout-dashboard', 'route' => '/dashboard', 'group' => 'main', 'sort_order' => 1, 'is_core' => true],
 
         // Self-service
-        ['slug' => 'my-profile',    'prefix' => 'MYPR', 'name' => 'My Profile',    'icon' => 'ti-user-circle',    'route' => '#',           'group' => 'self-service', 'sort_order' => 1, 'is_core' => true],
+        ['slug' => 'my-profile',    'prefix' => 'MYPR', 'name' => 'My Profile',    'icon' => 'ti-user-circle',    'route' => '#',                       'group' => 'self-service', 'sort_order' => 1, 'is_core' => true],
         ['slug' => 'my-leaves',     'prefix' => 'MYLS', 'name' => 'My Leaves',     'icon' => 'ti-calendar-event', 'route' => '/hrm/timeoff/leaves',     'group' => 'self-service', 'sort_order' => 2],
-        ['slug' => 'my-payslips',   'prefix' => 'MYPS', 'name' => 'My Payslips',   'icon' => 'ti-cash',           'route' => '#',           'group' => 'self-service', 'sort_order' => 3],
-        ['slug' => 'my-appraisals', 'prefix' => 'MYAP', 'name' => 'My Appraisals', 'icon' => 'ti-clipboard-list', 'route' => '/hrm/appraisals', 'group' => 'self-service', 'sort_order' => 4],
+        ['slug' => 'my-payslips',   'prefix' => 'MYPS', 'name' => 'My Payslips',   'icon' => 'ti-cash',           'route' => '#',                       'group' => 'self-service', 'sort_order' => 3],
+        ['slug' => 'my-appraisals', 'prefix' => 'MYAP', 'name' => 'My Appraisals', 'icon' => 'ti-clipboard-list', 'route' => '/hrm/appraisals',         'group' => 'self-service', 'sort_order' => 4],
 
         // Apps: Ecommerce
         ['slug' => 'ecommerce',      'prefix' => 'ECO',  'name' => 'Ecommerce',  'icon' => 'ti-shopping-cart',  'route' => null, 'group' => 'apps', 'sort_order' => 1],
@@ -123,6 +123,12 @@ class ModuleSeeder extends Seeder
         // and any code referencing slug strings keep working — only display fields change.
         ['slug' => 'hrm',              'prefix' => 'HRM',    'name' => 'Human Resources', 'icon' => 'ti-users',          'route' => null,           'group' => 'apps', 'sort_order' => 6],
 
+        // Apps: Calendar (cross-cutting time view, personal + admin)
+        ['slug' => 'calendar',          'prefix' => 'CAL',   'name' => 'Calendar',          'icon' => 'ti-calendar',        'route' => null,                     'group' => 'apps', 'sort_order' => 7],
+        ['slug' => 'calendar-personal', 'prefix' => 'CALP',  'name' => 'My Calendar',       'icon' => 'ti-calendar-user',   'route' => '/calendar',              'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'calendar', 'is_core' => true],
+        ['slug' => 'calendar-team',     'prefix' => 'CALT',  'name' => 'Team Calendar',     'icon' => 'ti-calendar-month',  'route' => '/hrm/timeoff/calendar',  'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'calendar'],
+        ['slug' => 'calendar-holidays', 'prefix' => 'CALH',  'name' => 'Holidays',          'icon' => 'ti-confetti',        'route' => '/hrm/timeoff/holidays',  'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'calendar'],
+
         // HRM > Talent Acquisition (slug kept as hrm-recruitments)
         ['slug' => 'hrm-recruitments',              'prefix' => 'HRMR',   'name' => 'Talent Acquisition', 'icon' => 'ti-user-plus',     'route' => null,                              'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'hrm'],
         ['slug' => 'hrm-recruitments-vacancies',    'prefix' => 'HRMRV',  'name' => 'Vacancies',          'icon' => 'ti-briefcase-2',   'route' => '/hrm/recruitments/vacancies',     'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'hrm-recruitments'],
@@ -141,6 +147,8 @@ class ModuleSeeder extends Seeder
         ['slug' => 'hrm-timeoff-shifts',     'prefix' => 'HRMTS', 'name' => 'Shift Scheduling',   'icon' => 'ti-clock-hour-8',   'route' => '/hrm/timeoff/shifts',      'group' => 'apps', 'sort_order' => 2, 'parent_slug' => 'hrm-timeoff'],
         ['slug' => 'hrm-timeoff-overtime',   'prefix' => 'HRMTO', 'name' => 'Overtime Management','icon' => 'ti-clock-up',       'route' => '/hrm/timeoff/overtime',    'group' => 'apps', 'sort_order' => 3, 'parent_slug' => 'hrm-timeoff'],
         ['slug' => 'hrm-timeoff-leaves',     'prefix' => 'HRMTL', 'name' => 'Leave Requests',     'icon' => 'ti-calendar-event', 'route' => '/hrm/timeoff/leaves',      'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'hrm-timeoff'],
+        ['slug' => 'hrm-timeoff-holidays',   'prefix' => 'HRMTH', 'name' => 'Holidays',           'icon' => 'ti-confetti',       'route' => '/hrm/timeoff/holidays',    'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'hrm-timeoff'],
+        ['slug' => 'hrm-timeoff-calendar',   'prefix' => 'HRMTC', 'name' => 'Calendar',           'icon' => 'ti-calendar',       'route' => '/hrm/timeoff/calendar',    'group' => 'apps', 'sort_order' => 6, 'parent_slug' => 'hrm-timeoff'],
 
         // HRM > Performance Management (slug kept as hrm-appraisals)
         ['slug' => 'hrm-appraisals',             'prefix' => 'HRMPR',  'name' => 'Performance Management', 'icon' => 'ti-stars',            'route' => null,              'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'hrm'],

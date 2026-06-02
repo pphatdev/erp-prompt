@@ -131,3 +131,13 @@
 - Offline IndexedDB Catalog Lookup & Resilient Sync Daemon Queue
 - Real-time stock out cuts & WAC inventory ledger valuations
 - Automated balanced general ledger postings (FMS Accounting integration)
+
+## 15. Unified Calendar & Holiday Management — ❌
+- **[Detailed Specification: Calendar](./calendar/overview.md)** · **[Operational skill](./calendar/skill.md)**
+- Public Holiday Configurator and Regional Policy Mappings
+- Compensatory Paid Days Off Resolution for Weekend Holiday Overlaps
+- Eager-Loaded Unified Event compilation (Holidays, Leaves, Shifts, CRM Meetings)
+- Dynamic Employee Leave and Day Off Privacy Masking Guards
+- Automated Attendance Log Holiday Overrides and Payroll Date Exclusions
+- Interactive PrimeVue Dashboard Views with Toggleable Layer Checkboxes
+

@@ -57,6 +57,11 @@ class TenantDatabaseSeeder extends Seeder
             ['name' => 'Write Leaves',     'slug' => 'hrm.leave.write',     'module' => 'hrm', 'feature' => 'leave',      'action' => 'write'],
             ['name' => 'Delete Leaves',    'slug' => 'hrm.leave.delete',    'module' => 'hrm', 'feature' => 'leave',      'action' => 'delete'],
 
+            // HRM - Holidays and Calendar feed.
+            ['name' => 'Read Holidays',    'slug' => 'hrm.holiday.read',    'module' => 'hrm', 'feature' => 'holiday',    'action' => 'read'],
+            ['name' => 'Write Holidays',   'slug' => 'hrm.holiday.write',   'module' => 'hrm', 'feature' => 'holiday',    'action' => 'write'],
+            ['name' => 'Delete Holidays',  'slug' => 'hrm.holiday.delete',  'module' => 'hrm', 'feature' => 'holiday',    'action' => 'delete'],
+
             // HRM — Performance / Appraisals (admin scope)
             ['name' => 'Read Appraisals',  'slug' => 'hrm.performance.read',  'module' => 'hrm', 'feature' => 'performance', 'action' => 'read'],
             ['name' => 'Write Appraisals', 'slug' => 'hrm.performance.write', 'module' => 'hrm', 'feature' => 'performance', 'action' => 'write'],

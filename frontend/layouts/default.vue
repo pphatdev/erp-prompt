@@ -592,7 +592,8 @@ const navGroups = reactive<NavGroup[]>([
         id: 'main',
         label: 'Main',
         items: [
-            { label: 'Dashboard', icon: 'ti-layout-dashboard', route: '/dashboard', operational: true, permission: 'reporting.dashboard.read' }
+            { label: 'Dashboard', icon: 'ti-layout-dashboard', route: '/dashboard', operational: true, permission: 'reporting.dashboard.read' },
+            { label: 'My Calendar', icon: 'ti-calendar', route: '/calendar', operational: true, moduleSlug: 'calendar-personal' }
         ]
     },
     {
@@ -732,7 +733,9 @@ const navGroups = reactive<NavGroup[]>([
                             { label: 'Attendance Tracking', icon: 'ti-fingerprint', route: '/hrm/timeoff/attendance', operational: true, permission: ['hrm.attendance.read', 'hrm.attendance.read.self', 'hrm.attendance.clock.self'] },
                             { label: 'Shift Scheduling', icon: 'ti-clock-hour-8', route: '/hrm/timeoff/shifts', operational: true, permission: ['hrm.shift.read', 'hrm.attendance.read', 'hrm.attendance.clock.self'] },
                             { label: 'Overtime Management', icon: 'ti-clock-up', route: '/hrm/timeoff/overtime', operational: true, permission: ['hrm.overtime.read', 'hrm.overtime.read.self', 'hrm.overtime.write.self'] },
-                            { label: 'Leave Requests', icon: 'ti-calendar-event', route: '/hrm/timeoff/leaves', operational: true, permission: 'hrm.leave.read' }
+                            { label: 'Leave Requests', icon: 'ti-calendar-event', route: '/hrm/timeoff/leaves', operational: true, permission: 'hrm.leave.read' },
+                            { label: 'Holidays', icon: 'ti-confetti', route: '/hrm/timeoff/holidays', operational: true, permission: ['hrm.holiday.read', 'hrm.holiday.write'] },
+                            { label: 'Calendar', icon: 'ti-calendar', route: '/hrm/timeoff/calendar', operational: true, permission: ['hrm.holiday.read', 'hrm.leave.read'] }
                         ]
                     },
                     {
@@ -1069,6 +1072,8 @@ const SLUG_LABELS: Record<string, string> = {
     positions: 'Positions',
     leaves: 'Leave Requests',
     'leave-types': 'Leave Types',
+    holidays: 'Holidays',
+    calendar: 'Calendar',
     payroll: 'Payroll',
     vacancies: 'Vacancies',
     applications: 'Applications',

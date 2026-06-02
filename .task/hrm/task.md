@@ -24,6 +24,16 @@ Stand up the backend API for the HRM module: workforce records, leave workflow, 
 - [x] `hrm.leave.*` policies — `LeavePolicy` + `LeaveTypePolicy` registered with `Gate` in `TenantServiceProvider`; controllers use `$this->authorize(...)` (base `Controller` now uses `AuthorizesRequests`). Owners can view/withdraw their own pending requests without `hrm.leave.delete`.
 - [x] Leave withdrawal cancels its pending `ApprovalRequest` (status `cancelled`, history entry attributed to the actor) via `LeaveService::withdraw()`. `LeaveResource` exposes `approvalRequestId` + `approvalStatus`; index query eager-loads `approvalRequests` to avoid N+1. Postman: fixed `Process Approval Request` payload (`status` → `action`), added `Create Leave Approval Workflow`, and `Submit Leave Request` captures `approval_request_id`.
 
+### Phase 2.5 - Holidays + Calendar (Shipped 2026-06-01)
+- [x] Migration `2024_01_01_000092_create_holidays_table.php` - holidays with id, name, date, type (`public`/`company`/`optional`), `is_recurring` boolean for yearly anchors, notes. Unique on `(tenant_id, date, name)` so multiple holidays can share a date but each must be uniquely named. Index on date + type.
+- [x] `Holiday` model with `BelongsToTenant` + `Auditable` + `SoftDeletes`; type constants, date + bool casts.
+- [x] `HolidayService` - CRUD + `occurrencesInRange(from, to)` expanding recurring entries by year (clamps Feb 29 to Feb 28 on non-leap years), + `calendarFeed(from, to)` combining expanded holidays with approved/pending leaves so the month view renders mixed events in one round-trip.
+- [x] `HolidayPolicy` registered. `HolidayController` + `HolidayResource` (camelCase). Routes: `apiResource('holidays')` + `GET /hrm/calendar?from=&to=`. Index filters: `?type`, `?search`, `?from`, `?to`, `?recurring_only`.
+- [x] Perms `hrm.holiday.{read,write,delete}` seeded. Module slugs `hrm-timeoff-holidays` (`/hrm/timeoff/holidays`) and `hrm-timeoff-calendar` (`/hrm/timeoff/calendar`) seeded under `hrm-timeoff` (sort_order 5 + 6).
+- [x] UI `pages/hrm/timeoff/holidays/index.vue` - KPI strip (Total, Public, Company, Optional), type chips, search, table with date+weekday, name, type badge, recurring chip, notes, edit/delete actions. New/Edit modal with name, date, type, recurring checkbox, notes.
+- [x] UI `pages/hrm/timeoff/calendar/index.vue` - month grid (7 cols / 6 rows / 42 cells, anchored on the Sunday before the 1st). Prev / Today / Next month navigation watched to reload the feed. Legend chips for Public / Company / Optional / Leave. Each day cell shows day number + event count + colored event pills (holidays color-coded by type, leaves in warning). Click empty day to add holiday (gated by `hrm.holiday.write`), click holiday pill to edit, click leave pill is a no-op (leaves owned by the Leaves page). Today's cell ringed in primary, weekends faintly tinted, other-month cells dimmed.
+- [x] Sidebar: Holidays + Calendar entries added under HRM > Time & Attendance. Breadcrumb map gains `holidays` + `calendar`.
+
 ### Phase 3 — Payroll
 - [x] Migrations: `payroll_periods`, `payslips`
 - [x] Models: `PayrollPeriod`, `Payslip`
