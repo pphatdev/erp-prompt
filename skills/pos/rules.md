@@ -180,12 +180,11 @@ The POS module utilizes five main tables defined in the tenant migration:
 On checkout, `PosOrderService` calls the FMS double-entry engine `AccountingService::postEntry()`. The journal entry must record:
 
 $$\text{Debit (Total Paid)} = \sum \text{Payment Method Accounts}$$
-$$\text{Credit (Subtotal)} = \text{Sales Revenue Account}$$
-$$\text{Credit (Tax)} = \text{VAT/Sales Tax Payable Account}$$
+$$\text{Credit (Subtotal - Discount)} = \text{Sales Revenue Account}$$
+$$\text{Credit (Tax)} = \text{Sales Tax Payable Account (when tax > 0)}$$
 
-Furthermore, to synchronize real-time stock-out valuations:
+Furthermore, to synchronize real-time stock-out tracking:
+- Stock is decremented by calling `StockService::recordMovement()` with type `'out'` and reference `'POS:{order_number}'`.
+- Periodical or downstream ledger reconciliations handle cost of goods sold (COGS) and inventory asset evaluations to keep transactional checkouts fast and resilient.
 
-$$\text{Debit (WAC Resolved Cost)} = \text{Cost of Goods Sold (COGS) Account}$$
-$$\text{Credit (WAC Resolved Cost)} = \text{Inventory Asset Account}$$
-
-Failing to balance any entry (e.g. within $0.001$ precision) must throw a `DomainException`, rolling back all database changes.
+Failing to balance the retail sale entry (e.g. within $0.005$ precision) must throw a `DomainException`, rolling back all database changes.

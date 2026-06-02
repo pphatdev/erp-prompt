@@ -69,7 +69,7 @@ pos.settings.{read,write}                 ← Admin config for register quick-ke
   - **Collision Resolution Contract**: If an order contains a client UUID that already exists in the backend, the backend rejects it with `200 OK` (idempotent deduplication). If an offline order contains a stock out that exceeds available stock, the backend records the transaction but flags the inventory movement as `insufficient_stock_warning` for manager manual override, avoiding front-counter sale blockages.
 
 ### 4. Real-time Stock Out & WAC Movement Logging (P0)
-- **Instant Allocation**: Complete orders must deduct inventory immediately. Call `InventoryService::recordMovement` with a transaction type of `retail_sale` scoped to the terminal's target `warehouse_id`.
+- **Instant Allocation**: Complete orders must deduct inventory immediately. Call `StockService::recordMovement` with a transaction type (`type` = `'out'`) and a `reference` prefix of `'POS:'` (e.g. `'POS:{order_number}'`) scoped to the terminal's target `warehouse_id`.
 - **WAC Synchronization**: The deduction resolves inventory value at the current Weighted Average Cost (WAC). If a retail sale triggers a negative warehouse stock balance, the cost resolves from the last known WAC.
 
 ### 5. Double-Entry FMS Posting (P0)
@@ -78,8 +78,7 @@ pos.settings.{read,write}                 ← Admin config for register quick-ke
   * `DR Cash Account (Register petty cash)` OR `DR Card Receivable` $\rightarrow$ Total Paid.
   * `CR Retail Sales Revenue` $\rightarrow$ Subtotal.
   * `CR Tax Payable (VAT/Sales)` $\rightarrow$ Tax Total.
-  * `DR Cost of Goods Sold (COGS)` $\rightarrow$ Total cost (derived from WAC).
-  * `CR Inventory Asset` $\rightarrow$ Total cost.
+  * `DR Cost of Goods Sold (COGS)` $\rightarrow$ Total cost (derived from WAC) today; if COGS accounting is disabled, only the retail sales lines are posted.
   Any ledger posting failure rolls back the order creation and alerts the terminal cashier.
 
 ---

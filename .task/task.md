@@ -1,6 +1,6 @@
 # ERP Master Progress Registry
 
-> Last synced: 2026-06-01 (Accounting > Cash Advance shipped)
+> Last synced: 2026-06-02 (Document Numbering hardening: GenerationRetry helper + prefix validation + Pest tests - 3 of 4 P1 items closed)
 
 ## Infrastructure & Platform
 - [x] Laravel multi-tenant backend (stancl/tenancy v3, multi-database)
@@ -48,10 +48,10 @@
 - [x] All 7 code columns carry unique DB constraints
 - [x] `TenantDatabaseSeeder` uses `generateNextEmployeeId()` — hardcoded `'TT-0001'` removed
 - [x] Frontend Numbering tab — all 7 inputs, maxlength=16, live previews, immutability callout
-- [ ] Collision retry on `23505` for sequential generators (Employee, Candidate) — **P1 open**
-- [ ] `UpdateSettingsRequest` validation for `numbering.*` prefix format/length — **P1 open**
-- [ ] Pest tests: prefix respected, fallback, tenancy isolation, audit log — **P1 open**
-- [ ] Postman collection — `GET /settings?group=numbering` + `PUT /settings` prefix update examples
+- [x] Collision retry on `23505` for sequential generators — new `App\Support\GenerationRetry::handle()` helper wraps the (generate -> insert) closure, catches `UniqueConstraintViolationException` + raw PDOException SQLSTATE 23505, retries up to 5 attempts re-invoking the generator each pass. Wired into `EmployeeService::createEmployee` and `RecruitmentService::submitApplication`.
+- [x] `UpdateSettingsRequest` validation for `numbering.*` prefix - new `NUMBERING_PREFIX_REGEX` (`/^[A-Za-z0-9_-]{1,16}$/`) applied in `withValidator()` for any key matching `numbering.*_prefix`. Rejects empty / null / non-string, whitespace-padded, > 16 char, and out-of-charset values. Non-numbering keys pass through untouched.
+- [x] Pest tests under `tests/Feature/Tenant/Settings/`: `NumberingPrefixTest` (prefix respected, default fallback, candidate per-month reset, createEmployee retries past pre-claimed slot, GenerationRetry helper recovers + rethrows + does not swallow unrelated exceptions) + `NumberingPrefixCrossTenantTest` (P0 tenant isolation: both tenants independently start at 0000) + `NumberingPrefixValidationTest` (FormRequest empty / whitespace / >16 / bad chars rejection, branding key unaffected, per-row independence).
+- [ ] Postman collection — `GET /settings?group=numbering` + `PUT /settings` prefix update examples (deferred).
 
 ## Dashboard
 - [x] `GET /api/v1/dashboard/summary` — `DashboardSummaryController` + `DashboardSummaryService`
@@ -101,12 +101,18 @@
 
 ## Calendar & Holiday Management
 > Full task: [`.task/calendar/task.md`](./.task/calendar/task.md) | Rule: [`skills/calendar/rules.md`](../skills/calendar/rules.md)
-- [ ] Schema: Multi-tenant database migrations for holidays and calendar events tables
+>
+> v1 scope = Holidays + Unified Events query. Attendance reconcile + payroll workday subtraction + shift-swap modal deferred. `calendar_events` table is custom-events-only; leaves/shifts/CRM appointments stay in their source tables and are unioned at query time.
+- [x] Phase 1: Schema + Models (migration `2024_01_01_000095_create_calendar_tables.php` ALTERs existing `holidays` + creates `calendar_events`; Holiday model extended with `overtime_multiplier` + `branch_id` + `isOnWeekend` / `resolveDateForYear` helpers; new `CalendarEvent` model with category constants; `calendar.compensatory_day` + `calendar.default_overtime_multiplier` settings)
+- [x] Phase 2: Services (Calendar\\HolidayService for compensatory-day generation + checkIsHoliday; CalendarEventService for custom-event CRUD + getCombinedEvents unioning holidays/leaves/shifts/CRM appointments/custom events with 90-day range guard)
+- [x] Phase 3: API surface (CalendarEventController + Resource with leave/personal title masking + Policy with `.self` fallback + CalendarPermissionSeeder attached to admin + employee roles)
+- [x] Phase 4: Frontend (useCalendar composable + /calendar/events workspace with 42-cell month grid, 5 source layer chips, event detail drawer with custom-event edit/delete, create modal, upcoming agenda, sidebar "Unified Events" entry)
+- [x] Phase 5: Pest tests under `tests/Feature/Tenant/Calendar/` - CalendarTenancyIsolationTest (P0 + permission catalog seeding), HolidayCompensatoryDayTest (7 cases: Sat/Sun -> Mon, setting gate, range append/drop, checkIsHoliday, recurring year resolution), CalendarPrivacyMaskingTest (P0 leave-title masking by hrm.leave.read + owner bypass; personal event masking; range guard rejects inverted + > 90 days)
 - [ ] Holiday Registry: configurator managing public dates, regional associations, and 3.0x overtime multipliers
 - [ ] Compensatory Days: automated Saturday/Sunday holiday compensations shifting paid days off to Mondays
 - [ ] Unified Events compilation: query aggregator consolidating holidays, leaves, shifts, and CRM schedules
 - [ ] Privacy Masking: conditional resource serialization hiding sick leave details from unauthorized employees
-- [ ] Attendance integration: Daily reconciler holiday status overrides and monthly workday counts adjustments
+- [ ] Attendance integration (deferred): Daily reconciler holiday status overrides and monthly workday counts adjustments
 - [ ] Responsive Dashboard UI: PrimeVue monthly, weekly, daily calendars with togglable checkbox layers
 
 
@@ -216,12 +222,32 @@
 
 ## Point of Sale (POS)
 > Full task: [`.task/pos/task.md`](./.task/pos/task.md) | Rule: [`skills/pos/rules.md`](../skills/pos/rules.md)
-- [ ] Schema: Multi-tenant database migrations for 5 POS tables, unique client_uuids, and model constraints
-- [ ] Shift Float controls: cashier shifts open/close tracking, cash skims/paid-outs, and mathematical expected cash totals
-- [ ] Supervisor variance approvals: over/short balance flagging, FMS Cash Over/Short postings, and cashier session unlocks
-- [ ] Transaction checkout: transaction-wrapped sales checkout, WAC stock-outs, and FMS AccountingService GL bookings
-- [ ] Offline Resiliency: IndexedDB local product/barcode caching, offline checkouts, and idempotent heartbeat sync daemon
-- [ ] Touch Register Interface: touch quick keys grid catalog, barcode scanners focus listener, and thermal receipt css printing
+>
+> v1 scope = Shifts + Checkout only. Offline sync, cart parking, split tender, supervisor variance approvals deferred.
+- [x] Phase 1: Schema + Models (migration `2024_01_01_000094_create_pos_tables.php` ships 5 tables; 5 Eloquent models with FSM constants; optional customer link; `(tenant_id, client_uuid)` unique offline-replay guard; `numbering.pos_order_prefix` added)
+- [x] Phase 2: Services (PosTerminalService CRUD; PosShiftService open/close with cashier+terminal mutex and expected_cash variance math; PosOrderService::checkout atomic stock-out + balanced GL journal + client_uuid idempotency; PosOrderService::voidOrder compensating in-movements + reverse journal; `pos.cash/card/wallet_account_code` settings added)
+- [x] Phase 3: API surface (3 controllers under `/pos/terminals|shifts|orders`; 5 camelCase resources; 3 policies in TenantServiceProvider; `PosPermissionSeeder` with 12 admin perms + new `cashier` role)
+- [x] Phase 4: Frontend (usePos composable + 4 pages: terminals CRUD, shifts dashboard, sales list/detail with void, register workspace with product grid + cart + payment modal + thermal-receipt printout). Sidebar children flipped to operational.
+- [x] Phase 7: Pest tests under `tests/Feature/Tenant/POS/` - PosTenancyIsolationTest (P0), PosShiftMutexTest (P1 terminal+cashier mutex + variance math), PosCheckoutLifecycleTest (P1 happy path + idempotent client_uuid + tender mismatch + expected_cash separation), PosVoidLifecycleTest (P1 restock + reverse journal + double-void idempotent).
+- [x] Phase 2.5: Supervisor variance reconcile (`PosShiftSupervisorService::reconcileVariance` + `POST /pos/shifts/{shift}/reconcile` gated on `pos.shift.approve` + reconcile modal on /pos/shifts variance_pending cards + Pest `PosShiftReconcileTest` covering over/short journal direction, idempotency, status guards)
+- [x] Touch Register Interface: touch quick keys grid catalog, barcode scanners focus listener, and thermal receipt css printing
+- [ ] Offline Resiliency (deferred): IndexedDB local product/barcode caching, offline checkouts, and idempotent heartbeat sync daemon
+
+## Ecommerce (B2C)
+> Full task: [`.task/ecommerce/task.md`](./.task/ecommerce/task.md) | Context: [`.task/ecommerce/context.md`](./.task/ecommerce/context.md)
+>
+> Module already seeded (`ModuleSeeder.php:51-53` parent `ecommerce` with children `ecom-orders` / `ecom-refunds`). Sidebar entries point to `#` placeholders in `layouts/default.vue:611-620`.
+- [x] Phase 0: Skill docs (`skills/ecommerce/{skill,rules,flow,testing}.md`), payment provider + guest checkout decisions, ECOO/ECOR numbering verified
+- [x] Phase 1: Schema (9 tables in `2024_01_01_000093_create_ecommerce_tables.php`) + 9 Eloquent models + `EcommercePermissionSeeder` with `shopper` role + ECOO/ECOR numbering prefixes
+- [x] Phase 2: Services (`EcomCustomerService`, `CartService`, `CheckoutService`, `FulfillmentService`, `RefundService`, `WebhookController`) reusing Sales `InvoiceService` for AR + `shop` Passport guard wired
+- [x] Phase 3: API surface (public `/shop`, `auth:shop`, admin `/ecommerce`, webhooks) + 8 resources + 3 policies wired in `TenantServiceProvider`
+- [x] Phase 4: FMS integration — cash receipt journal (DR Cash + DR Gateway Fee / CR AR) on `CheckoutService::confirm`; Credit Note path on `RefundService::approve` (gated by `fms.credit_notes_enabled`) with full-reversal fallback for full refunds only
+- [x] Phase 5: Storefront UI (`pages/shop/**` - 8 pages: index, catalog, product detail, cart, checkout, order receipt, account, login, register) + `layouts/shop.vue` + `useShop` composable + `stores/shop-auth.ts` (separate Passport token from admin)
+- [x] Phase 6: Admin UI (`pages/ecommerce/orders` + `refunds` + `customers` index/detail with FSM actions, refund modal, approve/reject flow) + sidebar wire-up replaced `#` stubs with permission-gated routes + Customers child added
+- [x] Phase 7: Pest tests under `tests/Feature/Tenant/Ecommerce/` - EcomTenancyIsolationTest (P0), CheckoutLifecycleTest (P1, full happy path), IdempotentCheckoutTest (P1), RefundLifecycleTest (P1, 3 cases: full/partial/rejected), WebhookSignatureTest (P0, tamper + replay)
+- [ ] Phase 8: Postman + tenant onboarding seed + PROJECT_CONTEXT.md row
+- [ ] Blocker: `INV-RESERVE` must ship (15-min TTL stock lock)
+- [ ] Blocker: `INV-STOREFRONT` (public `/storefront/products` cached endpoint)
 
 ## Reporting & Analytics
 - [x] Dashboard/Widget CRUD infrastructure

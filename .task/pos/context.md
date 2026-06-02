@@ -9,15 +9,20 @@ Detailed implementation phases for the POS (Point of Sale) module, covering the 
 - [ ] Establish primary key UUID boot triggers, SoftDeletes, and Auditable traits on all models.
 - [ ] Import and verify multi-tenant connection scoping via `BelongsToTenant`.
 
-### Phase 2: Cashier Shifts & Drawer Controls
-- [ ] Implement `PosShiftService` to handle `openShift()`, skims, and `closeShift()`.
-- [ ] Build math validators resolving shift closing counts and calculating cash discrepancies.
-- [ ] Create supervisor variance approvals override mechanisms.
+### Phase 2: Cashier Shifts & Drawer Controls (Shipped 2026-06-02)
+- [x] `PosTerminalService` (create/update/disable/destroy with open-shift + order-history guards).
+- [x] `PosShiftService::openShift` (per-cashier and per-terminal mutex via lockForUpdate).
+- [x] `PosShiftService::closeShift` (expected_cash from sum of cash payments on PAID orders; variance computed; transitions to closed or variance_pending).
+- [x] `PosShiftService::activeShiftForCashier` for register dashboard.
+- [ ] Supervisor variance reconcile deferred to Phase 2.5.
 
-### Phase 3: High-Speed Checkout & Stock-Out Engines
-- [ ] Implement `PosOrderService::checkout()` wrapped in database transaction blocks.
-- [ ] Call `InventoryService::recordMovement()` to deduct stock from registers' target warehouses using WAC calculations.
-- [ ] Wire FMS ledger postings calling `AccountingService::postEntry()` to write balanced journal debits/credits.
+### Phase 3: High-Speed Checkout & Stock-Out Engines (Shipped 2026-06-02)
+- [x] `PosOrderService::checkout` atomic in `DB::transaction`.
+- [x] `StockService::recordMovement` type=out per line referenced as `POS:{order_number}`.
+- [x] Balanced journal via `AccountingService::postEntry`: tender DRs (terminal petty cash overrides cash code), CR revenue net of discount, CR sales tax payable when tax > 0.
+- [x] `client_uuid` idempotency for offline-replay safety.
+- [x] `PosOrderService::voidOrder` compensating in-movements + journal reversal.
+- [x] Setting defaults seeded: `pos.cash_account_code`, `pos.card_account_code`, `pos.wallet_account_code`.
 
 ### Phase 4: Client-Side Offline Caching & Sync Daemons
 - [ ] Build IndexedDB database tables caching product catalogs, prices, and barcodes.

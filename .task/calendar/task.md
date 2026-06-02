@@ -6,51 +6,49 @@ Legend: [x] shipped, [ ] planned
 
 ---
 
-## A. Core Database and Model Scaffolding (Planned)
-*Reference: [`skills/calendar/rules.md`](../../skills/calendar/rules.md) § 2.A*
+## A. Core Database and Model Scaffolding (Phase 1 - Shipped)
+*Reference: [`skills/calendar/rules.md`](../../skills/calendar/rules.md) § 2.A · v1 scope: Holidays + Unified Events query only; calendar_events stores custom events only (leaves/shifts/CRM unioned at query time).*
 
-- [ ] Create tenant migration `2026_06_01_000002_create_calendar_tables.php` setting up holidays and calendar_events.
-- [ ] Set up primary key UUID boots, `SoftDeletes`, and `Auditable` traits on `Holiday` and `CalendarEvent`.
-- [ ] Ensure database constraints (polymorphic index on `calendar_events` and date index on `holidays`).
-- [ ] Import and verify multi-tenant scoping via `BelongsToTenant`.
+- [x] `2024_01_01_000095_create_calendar_tables.php` ALTERs the existing `holidays` table (already shipped in 000092 for HRM) to add `overtime_multiplier` (decimal 4,2 default 3.00) + `branch_id` (uuid nullable, reserved for per-region scoping) + `holidays_branch_idx`, and CREATES `calendar_events` (uuid PK, title, description, start_time, end_time, category enum, is_all_day, employee_id FK nullOnDelete, eventable_type/id reserved for future polymorphic, tenant_id index, softDeletes).
+- [x] Extended `App\Models\Tenant\Holiday`: new fillable (`overtime_multiplier`, `branch_id`), `overtime_multiplier` decimal:2 cast, `isOnWeekend($year)` helper, `resolveDateForYear($year)` helper honoring `is_recurring`.
+- [x] Created `App\Models\Tenant\CalendarEvent` (Auditable + SoftDeletes, UUID boot, category constants general/meeting/training/company/personal, `employee` relation + optional polymorphic `eventable` relation, `isPersonal()` helper).
+- [x] Settings: `calendar.compensatory_day` (boolean, default true) + `calendar.default_overtime_multiplier` (string, default '3.00') appended to `SettingService::defaults()`.
 
 ---
 
-## B. Backend Services and Logic (Planned)
+## B. Backend Services and Logic (Phase 2 - Shipped)
 *Reference: [`skills/calendar/rules.md`](../../skills/calendar/rules.md) § 2.B, § 3*
 
-- [ ] **Company Holiday Registry**:
-  - [ ] Implement `HolidayService::createHoliday()` recording names, dates, and overtime multipliers.
-  - [ ] Implement weekend compensatory holiday generators creating adjacent Monday holidays when enabled.
-  - [ ] Build math validators resolving overtime pay multipliers on holiday overtime logs (3.0x hourly rates).
-- [ ] **Unified Event Compilation**:
-  - [ ] Implement `CalendarEventService::getCombinedEvents()` querying holidays, leaves, shifts, and CRM schedules.
-  - [ ] Enforce date query limits validation (max 90 days query range limits).
-  - [ ] Implement privacy masking in `CalendarEventResource` hiding sick leaves details from unauthorized employees.
-- [ ] **Attendance Reconciler Override**:
-  - [ ] Update `ReconcileAttendanceJob` daily background reconciler to query registered holidays.
-  - [ ] Ensure absent employees on holidays are marked with holiday status instead of absent status.
-  - [ ] Reconcile payroll standard monthly workdays counts to subtract recognized holidays during period close.
+- [x] **Calendar `HolidayService`** (new, layered over existing HRM HolidayService):
+  - [x] `getCompensatoryDay(Holiday, ?year)` returns the Monday after a Sat/Sun holiday, gated on `calendar.compensatory_day` setting.
+  - [x] `applicableHolidaysInRange($from, $to, ?$branchId)` delegates to HRM's `occurrencesInRange`, appends comp days, and filters by branch (null branch = applies everywhere).
+  - [x] `checkIsHoliday($date, ?$branchId)` boolean helper for OvertimeService / attendance reconciler.
+- [x] **`CalendarEventService`**:
+  - [x] `create / update / destroy` for custom calendar_events with chronological-order guard (start <= end).
+  - [x] `getCombinedEvents($from, $to, $filters)` unions custom events + holidays (with comp days) + leaves + employee_shifts + CRM appointments. Source tag on every event (`source: calendar|holiday|leave|shift|appointment`). Filters: categories (allowlist of sources), employee_id (cross-source self-scoping), branch_id.
+  - [x] 90-day MAX_RANGE_DAYS guard + inverted-range guard; throws DomainException with explicit messages.
+- [ ] **Privacy masking** in `CalendarEventResource` (Phase 3) - mask leave titles unless actor holds `hrm.leave.read`.
+- [ ] **Attendance reconciler override** - deferred (not in v1 scope per user decision).
 
 ---
 
-## C. API Layer and Access Policies (Planned)
+## C. API Layer and Access Policies (Phase 3 - Shipped)
 *Reference: [`skills/calendar/rules.md`](../../skills/calendar/rules.md) § 1, § 2.B*
 
-- [ ] Wire Calendar routing inside `routes/tenant.php` prefix `api/v1/calendar/`.
-- [ ] Create controllers `HolidayController` and `CalendarEventController`.
-- [ ] Implement Resources serialization formatting snake_case fields into camelCase JSON envelopes.
-- [ ] Create and register permissions policies (`HolidayPolicy` and `CalendarEventPolicy`) in `TenantServiceProvider`.
-- [ ] Seed standard calendar permissions in the central database tables.
+- [x] Routes wired under `auth:api` inside `routes/tenant.php`: `GET/POST /calendar/events`, `GET/PUT/DELETE /calendar/events/{event}`. Holiday CRUD remains on the existing HRM endpoints (`/holidays`).
+- [x] `CalendarEventController`: index = combined feed via `CalendarEventService::getCombinedEvents`; store/show/update/destroy for custom events. Self-scope callers (`calendar.event.read.self`) are forced to their own `employee_id` on index; new custom events are auto-attributed to the actor when they only hold `.write.self`.
+- [x] `CalendarEventResource` applies privacy masking: leave titles fall back to "Leave - Confirmed" (description + employeeId hide) when the actor lacks `hrm.leave.read` and is not the owner; personal calendar events fall back to "Personal event" when the actor is neither the owner nor holds `calendar.event.read`.
+- [x] `CalendarEventPolicy` registered in `TenantServiceProvider::boot` covering viewAny/view/create/update/delete with a `.self` fallback (`User::employee->id === CalendarEvent::employee_id`).
+- [x] `CalendarPermissionSeeder` seeds 4 admin perms (`calendar.event.{read,write,delete,override}`) + 2 self perms (`.read.self`, `.write.self`); admin role gets the full set, employee role gets the `.self` variants. Wired into `TenantDatabaseSeeder` after `PosPermissionSeeder`.
 
 ---
 
-## D. Frontend Page Scaffolding and Routing (Planned)
+## D. Frontend Page Scaffolding and Routing (Phase 4 - Shipped)
 *Reference: [`skills/calendar/rules.md`](../../skills/calendar/rules.md) § 2.C*
 
-- [ ] Scaffold folder structure inside Nuxt: `frontend/pages/calendar/`.
-- [ ] Register navigation routes and icons (`ti-calendar`) inside the sidebar configuration gating on `calendar.event.read` permission.
-- [ ] Define the `useCalendar` composables (`frontend/composables/useCalendar.ts`) and register Pinia store (`frontend/stores/calendar.ts`).
+- [x] `frontend/composables/useCalendar.ts` - typed `events.{list,show,create,update,destroy}` wrappers over `/calendar/events` + `sourceMeta(source)` helper returning `{label, icon, variant, dotClass}` for the 5 sources.
+- [x] `frontend/pages/calendar/events.vue` - unified-events workspace with month grid, 5 source layer chips, event detail drawer, create/edit modal, day overview modal, upcoming agenda. Privacy masking inherited from `CalendarEventResource` on the backend.
+- [x] Sidebar wire: "Unified Events" item added next to "My Calendar" in the Main group, gated on `calendar.event.read` OR `.read.self`, slug `calendar`.
 
 ---
 
@@ -68,12 +66,10 @@ Legend: [x] shipped, [ ] planned
 
 ---
 
-## F. Integration and QA Testing (Planned)
+## F. Integration and QA Testing (Phase 5 - Shipped)
 *Reference: [`skills/calendar/testing.md`](../../skills/calendar/testing.md) § 1-3*
 
-- [ ] **Backend Pest Test Suite**:
-  - [ ] Write `TenancyIsolationTest` asserting cross-tenant holiday queries return `404`.
-  - [ ] Write `LeavePrivacyMaskingTest` verifying sick leaves show as "Leave - Confirmed" without hrm.leave.read permission.
-  - [ ] Write `HolidayCompensatoryTest` asserting weekend dates trigger Monday virtual compensatory holidays.
-- [ ] **Postman Collections Sync**:
-  - [ ] Add holiday creation and event query scenarios inside `docs/postman/erp_collection.json`.
+- [x] **`tests/Feature/Tenant/Calendar/CalendarTenancyIsolationTest.php`** (P0) - cross-tenant blindness for `calendar_events` + `holidays`; verifies the 6-permission Calendar catalog is seeded with admin holding the full set + employee holding only `.self` variants.
+- [x] **`tests/Feature/Tenant/Calendar/HolidayCompensatoryDayTest.php`** (P1) - 7 cases: Saturday + Sunday holidays both produce Monday comp; weekday holiday produces no comp; `calendar.compensatory_day=false` suppresses generation; `applicableHolidaysInRange` appends comp rows inside window and drops them outside (with `compensatory_for` source id tagging); `checkIsHoliday` returns true on both original + comp Monday; recurring holiday resolves the comp-day per requested year (Jan 6 = Sat in 2024 -> comp Mon Jan 8; Jan 6 = Tue in 2026 -> no comp).
+- [x] **`tests/Feature/Tenant/Calendar/CalendarPrivacyMaskingTest.php`** (P0) - `getCombinedEvents` projects leaves; `CalendarEventResource` masks leave title to "Leave - Confirmed" + hides description + employeeId when actor lacks `hrm.leave.read` and is not the owner; full detail shown when actor holds `hrm.leave.read`; owner always sees their own leave detail even without that permission; personal calendar events mask to "Personal event" for non-owners without `calendar.event.read`; range guard throws on inverted range + > 90 days.
+- [ ] **Postman Collections Sync** - deferred to Phase 8.
