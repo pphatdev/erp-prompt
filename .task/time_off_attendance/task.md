@@ -43,8 +43,29 @@ Slices 1, 3, 5 are independent. Slice 2 depends on 1. Slice 4 depends on 2 + 3.
 `hrm.shift.{read,write,delete}`
 `hrm.overtime.{read,write,delete,export}` + `.read.self` + `.write.self`
 
-### Cross-cutting decisions
-
 - Tenant geofence / IP whitelist live in tenant settings — slice 2 introduces a JSON column or new model if no settings store exists.
 - Holiday calendar deferred — reconciliation treats Sat/Sun as weekend by default.
 - Tests prioritise P0 (tenant isolation, geofence) > P1 (calculations, status resolution) > P2 (event sync).
+
+## Phase D — Leave Types & Employee Allocations (Backend)
+
+| # | Slice | Status |
+|---|---|---|
+| 6 | **Leave Types & Allocations Migrations & Models**: Add code, default_allowance, is_paid, gender_restriction, is_accrued to `leave_types`; create `employee_leave_allocations` table & model (UUID, unique index employee_id/leave_type_id/year). | [ ] todo |
+| 7 | **Defaults Seeding & Auto-Allocation Listener**: Seed system defaults (18 Vacation - monthly accrual, 7 Special, 7 Sick, 5 Unpaid, 90-day Maternity). Create event listener on Employee creation/hire to auto-provision entitlements for the current year, enforcing gender eligibility rules. | [ ] todo |
+| 8 | **Schedule-Based Decimal Duration Calculation**: Refactor `LeaveService::submitRequest` to calculate duration by resolving work schedule intervals for each day in range, dividing by standard daily hours (default 8), and multiplying half-day sessions by 0.5. | [ ] todo |
+| 9 | **Balance Validation & eApprovals Locking**: Refactor balance validation to query `employee_leave_allocations`. Update `SyncLeaveFromApproval` and `submitRequest` to increment `pending_days` on submission, decrement `pending_days` and increment `used_days` on approval, or release lock on rejection/withdrawal. | [ ] todo |
+| 10| **Leave Types & Allocations REST API**: Implement CRUD controllers and FormRequests for Leave Types and manual allocations overrides. | [ ] todo |
+
+## Phase E — Frontend & Postman (Leave Settings & Allocations)
+
+| # | Deliverable | Status |
+|---|---|---|
+| E1 | Postman folder - Leave Types & Allocations requests (CRUD + manual adjustments) | [ ] todo |
+| E2 | Leave Types Settings tab in `/settings/apps/hrm` — configuration grid + add/edit leave type modal. | [ ] todo |
+| E3 | Leave Allocations tab in `/settings/apps/hrm` — list employee entitlement balances + manual adjustment side-drawer. | [ ] todo |
+| E4 | Submit Request update — display remaining balance per leave type in dropdown selections, and show live schedule-based duration preview before submission. | [ ] todo |
+
+### Additional Permissions to Seed
+`hrm.leave.allocate` — Admin permission to view/modify employee allocations.
+

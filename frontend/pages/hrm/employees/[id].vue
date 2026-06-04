@@ -85,6 +85,7 @@
                         <InfoRow label="Last name" :value="employee.lastName" />
                         <InfoRow label="Email" :value="employee.email" mono />
                         <InfoRow label="Phone" :value="employee.phone" mono />
+                        <InfoRow label="Gender" :value="genderLabel(employee.gender)" />
                     </dl>
                 </div>
 
@@ -361,6 +362,68 @@
                     </tbody>
                 </table>
             </section>
+
+            <!-- ============================ Tab: Assets ========================== -->
+            <section v-else-if="activeTab === 'assets'" class="glass-card rounded-2xl overflow-hidden">
+                <header class="flex items-center justify-between px-5 py-3 border-b border-(--border-color)">
+                    <div>
+                        <h3 class="text-sm font-semibold text-(--text-heading)">Fixed assets in custody</h3>
+                        <p class="text-xxs text-(--text-muted) mt-0.5">
+                            Physical assets currently assigned to this employee as custodian.
+                        </p>
+                    </div>
+                    <span class="text-xxs text-(--text-muted) font-mono">
+                        {{ (employee.assets?.length ?? 0) }} item{{ (employee.assets?.length ?? 0) === 1 ? '' : 's' }}
+                    </span>
+                </header>
+                <div v-if="!employee.assets || employee.assets.length === 0"
+                    class="py-14 text-center text-xs text-(--text-muted)">
+                    No assets currently in custody.
+                </div>
+                <table v-else class="w-full text-left">
+                    <thead>
+                        <tr
+                            class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                            <th class="px-5 py-2.5 font-semibold font-mono">Asset code</th>
+                            <th class="px-5 py-2.5 font-semibold">Name</th>
+                            <th class="px-5 py-2.5 font-semibold">Category</th>
+                            <th class="px-5 py-2.5 font-semibold">Condition</th>
+                            <th class="px-5 py-2.5 font-semibold">Status</th>
+                            <th class="px-5 py-2.5 font-semibold font-mono text-right">Net book value</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-(--border-color)">
+                        <tr v-for="a in employee.assets" :key="a.id"
+                            class="hover:bg-(--bg-muted) transition-colors cursor-pointer"
+                            @click="openAsset(a.id)">
+                            <td class="px-5 py-2.5 font-mono text-xs text-(--color-primary)">{{ a.assetCode || '—' }}</td>
+                            <td class="px-5 py-2.5 text-xs">
+                                <div class="font-semibold text-(--text-heading)">{{ a.name }}</div>
+                                <div v-if="a.serialNumber" class="text-xxs font-mono text-(--text-muted)">
+                                    SN: {{ a.serialNumber }}
+                                </div>
+                            </td>
+                            <td class="px-5 py-2.5 text-xs">{{ a.category || '—' }}</td>
+                            <td class="px-5 py-2.5">
+                                <Badge v-if="a.condition" :variant="assetConditionVariant(a.condition)">
+                                    {{ a.condition }}
+                                </Badge>
+                                <span v-else class="text-xxs text-(--text-muted)">—</span>
+                            </td>
+                            <td class="px-5 py-2.5">
+                                <Badge v-if="a.status" :variant="assetStatusVariant(a.status)" :dot="true">
+                                    {{ a.status }}
+                                </Badge>
+                                <span v-else class="text-xxs text-(--text-muted)">—</span>
+                            </td>
+                            <td class="px-5 py-2.5 font-mono text-xs text-right">
+                                <span v-if="a.netBookValue != null">{{ formatMoney(a.netBookValue) }}</span>
+                                <span v-else class="text-(--text-muted)">—</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
         </div>
     </NuxtLayout>
 </template>
@@ -375,6 +438,17 @@ import Badge from '~/components/Badge.vue'
 
 interface DepartmentLite { id: string; name: string }
 interface PositionLite { id: string; title: string }
+interface AssetRow {
+    id: string
+    assetCode: string | null
+    name: string
+    category: string | null
+    status: string | null
+    condition: string | null
+    serialNumber: string | null
+    purchaseDate: string | null
+    netBookValue: number | null
+}
 interface Employee {
     id: string
     employeeId: string
@@ -382,6 +456,7 @@ interface Employee {
     lastName: string
     fullName: string
     email: string
+    gender: 'male' | 'female' | 'other' | null
     phone: string | null
     imageUrl: string | null
     status: 'active' | 'on_leave' | 'terminated'
@@ -392,6 +467,7 @@ interface Employee {
     bankAccountNumber: string | null
     department: DepartmentLite | null
     position: PositionLite | null
+    assets?: AssetRow[]
 }
 
 interface LeaveBalanceRow { leaveTypeId: string; name: string; annualAllowance: number; used: number; remaining: number }
@@ -462,11 +538,20 @@ const loadEmployee = async () => {
 }
 
 // ---- Tabs ----------------------------------------------------------------
-type TabKey = 'overview' | 'compensation' | 'attendance' | 'leaves' | 'payslips' | 'appraisals'
+type TabKey = 'overview' | 'compensation' | 'attendance' | 'leaves' | 'payslips' | 'appraisals' | 'assets'
 interface Tab { key: TabKey; label: string; icon: string; visible: () => boolean }
 
 const canSeeAttendance = computed(() =>
     authStore.hasPermission('hrm.attendance.read') || authStore.hasPermission('hrm.attendance.read.self')
+)
+
+const isOwnProfile = computed(() => {
+    const myEmail = authStore.user?.email
+    return !!(myEmail && employee.value && myEmail === employee.value.email)
+})
+
+const canSeeAssets = computed(() =>
+    authStore.hasPermission('assets.tracking.read') || isOwnProfile.value
 )
 
 const tabs: Tab[] = [
@@ -475,7 +560,8 @@ const tabs: Tab[] = [
     { key: 'attendance', label: 'Attendance', icon: 'ti-fingerprint', visible: () => canSeeAttendance.value },
     { key: 'leaves', label: 'Leaves', icon: 'ti-calendar-event', visible: () => canSeeLeaves.value },
     { key: 'payslips', label: 'Payslips', icon: 'ti-receipt-2', visible: () => canSeeSalary.value },
-    { key: 'appraisals', label: 'Appraisals', icon: 'ti-clipboard-list', visible: () => canSeeAppraisals.value }
+    { key: 'appraisals', label: 'Appraisals', icon: 'ti-clipboard-list', visible: () => canSeeAppraisals.value },
+    { key: 'assets', label: 'Assets', icon: 'ti-package', visible: () => canSeeAssets.value }
 ]
 
 const visibleTabs = computed(() => tabs.filter(t => t.visible()))
@@ -634,6 +720,14 @@ const initials = (e: Employee) =>
 const statusLabel = (s: string) =>
     s === 'active' ? 'Active' : s === 'on_leave' ? 'On leave' : 'Terminated'
 
+const genderLabel = (g: string | null | undefined): string | null => {
+    if (!g) return null
+    if (g === 'male') return 'Male'
+    if (g === 'female') return 'Female'
+    if (g === 'other') return 'Other'
+    return g
+}
+
 const statusDotClass = (s: string) =>
     s === 'active' ? 'bg-(--color-success)'
         : s === 'on_leave' ? 'bg-(--color-warning)'
@@ -650,6 +744,28 @@ const appraisalStatusVariant = (s: AppraisalStatus): 'secondary' | 'info' | 'war
     if (s === 'reviewed') return 'warning'
     if (s === 'closed') return 'success'
     return 'secondary'
+}
+
+const assetStatusVariant = (s: string): 'success' | 'warning' | 'danger' | 'secondary' | 'info' => {
+    const v = s.toLowerCase()
+    if (v === 'in_use' || v === 'active' || v === 'assigned') return 'success'
+    if (v === 'maintenance' || v === 'repair') return 'warning'
+    if (v === 'disposed' || v === 'lost' || v === 'stolen') return 'danger'
+    if (v === 'available' || v === 'idle' || v === 'in_stock') return 'info'
+    return 'secondary'
+}
+
+const assetConditionVariant = (c: string): 'success' | 'info' | 'warning' | 'danger' | 'secondary' => {
+    const v = c.toLowerCase()
+    if (v === 'new' || v === 'excellent') return 'success'
+    if (v === 'good') return 'info'
+    if (v === 'fair') return 'warning'
+    if (v === 'poor' || v === 'damaged' || v === 'broken') return 'danger'
+    return 'secondary'
+}
+
+const openAsset = (id: string) => {
+    router.push({ path: '/assets', query: { highlight: id } })
 }
 
 const ratingColor = (n: number) => {

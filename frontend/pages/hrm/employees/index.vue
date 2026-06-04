@@ -313,6 +313,15 @@
                             <input v-model="form.phone" type="tel" class="form-control" />
                         </div>
                         <div>
+                            <label class="form-label">Gender</label>
+                            <select v-model="form.gender" class="form-control">
+                                <option :value="''">— Not specified</option>
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="sm:col-span-2">
                             <label class="form-label">Hired at</label>
                             <input v-model="form.hired_at" type="date" class="form-control" />
                         </div>
@@ -378,6 +387,7 @@ interface Employee {
     lastName: string
     fullName: string
     email: string
+    gender: 'male' | 'female' | 'other' | null
     phone: string | null
     imageUrl: string | null
     status: 'active' | 'on_leave' | 'terminated'
@@ -425,6 +435,7 @@ const form = reactive({
     last_name: '',
     email: '',
     phone: '',
+    gender: '' as '' | 'male' | 'female' | 'other',
     hired_at: '',
     department_id: '',
     position_id: '',
@@ -575,7 +586,7 @@ watch(() => [filters.search, filters.status, filters.departmentId], () => {
 
 const resetForm = () => {
     Object.assign(form, {
-        employee_id: '', first_name: '', last_name: '', email: '', phone: '',
+        employee_id: '', first_name: '', last_name: '', email: '', phone: '', gender: '',
         hired_at: '', department_id: '', position_id: '', base_salary: null, status: 'active'
     })
     formError.value = null
@@ -599,6 +610,7 @@ const openEditModal = (emp: Employee) => {
         last_name: emp.lastName,
         email: emp.email,
         phone: emp.phone ?? '',
+        gender: emp.gender ?? '',
         hired_at: emp.hiredAt ?? '',
         department_id: emp.department?.id ?? '',
         position_id: emp.position?.id ?? '',
@@ -625,6 +637,7 @@ const saveEmployee = async () => {
             last_name: form.last_name,
             email: form.email,
             phone: form.phone || null,
+            gender: form.gender || null,
             hired_at: form.hired_at || null,
             department_id: form.department_id || null,
             position_id: form.position_id || null,

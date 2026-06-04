@@ -43,7 +43,7 @@ class Setting extends Model
 
     public const TYPES = ['string', 'json', 'boolean', 'integer', 'color', 'url'];
 
-    public const GROUPS = ['branding', 'locale', 'notifications', 'security', 'numbering', 'platform', 'general'];
+    public const GROUPS = ['branding', 'locale', 'notifications', 'security', 'numbering', 'platform', 'hrm', 'pos', 'calendar', 'ecommerce', 'fms', 'general'];
 
     protected static function boot(): void
     {

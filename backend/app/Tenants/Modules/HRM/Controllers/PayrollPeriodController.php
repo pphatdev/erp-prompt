@@ -54,6 +54,27 @@ class PayrollPeriodController extends Controller
     {
         $this->authorize('process', $payrollPeriod);
 
+        // Large tenants (>= 200 active employees) get queued so the HTTP
+        // request returns quickly with a 202; the worker picks it up and
+        // transitions the period to `processed` on success. Smaller
+        // tenants stay on the inline synchronous path so the response
+        // still ships the payslip collection.
+        if ($this->payroll->shouldQueueProcessing()) {
+            try {
+                $period = $this->payroll->queueProcessPeriod($payrollPeriod);
+            } catch (DomainException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return response()->json([
+                'data' => (new PayrollPeriodResource($period))->toArray(request()),
+                'meta' => [
+                    'queued'  => true,
+                    'message' => 'Payroll processing queued. Status will change to `processed` when complete.',
+                ],
+            ], 202);
+        }
+
         try {
             $payslips = $this->payroll->processPeriod($payrollPeriod);
         } catch (DomainException $e) {

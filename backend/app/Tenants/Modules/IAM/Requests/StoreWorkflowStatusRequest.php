@@ -15,6 +15,21 @@ class StoreWorkflowStatusRequest extends FormRequest
         return $this->user()?->can('iam.workflow_statuses.write') ?? true;
     }
 
+    /**
+     * The `workflow_statuses.color` column is NOT NULL with a DB default
+     * of 'secondary'. Postgres only applies that default when the column
+     * is OMITTED from the INSERT — explicit NULL bypasses it and trips
+     * 23502. Coerce empty / null color to 'secondary' here so the
+     * controller never persists a NULL.
+     */
+    protected function prepareForValidation(): void
+    {
+        $raw = $this->input('color');
+        if ($raw === null || $raw === '') {
+            $this->merge(['color' => 'secondary']);
+        }
+    }
+
     public function rules(): array
     {
         return [

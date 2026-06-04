@@ -27,6 +27,7 @@ class Employee extends Model
         'first_name',
         'last_name',
         'email',
+        'gender',
         'phone',
         'image_path',
         'hired_at',
@@ -72,6 +73,11 @@ class Employee extends Model
     public function applications(): HasMany
     {
         return $this->hasMany(Application::class);
+    }
+
+    public function assets(): HasMany
+    {
+        return $this->hasMany(Asset::class, 'custodian_employee_id');
     }
 
     protected static function boot()

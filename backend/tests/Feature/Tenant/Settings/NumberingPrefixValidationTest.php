@@ -22,7 +22,9 @@ use Tests\Feature\TenantTestCase;
  */
 class NumberingPrefixValidationTest extends TenantTestCase
 {
-    private User $admin;
+    // `$admin` is already declared (untyped) on TenantTestCase; redeclaring it
+    // with a type triggers a PHP fatal under inheritance rules. Reuse the
+    // inherited slot.
 
     protected function setUp(): void
     {
@@ -43,7 +45,10 @@ class NumberingPrefixValidationTest extends TenantTestCase
         ]);
     }
 
-    private function put(array $payload)
+    // Helper renamed from `put()` to avoid clashing with the inherited public
+    // TestCase::put() method (declaring a `private put()` triggers a PHP fatal
+    // under inheritance rules).
+    private function putSettings(array $payload)
     {
         return $this->actingAs($this->admin, 'api')
             ->withHeaders(['X-Tenant-Handle' => 'test'])
@@ -52,7 +57,7 @@ class NumberingPrefixValidationTest extends TenantTestCase
 
     public function test_valid_prefix_passes(): void
     {
-        $response = $this->put(['settings' => [[
+        $response = $this->putSettings(['settings' => [[
             'key' => 'numbering.employee_id_prefix',
             'value' => 'ACME-',
         ]]]);
@@ -62,7 +67,7 @@ class NumberingPrefixValidationTest extends TenantTestCase
 
     public function test_empty_string_prefix_is_rejected(): void
     {
-        $response = $this->put(['settings' => [[
+        $response = $this->putSettings(['settings' => [[
             'key' => 'numbering.employee_id_prefix',
             'value' => '',
         ]]]);
@@ -73,7 +78,7 @@ class NumberingPrefixValidationTest extends TenantTestCase
 
     public function test_whitespace_padded_prefix_is_rejected(): void
     {
-        $response = $this->put(['settings' => [[
+        $response = $this->putSettings(['settings' => [[
             'key' => 'numbering.employee_id_prefix',
             'value' => ' ACME ',
         ]]]);
@@ -84,7 +89,7 @@ class NumberingPrefixValidationTest extends TenantTestCase
 
     public function test_prefix_longer_than_16_chars_is_rejected(): void
     {
-        $response = $this->put(['settings' => [[
+        $response = $this->putSettings(['settings' => [[
             'key' => 'numbering.employee_id_prefix',
             'value' => 'ACME-DIVISION-X-Y', // 17 chars
         ]]]);
@@ -95,10 +100,10 @@ class NumberingPrefixValidationTest extends TenantTestCase
 
     public function test_prefix_with_invalid_characters_is_rejected(): void
     {
-        $bad = ['AC$ME-', 'ACME!', 'AC ME-', 'ACME/', 'ACME★'];
+        $bad = ['AC$ME-', 'ACME!', 'AC ME-', 'ACME/', 'ACME*'];
 
         foreach ($bad as $value) {
-            $response = $this->put(['settings' => [[
+            $response = $this->putSettings(['settings' => [[
                 'key' => 'numbering.employee_id_prefix',
                 'value' => $value,
             ]]]);
@@ -111,7 +116,7 @@ class NumberingPrefixValidationTest extends TenantTestCase
     {
         // Branding values are arbitrary jsonb - they should not be blocked
         // by the numbering prefix regex even if they contain spaces / special chars.
-        $response = $this->put(['settings' => [[
+        $response = $this->putSettings(['settings' => [[
             'key' => 'branding.primary_color',
             'value' => '59 130 246',
         ]]]);
@@ -121,7 +126,7 @@ class NumberingPrefixValidationTest extends TenantTestCase
 
     public function test_multiple_rows_are_validated_independently(): void
     {
-        $response = $this->put(['settings' => [
+        $response = $this->putSettings(['settings' => [
             ['key' => 'numbering.employee_id_prefix', 'value' => 'OK-'],
             ['key' => 'numbering.invoice_prefix', 'value' => ' BAD '],
             ['key' => 'branding.theme_mode', 'value' => 'dark'],

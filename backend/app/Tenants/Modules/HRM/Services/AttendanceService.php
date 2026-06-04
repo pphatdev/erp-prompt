@@ -9,6 +9,7 @@ use App\Models\Tenant\Department;
 use App\Models\Tenant\Employee;
 use App\Models\Tenant\Leave;
 use App\Models\Tenant\Shift;
+use App\Tenants\Modules\Settings\Services\SettingService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use DomainException;
@@ -27,12 +28,21 @@ class AttendanceService
     public const DEFAULT_GEOFENCE_RADIUS_METERS = 100;
 
     /**
+     * Default auto-close window (hours) used when the tenant hasn't
+     * customised `hrm.attendance.auto_clock_out_hours`.
+     */
+    private const DEFAULT_AUTO_CLOCK_OUT_HOURS = 12;
+
+    /**
      * Earth radius (mean) in metres — used by the Haversine distance check.
      */
     private const EARTH_RADIUS_METERS = 6_371_000;
 
-    public function __construct(private readonly ShiftService $shifts)
-    {
+    public function __construct(
+        private readonly ShiftService $shifts,
+        private readonly SettingService $settings,
+        private readonly WorkScheduleService $workSchedules,
+    ) {
     }
 
     /**
@@ -101,6 +111,12 @@ class AttendanceService
      */
     public function reconcileAll(string $date): array
     {
+        // Phase 9: close any clock-ins that are still hanging open beyond
+        // the configured auto-close window before classifying missing-day
+        // rows. Without this the operator would see absences for employees
+        // who clocked in yesterday but never out, masking the real signal.
+        $autoClosed = $this->autoCloseOpenSessions($date);
+
         $employees = Employee::query()->where('status', 'active')->get();
         $created = 0;
         $skipped = 0;
@@ -113,16 +129,65 @@ class AttendanceService
         });
 
         return [
-            'processed' => $employees->count(),
-            'created' => $created,
-            'skipped' => $skipped,
+            'processed'  => $employees->count(),
+            'created'    => $created,
+            'skipped'    => $skipped,
+            'autoClosed' => $autoClosed,
         ];
     }
 
     /**
-     * Classify a missing-clock-in date — leave > weekend > absent.
-     * Holiday calendar deferred (future feature); Sat/Sun is the only
-     * non-work-day signal we honour for now.
+     * Phase 9: close open clock-ins that have been hanging open longer than
+     * `hrm.attendance.auto_clock_out_hours`. Each closed row gets
+     * `check_out = check_in + window_hours` so the duration is bounded
+     * (we don't claim the employee was present indefinitely). Returns the
+     * number of rows mutated.
+     *
+     * Scope: only rows whose `date` is on or before `$asOf` (defaults to
+     * today). This lets the daily reconcile pass close yesterday's
+     * stragglers without touching today's still-active sessions.
+     */
+    public function autoCloseOpenSessions(?string $asOf = null): int
+    {
+        $rawHours = $this->settings->get('hrm.attendance.auto_clock_out_hours');
+        $windowHours = is_numeric($rawHours) ? max(1, (int) $rawHours) : self::DEFAULT_AUTO_CLOCK_OUT_HOURS;
+        $now = CarbonImmutable::now();
+        $cutoffDate = $asOf ?? $now->toDateString();
+
+        $open = AttendanceLog::query()
+            ->whereNotNull('check_in')
+            ->whereNull('check_out')
+            ->where('date', '<=', $cutoffDate)
+            ->get();
+
+        if ($open->isEmpty()) {
+            return 0;
+        }
+
+        $closed = 0;
+        DB::transaction(function () use ($open, $now, $windowHours, &$closed) {
+            foreach ($open as $log) {
+                $checkIn = CarbonImmutable::parse($log->check_in);
+                $elapsed = $checkIn->diffInHours($now);
+                if ($elapsed < $windowHours) {
+                    continue;
+                }
+                $log->update([
+                    'check_out' => $checkIn->addHours($windowHours),
+                ]);
+                $closed++;
+            }
+        });
+
+        return $closed;
+    }
+
+    /**
+     * Classify a missing-clock-in date — leave > non-work-day > absent.
+     * Non-work-day resolution uses the hierarchical WorkScheduleService
+     * (employee -> department -> global -> legacy `standard_work_week`),
+     * so a Sat half-day or a Sun-Thu weekly arrangement classifies
+     * correctly for the employee being reconciled.
      */
     private function classifyDate(Employee $employee, string $date): string
     {
@@ -141,8 +206,11 @@ class AttendanceService
             return AttendanceLog::STATUS_PAID_LEAVE;
         }
 
-        $isWeekend = CarbonImmutable::parse($date)->isWeekend();
-        if ($isWeekend) {
+        $isWorkDay = $this->workSchedules->isWorkDay(
+            CarbonImmutable::parse($date),
+            $employee,
+        );
+        if (!$isWorkDay) {
             return AttendanceLog::STATUS_WEEKEND;
         }
 
@@ -352,19 +420,33 @@ class AttendanceService
         return $current;
     }
 
+    /**
+     * Phase 9: IP enforcement gates on `hrm.attendance.enable_ip_whitelisting`.
+     * When OFF (default), no enforcement runs — even if a department row
+     * still carries legacy `attendance_ip_whitelist` values; tenants must
+     * opt-in via the setting. When ON, the effective rule set is the union
+     * of the tenant-level `hrm.attendance.ip_whitelist` (comma-separated)
+     * and the per-department whitelist; an empty union becomes an open
+     * fail-closed (we refuse the clock-in to avoid a silent allow-all when
+     * the operator clearly intended enforcement).
+     */
     private function enforceIpWhitelist(?Department $department, ?string $ip): void
     {
-        $whitelist = $department?->attendance_ip_whitelist;
-        if (!$whitelist || !is_array($whitelist) || count($whitelist) === 0) {
+        if (!(bool) $this->settings->get('hrm.attendance.enable_ip_whitelisting')) {
             return;
         }
 
-        if ($ip === null) {
-            $this->fail('client_ip', 'Client IP is required for this department.');
+        $rules = $this->resolveIpWhitelistRules($department);
+        if (empty($rules)) {
+            $this->fail('client_ip', 'IP whitelisting is enabled but no rules are configured.');
         }
 
-        foreach ($whitelist as $cidr) {
-            if ($this->ipMatchesCidr($ip, (string) $cidr)) {
+        if ($ip === null) {
+            $this->fail('client_ip', 'Client IP is required for clock-in.');
+        }
+
+        foreach ($rules as $cidr) {
+            if ($this->ipMatchesCidr($ip, $cidr)) {
                 return;
             }
         }
@@ -372,8 +454,59 @@ class AttendanceService
         $this->fail('client_ip', 'Your network is not authorised for clock-in.');
     }
 
+    /**
+     * Union of tenant-level `hrm.attendance.ip_whitelist` and the legacy
+     * per-department list. Defensive: strings get split on commas;
+     * empty / whitespace entries dropped.
+     */
+    private function resolveIpWhitelistRules(?Department $department): array
+    {
+        $rules = [];
+
+        $tenantRaw = $this->settings->get('hrm.attendance.ip_whitelist');
+        if (is_string($tenantRaw) && $tenantRaw !== '') {
+            foreach (explode(',', $tenantRaw) as $entry) {
+                $entry = trim($entry);
+                if ($entry !== '') {
+                    $rules[] = $entry;
+                }
+            }
+        } elseif (is_array($tenantRaw)) {
+            foreach ($tenantRaw as $entry) {
+                $entry = is_string($entry) ? trim($entry) : '';
+                if ($entry !== '') {
+                    $rules[] = $entry;
+                }
+            }
+        }
+
+        $deptRules = $department?->attendance_ip_whitelist;
+        if (is_array($deptRules)) {
+            foreach ($deptRules as $entry) {
+                $entry = is_string($entry) ? trim($entry) : '';
+                if ($entry !== '') {
+                    $rules[] = $entry;
+                }
+            }
+        }
+
+        return array_values(array_unique($rules));
+    }
+
+    /**
+     * Phase 9: geofence enforcement gates on `hrm.attendance.enable_geofencing`.
+     * When OFF (default), no GPS check runs — tenants opt-in via the
+     * setting. When ON: a department-attached lat/lon is required to
+     * compute the office origin; without it we skip rather than reject
+     * (an enforcement-without-origin can't be evaluated). Radius falls
+     * back from the department override → tenant setting → 100m default.
+     */
     private function enforceGeofence(?Department $department, ?float $lat, ?float $lon): void
     {
+        if (!(bool) $this->settings->get('hrm.attendance.enable_geofencing')) {
+            return;
+        }
+
         if ($department === null) {
             return;
         }
@@ -381,14 +514,17 @@ class AttendanceService
         $officeLat = $department->latitude;
         $officeLon = $department->longitude;
         if ($officeLat === null || $officeLon === null) {
-            return;   // Not configured — geofence disabled for this department.
+            return;
         }
 
         if ($lat === null || $lon === null) {
-            $this->fail('latitude', 'Latitude/longitude required for clock-in at this department.');
+            $this->fail('latitude', 'Latitude/longitude required for clock-in.');
         }
 
-        $radius = (int) ($department->geofence_radius_meters ?? self::DEFAULT_GEOFENCE_RADIUS_METERS);
+        $tenantRadius = $this->settings->get('hrm.attendance.geofence_radius_meters');
+        $radius = (int) ($department->geofence_radius_meters
+            ?? (is_numeric($tenantRadius) ? (int) $tenantRadius : self::DEFAULT_GEOFENCE_RADIUS_METERS));
+
         $distance = $this->haversineMeters((float) $officeLat, (float) $officeLon, $lat, $lon);
 
         if ($distance > $radius) {

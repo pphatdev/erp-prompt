@@ -1,6 +1,6 @@
 # ERP Master Progress Registry
 
-> Last synced: 2026-06-02 (Document Numbering hardening: GenerationRetry helper + prefix validation + Pest tests - 3 of 4 P1 items closed)
+> Last synced: 2026-06-03 (FMS Phase 1 Customer Receipts UI shipped - /finance/receipts page with Shop-style toolbar + record modal that auto-allocates amount oldest-first; backend was already shipped under Receipts terminology, tracker stale. Sidebar entry updated from operational:false "Payments" placeholder to gated "Customer Receipts" entry.)
 
 ## Infrastructure & Platform
 - [x] Laravel multi-tenant backend (stancl/tenancy v3, multi-database)
@@ -99,7 +99,13 @@
 - [x] Appraisals
 - [x] Public careers portal (no-auth)
 - [x] Fixed Asset Custody integration — setup model relations and resource JSON structures (eager-loaded endpoints & tab details planned)
-- [/] Tenant-configurable HRM Settings (Phase 9: Rules and specifications defined, implementation pending)
+- [x] Tenant-configurable HRM Settings (Phase 9: backend defaults registry, service refactors, `settings.read` gate on `SettingController@index`, `UpdateSettingsRequest` hrm.* per-key + appraisal-weights-sum validation, Pest security + cross-tenant isolation tests. Frontend ships 5 sub-menu pages — `/settings/apps/hrm/{recruitment,leave,attendance,payroll,performance}` — sharing `useHrmSettings` composable + `SettingsShell` chrome + 5 `*Section.vue` components.)
+- [x] Hierarchical Working Days/Hours Setting (Phase 10: Hierarchical schedules configuration and overrides for employee/department; integration with leave and attendance; settings tab and backend service/test fully shipped.)
+- [/] Digital Offer & Onboarding Pipeline (Phase 8: Backend [x], Frontend [ ] — /hrm/offers, /hrm/onboarding, and Candidate Profile Offer tab integration)
+- [ ] Recruitment Candidate Pipeline Settings (Phase 11: Dynamic Kanban board stages configuration; reordering, custom naming, metadata sorting/visibility parameters, and stage validations.)
+- [ ] Leave & Time Off Settings (Phase 12: Leave types configuration, allocations assignment, auto-allocation listener, and schedule-based calculations.)
+
+
 
 
 ## Calendar & Holiday Management
@@ -142,7 +148,7 @@
 > Sidebar "Finance" group includes mirrored Invoices/Subscriptions from Sales (code stays under `App\Tenants\Modules\Sales\*`).
 - [x] Chart of Accounts
 - [x] Journal Entries + Ledger
-- [ ] **Payments (Planned)** — record customer remittance, partial-apply against Invoice, post `DR Cash, CR AR`. See `.task/fms/task.md` § Phase 1.
+- [x] **Customer Receipts (shipped as "Receipts")** — `Receipt` + `ReceiptInvoiceApplication` models + `ReceiptService::record/cancel` (validates bank GL link + AR account type + applied-sum match; posts balanced `DR Bank / CR AR` journal; rolls back on cancel via `AccountingService::reverseEntry`) + `ReceiptController` (index/store/show/cancel + `/receipts/open-invoices/{customer}` helper) + `ReceiptPolicy` + `fms.receipts.{read,write}` perms. Frontend `pages/finance/receipts/index.vue` ships record modal that auto-allocates amount oldest-first across open invoices. Sidebar entry wired. See `.task/fms/task.md` § Phase 1. The original "Payments" terminology was renamed to "Receipts" to match accountant convention (customer money-in = AR; supplier money-out = `BillPayment`, separate AP cycle).
 - [ ] **Estimates (Planned)** — informal pre-binding pricing; convert to a Sales Quotation. See `.task/fms/task.md` § Phase 2.
 - [ ] AP/AR module UI
 - [ ] Tax management UI
@@ -167,32 +173,35 @@
 - [x] Hierarchical database migrations (Projects, Tasks, Timesheets) and Eloquent UUID bootstrapping
 - [x] Tenant connection scoping via `BelongsToTenant` and event-auditing via `Auditable` P0 guards
 - [x] Basic CRUD REST API controllers, camelCase resources, and RBAC policy permission checks
-- [ ] Circular Dependency cycles detection DFS engine (P1 backend open)
-- [ ] Recursive Date Recalculation Gantt scheduling cascades (P1 backend open)
-- [ ] Timesheet hour limits, approved leave blocks, and payroll locks (P1 backend open)
-- [ ] Nuxt 3 flat routing, composables (`useProjects.ts`), and Pinia project state stores (Planned UI open)
-- [ ] WBS hierarchical TreeTable editor & Gantt interactive timeline schedule (Planned UI open)
-- [ ] Kanban Board with PrimeVue drag-and-drop & optimistic UI status updates (Planned UI open)
-- [ ] Task detail side drawers with checklist manager, inline comments, and secure attachments (Planned UI open)
-- [ ] Self-service daily hours logging portal & Manager timesheet approvals board (Planned UI open)
-- [ ] FMS/HRM cost accounting, unbilled AR integration ledger, and Pest test suites (Planned UI open)
+- [x] Nuxt UI shipped — `pages/projects/index.vue` (430 lines KPI dashboard + grid + create/edit modal), `[id]/index.vue` (project detail with Tasks + Budget tabs), `kanban.vue` (drag-and-drop 4-column board), `tasks/index.vue` (698 lines list/board toggle with project/assignee/priority filters), `timesheets/index.vue` (414 lines self-service portal with date-range + KPI strip + log-time modal). `composables/useProjects.ts` ships full API wrapper. Pinia store skipped — composable is the single source.
+- [x] Timesheet hour limits + approved-leave blocks + closed-payroll-period locks — `TaskService::logTime` now enforces `MAX_HOURS_PER_DAY=16` (sums prior entries on same date + same employee), rejects when an approved `Leave` row covers the date, rejects when a `PayrollPeriod` with `status=closed` includes the date. Pest `tests/Feature/Tenant/Projects/TimesheetGuardsTest.php` covers 8 cases (happy path + todo->in_progress flip, zero hours rejected, cap exceeded, exactly-16 allowed, approved leave blocks, pending leave does not block, closed period blocks, draft period does not block).
+- [ ] Circular Dependency cycles detection DFS engine — **DEFERRED**: blocked by schema (no `task_dependencies` table, no `parent_id` on `tasks`).
+- [ ] Recursive Date Recalculation Gantt scheduling cascades — **DEFERRED**: depends on the dependency edges above.
+- [ ] WBS hierarchical TreeTable editor + Gantt interactive timeline — **DEFERRED**: same schema gap.
+- [ ] Task detail side drawer with checklist manager + inline comments + secure attachments — **DEFERRED**: no `task_checklist_items` / `task_comments` / `task_attachments` tables yet.
+- [ ] Manager timesheet approvals workflow — **DEFERRED**: `timesheets` has no `status` / `approved_by` columns yet.
+- [ ] FMS/HRM cost-accounting integration + unbilled AR ledger postings.
 
 ## Assets
 > Full task: [`.task/assets/task.md`](./.task/assets/task.md) | Rule: [`skills/assets/rules.md`](./skills/assets/rules.md)
-- [ ] Schema: Multi-tenant database migrations for 5 assets-related tables and flat Eloquent models utilizing `BelongsToTenant`, `SoftDeletes`, and `Auditable`
-- [ ] Tracking: `AssetService` supporting tenant-configurable `numbering.asset_code_prefix` and subdomain-specific QR code URL generations
-- [ ] Depreciation: `DepreciationService` calculations (Straight-line, Declining Balance, SYD) and scheduling batch checker jobs
-- [ ] Integration: Synchronous balanced general ledger postings to FMS inside atomic database transactions, exit checking for HRM custodians, and polymorphics for Fleet vehicles
-- [ ] Access: Thin API controller layers guarded by policies and seeder configurations including self-service `.self` scopes
-- [ ] UI: Nuxt 3 pages (`/assets`, `/assets/depreciation`, `/assets/revaluation`, `/assets/disposal`), stores, flat `useAssets.ts` composable, interactive HSL panels, custom modal overlays, and toast confirmations
-- [ ] QA: Pest integration testing (Isolation, mathematical thresholds, camelCase structural assertions, transaction rollback traps, audit logs) and Postman collections
+- [x] Schema (migration `000073_extend_assets_for_lifecycle`): `assets` + `depreciation_logs` + `asset_revaluation_logs` + `asset_disposals` + `asset_audit_campaigns` + `asset_verification_logs`. Flat Eloquent models under `App\Models\Tenant\` with `BelongsToTenant`/`SoftDeletes`/`Auditable`.
+- [x] Tracking: `AssetService` with `nextAssetCode()` (settings-driven `numbering.asset_code_prefix`), `buildQrUrl()`, custodian + location mapping.
+- [x] Depreciation: `DepreciationService` (straight-line, declining-balance factor=2, sum-of-years-digits) with NBV>=salvage invariant. Monthly scheduler job DEFERRED.
+- [x] Integration: `FmsIntegrationService` posts balanced journals for depreciation / revaluation (surplus + loss) / disposal (sale + scrap) inside `DB::transaction()`. GL accounts (1500/1700/3200/4300/5500) seeded into Chart of Accounts. HRM custodian link via `Employee::assets()` HasMany + EmployeeResource serialization.
+- [x] Access: 5 controllers (Asset / Depreciation / Revaluation / Disposal / AssetVerification) + camelCase resources + `AssetPolicy` registered + `AssetsPermissionSeeder` (`assets.tracking.*`, `assets.depreciation.*`, `assets.revaluation.*`, `assets.disposal.*`, `assets.audit.*` + `.self` scopes). Routes under `auth:api` with static paths before `apiResource('assets')`.
+- [x] UI: Nuxt pages `pages/assets/{index,depreciation,revaluation,disposal,audits}.vue` + `composables/useAssets.ts` + `stores/assets.ts`. Index ships KPI strip + search + status segmented + condition filter + asset cards + create/edit modal + QR modal.
+- [x] QA: Pest under `tests/Feature/Tenant/Assets/` - `AssetsTenancyIsolationTest` (3 P0 cases boot Tenant A+B, assert global scope blocks reads), `DepreciationMathTest` (7 P0 cases lock SL/DDB/SYD math + salvage-floor invariant), `AssetsRollbackAndAuditTest` (P1 FMS-throws rollback + `Log::spy()` audit-trail assertions on Asset create/update + DepreciationLog create). Postman examples deferred.
 
 ## Fleet
 > Full task: [`.task/fleet/task.md`](./.task/fleet/task.md) | Rule: [`skills/fleet/rules.md`](./skills/fleet/rules.md)
 - [x] Backend API alignment (camelCase resources, policies, permissions, auditable, monotonic mileage)
-- [ ] Vehicle management UI & Interactive map overlays
-- [ ] Fuel logs UI & Tenant-isolated uploads
-- [ ] Maintenance logs UI & threshold scheduler
+- [x] Vehicle management UI — `pages/fleet/vehicles/index.vue` (882 lines): KPI strip, search/status filters, create/edit/archive modals, vehicle photo upload + image URL. `composables/useFleet.ts` shipped.
+- [x] Fuel logs UI — `pages/fleet/fuel/index.vue` (617 lines): form (vehicle, mileage_at_fill, driver, fill_date), KPI strip (total cost + liters), edit/delete actions.
+- [x] Maintenance logs UI — `pages/fleet/maintenance/index.vue` (576 lines): historical logs sorted by service_date, KPI strip (total / monthly / avg cost), edit/delete.
+- [ ] Interactive Leaflet/Google Map overlay on the vehicles page — **DEFERRED**: noted at `pages/fleet/vehicles/index.vue:48`.
+- [ ] Tenant-isolated upload + signed-URL pattern for fuel-receipt attachments — **DEFERRED**.
+- [ ] `MaintenanceSchedulerJob` (date- + mileage-threshold alerting) — **DEFERRED**.
+- [ ] Pest test suite under `tests/Feature/Tenant/Fleet/` — not yet started.
 
 ## eApprovals
 > Full task: [`.task/eapprovals/task.md`](./.task/eapprovals/task.md) | Rule: [`skills/eapprovals/rules.md`](./skills/eapprovals/rules.md)
@@ -260,7 +269,7 @@
 - [ ] Export to PDF/Excel
 
 ## Testing
-- [ ] Pest tenancy isolation tests (P0)
+- [/] Pest tenancy isolation tests (P0) — HRM (`HrmTenancyIsolationTest`), CRM (`CrmTenancyIsolationTest`), Calendar, POS, Ecommerce, Approvals, Settings (`HrmSettingsCrossTenantTest`, `NumberingPrefixCrossTenantTest`) all covered. Remaining modules pending.
 - [ ] Vitest component tests
 - [ ] Playwright E2E for critical flows
 

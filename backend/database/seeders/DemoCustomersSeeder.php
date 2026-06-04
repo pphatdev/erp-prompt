@@ -35,7 +35,19 @@ class DemoCustomersSeeder extends Seeder
         }
 
         foreach ($this->rows() as $row) {
-            Customer::updateOrCreate(['external_code' => $row['external_code']], $row);
+            $customer = Customer::withoutGlobalScope(\Stancl\Tenancy\Database\TenantScope::class)
+                ->withTrashed()
+                ->where('external_code', $row['external_code'])
+                ->first();
+
+            if ($customer) {
+                $customer->update(collect($row)->except('tenant_id')->toArray());
+                if ($customer->trashed()) {
+                    $customer->restore();
+                }
+            } else {
+                Customer::create($row);
+            }
         }
 
         $count = Customer::count();

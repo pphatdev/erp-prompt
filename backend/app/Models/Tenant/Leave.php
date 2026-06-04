@@ -33,6 +33,7 @@ class Leave extends Model
         'days',
         'leave_session',
         'reason',
+        'attachment_path',
         'status',
         'tenant_id',
     ];

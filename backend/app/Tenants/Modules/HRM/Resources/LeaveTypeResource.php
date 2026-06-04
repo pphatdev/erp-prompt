@@ -15,6 +15,7 @@ class LeaveTypeResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'annualAllowance' => (int) $this->annual_allowance,
+            'applicableGender' => $this->applicable_gender ?? 'any',
             'createdAt' => optional($this->created_at)->toIso8601String(),
             'updatedAt' => optional($this->updated_at)->toIso8601String(),
         ];

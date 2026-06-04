@@ -17,10 +17,21 @@ class LeaveType extends Model
     protected $keyType = 'string';
     public $incrementing = false;
 
+    public const GENDER_ANY = 'any';
+    public const GENDER_MALE = 'male';
+    public const GENDER_FEMALE = 'female';
+
+    public const GENDERS = [self::GENDER_ANY, self::GENDER_MALE, self::GENDER_FEMALE];
+
     protected $fillable = [
         'name',
         'annual_allowance',
+        'applicable_gender',
         'tenant_id',
+    ];
+
+    protected $attributes = [
+        'applicable_gender' => self::GENDER_ANY,
     ];
 
     protected $casts = [

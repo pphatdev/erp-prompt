@@ -133,10 +133,13 @@ class AttendanceController extends Controller
         $result = $this->attendance->reconcileAll($date);
 
         return response()->json([
-            'date'      => $date,
-            'processed' => $result['processed'],
-            'created'   => $result['created'],
-            'skipped'   => $result['skipped'],
+            'date'       => $date,
+            'processed'  => $result['processed'],
+            'created'    => $result['created'],
+            'skipped'    => $result['skipped'],
+            // Phase 9: count of stale open clock-ins closed by the
+            // auto-clock-out pass that ran before classification.
+            'autoClosed' => $result['autoClosed'] ?? 0,
         ], 200);
     }
 }

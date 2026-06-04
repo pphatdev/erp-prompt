@@ -25,7 +25,9 @@ Human Resource (sidebar group)
 ├── Recruitment
 │   ├── Vacancies                  — internal + public careers portal (/public/job-vacancies)
 │   ├── Applications
-│   └── Candidates (Kanban)
+│   ├── Candidates (Kanban)
+│   ├── Offers                     — draft, send for eSignature, and track status
+│   └── Onboarding                 — manage onboarding checklists and task progression
 └── Appraisals
 ```
 
@@ -34,11 +36,11 @@ Human Resource (sidebar group)
 | Controllers | `app/Tenants/Modules/HRM/Controllers/*.php` |
 | Services | `app/Tenants/Modules/HRM/Services/{EmployeeService, LeaveService, AttendanceService, PayrollService, RecruitmentService, ...}.php` |
 | Resources | `app/Tenants/Modules/HRM/Resources/*.php` |
-| Models | `app/Models/Tenant/{Employee, Department, Position, LeaveRequest, LeaveType, Shift, AttendanceLog, Overtime, PayrollPeriod, Payslip, Vacancy, Application, Quiz, QuizAttempt, Appraisal}.php` |
-| Policies | `app/Policies/{Employee, Leave, Payroll, Application, ...}Policy.php` |
-| Migrations | `database/migrations/tenant/{date}_create_hrm_tables.php` (+ later additions for recruitment, quizzes, appraisals) |
-| Seeder | `TenantDatabaseSeeder.php` — seeds default leave types, workflow statuses, an admin user + linked employee using `RecruitmentService::generateNextEmployeeId()` |
-| Pages | `frontend/pages/hrm/{employees, departments, positions, leaves, leave-types, shifts, attendance, overtime, payroll, recruitments/{vacancies, applications, candidates}, appraisals}.vue` + public `pages/careers/*.vue` |
+| Models | `app/Models/Tenant/{Employee, Department, Position, Leave, LeaveType, EmployeeLeaveAllocation, Shift, AttendanceLog, Overtime, PayrollPeriod, Payslip, Vacancy, Application, Quiz, QuizAttempt, Appraisal}.php` |
+| Policies | `app/Policies/{Employee, Leave, LeaveType, EmployeeLeaveAllocation, Payroll, Application, ...}Policy.php` |
+| Migrations | `database/migrations/tenant/{date}_create_hrm_tables.php` (+ later additions for recruitment, quizzes, appraisals, work schedules, leave allocations) |
+| Seeder | `TenantDatabaseSeeder.php` — seeds default leave types, workflow statuses, default work schedule, an admin user + linked employee using `RecruitmentService::generateNextEmployeeId()` |
+| Pages | `frontend/pages/hrm/{employees, departments, positions, leaves, leave-types, leave-allocations, shifts, attendance, overtime, payroll, recruitments/{vacancies, applications, candidates}, offers, onboarding, appraisals}.vue` + public `pages/careers/*.vue` |
 
 ## Permission slug catalog
 
@@ -54,6 +56,8 @@ hrm.attendance.{read,write}
 hrm.attendance.read.self
 hrm.recruitment.{read,write,delete}
 hrm.recruitment.application.{read,write}
+hrm.recruitment.offer                   ← draft, send, and manually accept/decline job offers
+hrm.recruitment.onboarding              ← view, update, and manage onboarding checklists/tasks
 hrm.appraisal.{read,write}
 ```
 
@@ -81,8 +85,11 @@ Self-service `.self` permissions pair with ownership policies — e.g. `Employee
 - Both `employee_id` and `candidate_code` carry unique DB constraints (employee_id non-partial — terminated employees keep their IDs forever).
 
 ### 4. Leave & attendance
-- Leave balance accrual: tenure-based, computed against YTD approved + pending. Enforce balance check before allowing submission.
-- Multi-level approvals via **eApprovals**: leave requests dispatch into the approval workflow; days lock during the workflow.
+- Leave configuration-first: Configure leave types (`leave_types` table) with defaults, then allocate to employees (`employee_leave_allocations` table).
+- Default seedings: 18 Vacation (monthly accrual), 7 Special, 7 Sick, 5 Unpaid, and 90-day Maternity (restricted to female employees).
+- Auto-allocation listener on employee created/hired event provisions entitlements for the current year, validating eligibility rules (e.g. gender check).
+- Dynamic Duration Calculation: Instead of standard calendar days, loop dates in request range and resolve employee's effective schedule (`WorkScheduleService::resolveFor()`). Daily contribution is calculated as scheduled interval hours divided by standard daily hours (default 8.0), halved for morning/afternoon sessions.
+- eApprovals integration locks `pending_days` in the allocation, updates both `pending_days` and `used_days` on approval/rejection.
 - Attendance reconciliation: daily job matches `attendance_logs` against shifts + grace periods + public holidays + leaves to compute `present` / `late` / `absent` / `on_leave`.
 - Full spec: [`time_off_attendance/rules.md`](./time_off_attendance/rules.md).
 
@@ -101,8 +108,10 @@ Self-service `.self` permissions pair with ownership policies — e.g. `Employee
 - The single employee fetch queries (`show` and `me` inside `EmployeeController`) must eagerly load the `assets` relationship.
 - `EmployeeResource` serializes the custody records under the `assets` key using `AssetResource` conditionally to avoid N+1 queries.
 
-### 8. Tenant-configurable settings
-- All module thresholds, probation rules, working week maps, geofence radius coordinates, FMS account mapping codes, and appraisal calculation ratios must be loaded from `tenant_settings` via `SettingService::get('hrm.*')`.
+### 8. Tenant-configurable settings (Admin Managed)
+- **Tenant Admin Scoping (P0)**: HRM settings must strictly be manageable ONLY by tenant administrators holding the `settings.write` permission. Standard employees or self-service users MUST be completely blocked (`403 Forbidden`) from viewing or modifying raw HRM settings.
+- **Strict Database Scoping (P0)**: All configuration entries are written directly to the active tenant's `tenant_settings` table on their isolated database. Any setting modification strictly impacts the active tenant's environment only ("effect self tenants"), guaranteeing absolute zero cross-tenant side-effects.
+- **Service Integration**: All module thresholds, probation rules, working week maps, geofence radius coordinates, FMS account mapping codes, and appraisal calculation ratios must be loaded from `tenant_settings` via `SettingService::get('hrm.*')`.
 - Hardcoding rules or account mappings is strictly forbidden. Developers must declare default values in `SettingService::defaults()` and follow the dotted-key registry specified in [`rules.md`](./rules.md) § 10.
 
 ## Frontend integration
@@ -128,6 +137,11 @@ Self-service `.self` permissions pair with ownership policies — e.g. `Employee
 | Appraisals | ✅ | ✅ |
 | Explicit candidate→employee conversion (single + bulk + revert) | ✅ | ✅ |
 | Fixed Asset Custody Integration (Assets tab) | ✅ | ✅ |
+| Hierarchical Work Schedules (Working Days & Hours) | ✅ | ✅ |
+| Digital Offer & Onboarding Pipeline | ✅ | ❌ |
+| Recruitment Candidate Pipeline Settings | ❌ | ❌ |
+
+
 
 
 ## Troubleshooting

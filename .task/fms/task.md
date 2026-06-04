@@ -12,19 +12,20 @@
 - [x] Invoices — routes `/sales/invoices`, `/api/v1/invoices`.
 - [x] Subscriptions — routes `/sales/subscriptions`, `/api/v1/subscriptions`.
 
-## Phase 1 — Payments (Planned)
-Spec: [`skills/fms/skill.md`](../../skills/fms/skill.md) § 4.
+## Phase 1 — Customer Receipts (Shipped under "Receipts" terminology)
+Original spec used "Payments" naming; shipped as **Receipts** to match accountant convention
+(customer money-in = AR; supplier money-out = `BillPayment`, separate AP cycle). Functionally
+identical to the Phase 1 contract.
 
-- [ ] Migration `create_payments_table` — columns: `id`, `payment_number` (unique), `invoice_id` (FK), `customer_id` (FK), `amount` (decimal 14,2), `method` (`cash`/`bank_transfer`/`card`/`mobile_money`/`other`), `reference` (string nullable), `paid_at` (date), `journal_entry_id` (FK nullable, set on apply), `created_by`, `tenant_id`.
-- [ ] `Payment` model (`BelongsToTenant`, `Auditable`, `SoftDeletes`).
-- [ ] `PaymentService::record(array $data)` — creates the Payment row.
-- [ ] `PaymentService::apply(Payment $payment, Invoice $invoice, float $amount)` — `DR Cash, CR AR` via `AccountingService::postEntry`; bumps `invoices.paid_amount`; marks invoice `status=paid` when fully applied; rejects with `DomainException` if total applied > invoice total.
-- [ ] `PaymentController` + Resource — index, store, show, apply.
-- [ ] Routes: `apiResource('payments')->only(['index','store','show'])` + `POST /payments/{payment}/apply`.
-- [ ] `fms.payments.{read,write,delete}` permissions + `PaymentPolicy`.
-- [ ] Add `fms.cash_account_code` setting (default `1000`).
-- [ ] `pages/finance/payments/index.vue` + `[id].vue` (list + apply modal).
-- [ ] Pest: `PaymentApplicationTest` — partial / full / over-application rejection, balanced GL posting.
+- [x] Migration + `receipts` + `receipt_invoice_applications` tables shipped via the AR-cycle migrations.
+- [x] `Receipt` model + `ReceiptInvoiceApplication` model (`BelongsToTenant`, `Auditable`, `SoftDeletes`).
+- [x] `ReceiptService::record(array $data)` — validates bank GL link + AR account type + invoice ownership + applied-sum equals header amount; posts balanced `DR Bank / CR AR` journal via `AccountingService::postEntry`; bumps `invoices.paid_amount`; flips invoice to `paid` when fully applied; rejects over-application.
+- [x] `ReceiptService::cancel(Receipt)` — reverses the journal entry via `AccountingService::reverseEntry`; rolls back `paid_amount` on each applied invoice; restores `paid->confirmed` status.
+- [x] `ReceiptController` — index (filters: search/status/customer/bank/date range) + store + show + cancel + `GET /receipts/open-invoices/{customer}` helper for the apply picker.
+- [x] Routes: literal `/cancel` + `/open-invoices/{customer}` declared before `apiResource` to avoid parameter capture.
+- [x] `fms.receipts.{read,write}` permissions + `ReceiptPolicy`.
+- [x] `pages/finance/receipts/index.vue` — Shop-style toolbar (search + status segmented [all/posted/cancelled] + Record Receipt CTA), receipt cards with amount KPI + applied-invoices count + status chip + kebab cancel action. Record modal: pick customer, auto-load open invoices, auto-allocate amount oldest-first when user types the total, bank + AR-account pickers, post button gated on apps-sum == amount within 0.01. Sidebar entry under Finance gated on `fms.receipts.{read,write}`.
+- [ ] Pest: `ReceiptApplicationTest` — partial / full / over-application rejection, balanced GL posting, cancel reverses journal + rolls back paid_amount (deferred from this turn).
 
 ## Phase 2 — Estimates (Planned)
 Spec: [`skills/fms/skill.md`](../../skills/fms/skill.md) § 5.

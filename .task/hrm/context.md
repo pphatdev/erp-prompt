@@ -59,12 +59,15 @@ Implementation phases for the HRM module, focusing on workforce management, payr
 - [x] Workflow seed adds `hrm.interview` (`scheduled → completed | cancelled | no_show`).
 - [ ] Real Google Calendar + Microsoft Graph integration (OAuth bind, ICS push, RSVP webhooks).
 
-### Phase 8: Digital Offer & Onboarding Pipeline — NEW SCOPE
-- [ ] Migrations for `offers`, `onboarding_checklists`, and `onboarding_tasks` tables.
-- [ ] DocuSign eSignature integration webhooks listening to document signatures.
-- [ ] Auto-creation and data syncing from `Application` $\rightarrow$ `Employee` record upon accepted offer sign.
-- [ ] Candidate History Linkage: Update schema to add a nullable `employee_id` to the `applications` table. When an application transitions to `hired` and an `Employee` profile is created, this field must link the application to the new employee. This enables full retrieval of pre-hire assessments, quiz attempts, interview evaluations, feedback panels, and contracts directly from the employee's workforce profile.
-- [ ] Active Registry Enrollment: Upon transition to `hired`, the new `Employee` record must be created with the initial workflow status `active` by calling `EmployeeService::createEmployee(...)`. This registers them automatically in the directory listing queried by `EmployeeService::buildIndexQuery()` and rendered on the frontend employee list views.
+### Phase 8: Digital Offer & Onboarding Pipeline — NEW SCOPE (Backend: DONE, Frontend: PLANNED)
+- [x] Migrations for `offers`, `onboarding_checklists`, and `onboarding_tasks` tables.
+- [x] DocuSign eSignature integration webhooks listening to document signatures.
+- [x] Auto-creation and data syncing from `Application` $\rightarrow$ `Employee` record upon accepted offer sign.
+- [x] Candidate History Linkage: Update schema to add a nullable `employee_id` to the `applications` table. When an application transitions to `hired` and an `Employee` profile is created, this field must link the application to the new employee.
+- [x] Active Registry Enrollment: Upon transition to `hired`, the new `Employee` record must be created with the initial workflow status `active` by calling `EmployeeService::createEmployee(...)`.
+- [ ] Frontend UI: Offers list directory (`/hrm/offers`) to manage job offers, and onboarding checklists dashboard (`/hrm/onboarding`) to track tasks.
+- [ ] Frontend UI: Offer tab integration on candidate detail profile (`/hrm/recruitments/candidates/[id].vue`) supporting drafting, sending (Mock/DocuSign), manual wet signature acceptance, and declines.
+
 
 ## Configurable status flows
 

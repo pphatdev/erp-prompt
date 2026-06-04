@@ -120,10 +120,15 @@ Defaults are seeded by `TenantDatabaseSeeder::seedWorkflowStatuses()` (idempoten
 To support multi-tenant operational flexibility, all business rules, thresholds, and account mappings for the HRM module are driven by settings stored in the central `tenant_settings` table.
 
 ### Key Design and Architecture Rules:
-1. **Authoritative Access**: Always retrieve settings using `SettingService::get('hrm.xxx.yyy')` with a strict `empty()` check fallback. Do NOT query `Setting::class` directly in service layers.
-2. **Key Namespace**: Keys must strictly follow the `hrm.{submodule}.{setting_name}` format. The first segment auto-resolves the `group` as `hrm` (all settings belong to the `hrm` group to simplify retrieval, or sub-grouped where central tabs require).
-3. **Lazy Default Seeding**: All default settings must be declared inside `SettingService::defaults()` in the `hrm` group so that they are auto-populated for new tenants upon their first setting read or settings panel access.
-4. **Validation**: Any updates to settings via `PUT /api/v1/settings` must be validated against the data types (boolean, integer, string, json, array) and rules specified below.
+1. **Tenant Admin Scoping & Permission Gates (P0)**: All configuration views and mutations under `/api/v1/settings` must be strictly gated.
+   - **Read operations** (`GET /api/v1/settings?group=hrm`) require `settings.read`.
+   - **Write/Update operations** (`PUT /api/v1/settings`) require `settings.write`.
+   - **Self-Service Restriction**: Standard employee accounts (with only `.self` scope permissions) are strictly banned from directly requesting or writing raw HRM settings. They must receive only pre-computed, sanitised values in feature-specific payloads (e.g., payslips, leave balances).
+2. **Database Scoping & Isolation (P0)**: Stored strictly within the tenant-isolated database's `tenant_settings` table (managed via standard `stancl/tenancy` connection switching). A settings mutation on Tenant A *never* bleeds into, edits, or alters the configurations of Tenant B ("effect self tenants").
+3. **Authoritative Access**: Always retrieve settings using `SettingService::get('hrm.xxx.yyy')` with a strict `empty()` check fallback. Do NOT query `Setting::class` directly in service layers.
+4. **Key Namespace**: Keys must strictly follow the `hrm.{submodule}.{setting_name}` format. The first segment auto-resolves the `group` as `hrm` (all settings belong to the `hrm` group to simplify retrieval, or sub-grouped where central tabs require).
+5. **Lazy Default Seeding**: All default settings must be declared inside `SettingService::defaults()` in the `hrm` group so that they are auto-populated for new tenants upon their first setting read or settings panel access.
+6. **Validation**: Any updates to settings via `PUT /api/v1/settings` must be validated against the data types (boolean, integer, string, json, array) and rules specified below.
 
 ---
 
@@ -208,11 +213,136 @@ if ($settings->get('hrm.payroll.fms_posting_enabled') ?: true) {
 ```
 
 ### Frontend settings Integration
-1. Extend the **HRM Settings** sub-section within `frontend/pages/settings/index.vue`.
+1. Extend the **HRM Settings** sub-section within `frontend/pages/settings/index.vue` (or as a sub-menu under Configurations > App Management > Human Resource).
 2. Design custom interactive cards/tabs under the main "HRM Settings" panel:
-   - **Recruitment Tab**: Inputs for probation months, revert window, and careers portal toggle.
-   - **Leave & Time Off**: Work week day checkboxes, negative balance toggle, accrual cycle dropdown.
+   - **Recruitment Tab**: Inputs for probation months, revert window, and careers portal toggle. Includes explicit descriptions and guidance indicating that the recruitment pipeline's Kanban columns (stages) are driven by the Workflow Statuses settings page.
+   - **Leave & Time Off**: Work week day checkboxes, negative balance toggle, accrual cycle dropdown. Includes links to manage Leave Types (`/settings/apps/hrm/leave-types`).
    - **Attendance Config**: Geofence toggle, radius slider/number input, whitelisting checkboxes.
-   - **Payroll Mapping**: Dropdown selects for FMS wage/tax/payable accounts (populated from `/api/v1/fms/accounts`).
+   - **Payroll Mapping**: Dropdown selects for FMS wage/tax/payable accounts (populated from `/api/v1/fms/accounts`). Includes links to adjust Prefix Codes (`/settings/apps/hrm/prefix-code`).
    - **Performance Weighting**: Percentage sliders for Self/Manager weights ensuring total sums to `100%`.
+3. **Manageable Settings Guidance**: Display clear, user-facing callouts/panels detailing what the admin can control directly on this settings page versus related configuration surfaces (e.g. Leave Types, Prefix Codes, Roles Matrix, and Kanban column/workflow statuses). Provide direct cross-links to those pages where applicable to enhance discoverability.
+
+---
+
+## 11. Hierarchical Work Schedules (Working Days & Hours)
+
+To support flexible scheduling, working days and hours are configured at three hierarchical levels (Global default, Department overrides, and Employee overrides).
+
+### A. Database Table (`work_schedules`)
+Schedules are stored in a dedicated tenant-scoped table to support performance, relationships, and cascades.
+
+```sql
+CREATE TABLE work_schedules (
+    id UUID PRIMARY KEY,
+    tenant_id VARCHAR(255) NOT NULL,
+    target_type VARCHAR(50) NOT NULL,  -- 'global', 'department', 'employee'
+    target_id UUID NULL,               -- references departments(id) or employees(id)
+    day_of_week INT NOT NULL,          -- 1 (Monday) to 7 (Sunday)
+    is_work_day BOOLEAN DEFAULT TRUE,
+    intervals JSONB NULL,              -- Array of intervals: [{"start": "08:00", "end": "12:00"}, ...]
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL
+);
+CREATE UNIQUE INDEX work_schedules_lookup_uidx ON work_schedules(tenant_id, target_type, target_id, day_of_week);
+```
+
+### B. Inheritance Resolution
+To resolve the active schedule for an Employee on any date, the system checks schedules in order:
+1. **Employee Override**: Row where `target_type = 'employee'` and `target_id = employee_id`.
+2. **Department Override**: Row where `target_type = 'department'` and `target_id = department_id` (if assigned).
+3. **Global Default**: Row where `target_type = 'global'` and `target_id IS NULL`.
+
+*Note: Whenever a custom override is created for a department or employee, it must persist a full set of 7 rows (one for each day of the week) to ensure consistency and avoid partial day-of-week fallbacks.*
+
+### C. Default Global Schedule (Seeded)
+On tenant initialization, the central system seeds the default global schedule:
+- **Monday to Friday**: Work days. Intervals: `[{"start": "08:00", "end": "12:00"}, {"start": "13:00", "end": "17:00"}]`
+- **Saturday**: Work day. Intervals: `[{"start": "08:00", "end": "12:00"}]`
+- **Sunday**: Non-work day. Intervals: `[]`
+
+### D. Service Integrations
+1. **Leave Service (`LeaveService`)**: When counting working days to calculate request duration, the system replaces checks against the deprecated flat `hrm.leave.standard_work_week` setting. It queries the resolved schedule's `is_work_day` value day-by-day.
+2. **Attendance Service (`AttendanceService`)**: During daily reconciliation and clock-in/out status classification, the resolved schedule for the day determines whether the day is treated as a weekend/holiday (`is_work_day = false`) or a work day where absence tracking applies.
+
+---
+
+## 12. Recruitment Candidate Pipeline Settings
+
+To enable custom hiring workflows, the Recruitment module leverages tenant-configurable workflow statuses (`workflow_statuses` table, `module = 'hrm.application'`) to define the Kanban board columns (stages).
+
+### A. Core Pipeline Configurations (Single-Level)
+Administrators with `settings.write` or `hrm.recruitment.write` permission can perform the following actions:
+1. **Add Stage**: Clicking "Add Stage" sends a request to create a new `WorkflowStatus` row.
+   - `module`: Set to `'hrm.application'`.
+   - `key`: Auto-generated unique string slugified from the name (e.g., `'phone_screen'`).
+   - `label`: Admin-defined display name.
+   - `sequence`: Auto-incremented (current `MAX(sequence) + 1`).
+   - `is_initial` and `is_terminal`: Defaults to `false`.
+2. **Edit Stage Name**: Administrators can modify the `label`, `color`, and `icon` properties of any stage.
+3. **Delete Stage**: Gated by application residency validation.
+   - **Validation Block**: If any active `Application` currently has its `status` set to the stage's `key`, the delete action must be rejected with a `422` error detailing the count of active applicants.
+   - **Protection on Core Stages**: The core terminal stages (`hired`, `rejected`, `withdrawn`) and the initial stage are protected from deletion to safeguard basic recruitment flow integrity.
+4. **Reorder Stages**: Handles drag-and-drop sorting by accepting an ordered array of stage IDs/keys and updating the `sequence` column sequentially.
+5. **Set as Default (Initial Stage)**: Set the chosen stage to `is_initial = true` and reset all other `hrm.application` stages to `is_initial = false` within an atomic transaction. Only one default stage is allowed.
+
+### B. Stage Data Configuration (`metadata` JSON)
+Each Kanban column's data behavior can be customized by saving configuration options inside the `metadata` JSON field on the `WorkflowStatus` record:
+
+| Metadata Attribute | Type | Default | Description |
+|---|---|---|---|
+| `order` | `string` | `"asc"` | Sort direction for the applications in this stage (`"asc"` or `"desc"`). |
+| `sort_by` | `string` | `"applied_at"` | Field by which applications in the column are sorted (e.g., `"applied_at"`, `"applicant_name"`, `"rating"`). |
+| `visible` | `boolean` | `true` | Show or hide the column on the main candidate Kanban board. |
+| `convert_to_employee` | `boolean` | `false` | If `true`, candidates placed in this stage are eligible for candidate-to-employee conversion (default `true` only for the `'hired'` stage). |
+| `show_fields` | `array` | `["email", "phone"]` | List of field keys to display on the Kanban card. |
+
+### C. Kanban Board Integration (Frontend & API)
+- The ATS Kanban API (`GET /api/v1/applications`) and columns resolver must query `WorkflowStatus::forModule('hrm.application')` and read the associated `metadata` to sort and filter applicants within each column dynamically.
+- Moving a candidate between columns triggers `PATCH /api/v1/applications/{id}/status`, checking the state machine transition using `WorkflowStatusService::validateTransition`.
+
+---
+
+## 13. Digital Offer & Onboarding Pipeline
+
+This feature manages the digital contract issuance and transition of candidates into active employee personnel profiles with tracked onboarding checklists.
+
+### A. Offer Lifecycle & eSignature (P0)
+1. **Status Flow (`hrm.offer`)**:
+   - `draft` $\rightarrow$ `sent` $\rightarrow$ `accepted` | `declined` | `expired`.
+   - Offers are created in the `draft` state (`POST /api/v1/offers`). Only `draft` offers can be updated (`PUT /api/v1/offers/{id}`) or deleted (`DELETE /api/v1/offers/{id}`).
+   - Compensation fields (`base_salary`, `signing_bonus`) use the `EncryptedWithFallback` cast to protect sensitive financial details at rest.
+2. **Sending & eSignature Gateways**:
+   - Triggered via `POST /api/v1/offers/{id}/send`. Requires choosing an eSignature provider (`mock` or `docusign`).
+   - Mock provider generates a temporary signed document simulation link. DocuSign connects to the DocuSign Envelope REST API.
+   - Webhook updates flow through `POST /api/v1/offers/sign-webhook`. Gated by signature verification (`X-Signature` header matching the webhook secret).
+3. **Manual Acceptance & Rejection**:
+   - **Wet-Ink Acceptance**: Admins with `hrm.recruitment.offer` permission can bypass the digital signature link and mark an offer as manually accepted (`POST /api/v1/offers/{id}/accept`).
+   - **Declined Offers**: Candidates or recruiters can decline an offer (`POST /api/v1/offers/{id}/decline`), requiring a structured decline reason.
+
+### B. Onboarding Checklist Generation
+1. **Atomic Promotion**:
+   - When an offer is marked `accepted` (via webhook or manual click), the system triggers a database transaction that:
+     - Converts the `Application` to an `Employee` (if not already linked) with `status = 'active'`.
+     - Generates a unique sequential `employee_id`.
+     - Materials an `OnboardingChecklist` with 11 default tasks spanning HR, IT, Finance, Managers, and Facilities.
+2. **Onboarding Task Transitions**:
+   - Tasks carry target dates computed via pre-arrival offsets (e.g. IT setup `-3` days before effective start date) or post-arrival offsets (e.g., probation reviews `+90` days).
+   - Task progression follows `pending` $\rightarrow$ `in_progress` $\rightarrow$ `completed` | `skipped`, driving the parent checklist completion percentage.
+
+### C. Frontend UI Integration Specs
+1. **Offers Directory (`/hrm/offers`)**:
+   - Renders a paginated, searchable grid of all candidates' offers.
+   - Displays reference number (`OFR-YYYYMM-NNN`), candidate name, target vacancy, salary (only visible if the user holds `hrm.payroll.read`), effective date, and status badges.
+2. **Onboarding Board (`/hrm/onboarding`)**:
+   - Displays active checklists, listing employee name, progress bar, counts (e.g., `4/11 completed`), and target completion date.
+   - Clicking a checklist opens the task detail pane, letting users (IT/HR/Managers) filter by their role and check off/skip their assigned checklist items.
+3. **Candidate Profile Offer Tab**:
+   - Embeds an **Offer** tab on the Candidate Detail page (`frontend/pages/hrm/recruitments/candidates/[id].vue`).
+   - Gated by `hrm.recruitment.offer`.
+   - **Contextual Form**: If no active offer exists, renders a form to draft an offer (salary, bonus, start/expires dates, probation months, notes).
+   - **Workflow Actions**: If draft, renders "Send Offer" (opens dialog to toggle provider) and "Delete". If sent, renders "Manual Accept" and "Decline" with reason input.
+   - **Onboarding checklist**: If accepted, hides the forms and renders the real-time onboarding checklist task checklist directly within the tab.
+
+
+
 

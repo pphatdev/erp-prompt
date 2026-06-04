@@ -11,6 +11,7 @@ use App\Models\Tenant\Leave;
 use App\Models\Tenant\LeaveType;
 use App\Tenants\Modules\Approvals\Services\ApprovalService;
 use App\Tenants\Modules\IAM\Services\WorkflowStatusService;
+use App\Tenants\Modules\Settings\Services\SettingService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,6 +23,8 @@ class LeaveService
     public function __construct(
         private readonly WorkflowStatusService $statuses,
         private readonly ApprovalService $approvals,
+        private readonly SettingService $settings,
+        private readonly WorkScheduleService $workSchedules,
     ) {
     }
 
@@ -50,6 +53,47 @@ class LeaveService
             throw new DomainException('end_date must be on or after start_date.');
         }
 
+        // Gender gating — `leave_types.applicable_gender` (any|male|female).
+        // When the type restricts to a specific gender, the requesting
+        // employee must match. `any` (default) bypasses the check entirely.
+        $type = LeaveType::find($data['leave_type_id'] ?? null);
+        if ($type) {
+            $restriction = $type->applicable_gender ?: LeaveType::GENDER_ANY;
+            if ($restriction !== LeaveType::GENDER_ANY) {
+                $employee = Employee::find($data['employee_id'] ?? null);
+                $employeeGender = $employee?->gender;
+                if ($employeeGender === null || $employeeGender === '') {
+                    throw new DomainException(sprintf(
+                        '"%s" is restricted to %s employees, but the employee record has no gender on file.',
+                        $type->name,
+                        $restriction,
+                    ));
+                }
+                if (strtolower((string) $employeeGender) !== $restriction) {
+                    throw new DomainException(sprintf(
+                        '"%s" is restricted to %s employees.',
+                        $type->name,
+                        $restriction,
+                    ));
+                }
+            }
+        }
+
+        // hrm.leave.min_notice_days — submission must precede leave start by
+        // at least N calendar days. 0 disables the check. Compared against
+        // today (start-of-day) so a same-day submission counts as 0 notice.
+        $minNotice = (int) ($this->settings->get('hrm.leave.min_notice_days') ?? 0);
+        if ($minNotice > 0) {
+            $today = CarbonImmutable::now()->startOfDay();
+            $noticeDays = $today->diffInDays($start->startOfDay(), false);
+            if ($noticeDays < $minNotice) {
+                throw new DomainException(sprintf(
+                    'Leave must be requested at least %d day(s) in advance.',
+                    $minNotice,
+                ));
+            }
+        }
+
         $session = $data['leave_session'] ?? Leave::SESSION_FULL_DAY;
         $data['leave_session'] = $session;
 
@@ -62,37 +106,81 @@ class LeaveService
             // balance maths can't be spoofed by sending days=1 with session=morning.
             $data['days'] = 0.5;
         } else {
-            $data['days'] = (float) ($data['days'] ?? ($start->diffInDays($end) + 1));
+            // Caller-supplied `days` is honored as-is (UI may have pre-computed
+            // partial days). Otherwise count only configured working-week days
+            // between start and end so weekends don't burn balance.
+            $data['days'] = isset($data['days'])
+                ? (float) $data['days']
+                : (float) $this->countWorkingDays($start, $end, $data['employee_id'] ?? null);
+        }
+
+        // hrm.leave.max_consecutive_days — caps the duration of a single
+        // request. 0 means unlimited. Half-day (0.5) never trips a positive cap.
+        $maxConsecutive = (int) ($this->settings->get('hrm.leave.max_consecutive_days') ?? 0);
+        if ($maxConsecutive > 0 && $data['days'] > $maxConsecutive) {
+            throw new DomainException(sprintf(
+                'Leave cannot exceed %d consecutive working day(s).',
+                $maxConsecutive,
+            ));
+        }
+
+        // hrm.leave.attachment_required_days — requests at or above this
+        // threshold must include a supporting document. 0 disables. The
+        // controller receives the upload and passes `attachment_path` here.
+        $attachmentThreshold = (int) ($this->settings->get('hrm.leave.attachment_required_days') ?? 0);
+        if ($attachmentThreshold > 0 && $data['days'] >= $attachmentThreshold) {
+            $path = $data['attachment_path'] ?? null;
+            if (!is_string($path) || trim($path) === '') {
+                throw new DomainException(sprintf(
+                    'A supporting document is required for leave of %d day(s) or more.',
+                    $attachmentThreshold,
+                ));
+            }
         }
 
         // Balance pre-check INCLUDES pending so a user can't fan out N tiny
-        // requests in parallel and approve them all past the cap later.
+        // requests in parallel and approve them all past the cap later. The
+        // hrm.leave.allow_negative_balance setting bypasses the throw — used
+        // for emergency / unpaid leave flows.
+        $allowNegative = (bool) ($this->settings->get('hrm.leave.allow_negative_balance') ?? false);
         $remaining = $this->balanceFor($data['employee_id'], $data['leave_type_id']);
-        if ($remaining + 0.0001 < $data['days']) {
+        if (!$allowNegative && $remaining + 0.0001 < $data['days']) {
             throw new DomainException(sprintf(
                 'Insufficient leave balance (%.1f day(s) remaining).',
                 $remaining,
             ));
         }
 
-        $data['status'] = $this->statuses->initialFor('hrm.leave');
+        // hrm.leave.auto_approve_days — short requests skip the queue. We
+        // decide BEFORE setting status so the initial status reflects the
+        // shortcut and the eApprovals submit is skipped below.
+        $autoApproveCap = (int) ($this->settings->get('hrm.leave.auto_approve_days') ?? 0);
+        $autoApprove = $autoApproveCap > 0 && $data['days'] <= $autoApproveCap;
 
-        return DB::transaction(function () use ($data) {
+        $data['status'] = $autoApprove
+            ? 'approved'
+            : $this->statuses->initialFor('hrm.leave');
+
+        return DB::transaction(function () use ($data, $autoApprove) {
             $leave = Leave::create($data);
 
-            // If a tenant has wired a workflow for module=hrm, type=leave, hand the
-            // decision off to the eApprovals engine. Otherwise leave the legacy
-            // direct approve/reject controllers as a stop-gap.
-            $workflow = $this->leaveWorkflow();
-            $requesterId = Auth::id() ?? $leave->employee?->user_id;
+            // Skip workflow handoff when auto-approved — there's nothing to
+            // route. Otherwise: if a tenant has wired a workflow for
+            // module=hrm, type=leave, hand the decision off to the eApprovals
+            // engine. Otherwise leave the legacy direct approve/reject
+            // controllers as a stop-gap.
+            if (!$autoApprove) {
+                $workflow = $this->leaveWorkflow();
+                $requesterId = Auth::id() ?? $leave->employee?->user_id;
 
-            if ($workflow && $requesterId) {
-                $this->approvals->submitRequest(
-                    workflowId: $workflow->id,
-                    requesterId: (string) $requesterId,
-                    requestableType: Leave::class,
-                    requestableId: (string) $leave->id,
-                );
+                if ($workflow && $requesterId) {
+                    $this->approvals->submitRequest(
+                        workflowId: $workflow->id,
+                        requesterId: (string) $requesterId,
+                        requestableType: Leave::class,
+                        requestableId: (string) $leave->id,
+                    );
+                }
             }
 
             return $leave;
@@ -182,6 +270,24 @@ class LeaveService
 
             $leave->delete();
         });
+    }
+
+    /**
+     * Count the working-day span between two dates inclusive, honoring
+     * the hierarchical work_schedules resolver: Employee override ->
+     * Department override -> Global default -> legacy
+     * `hrm.leave.standard_work_week` fallback. Passing the employee id
+     * (or null for a generic count) is enough — the resolver loads the
+     * Employee row internally when needed.
+     */
+    public function countWorkingDays(CarbonImmutable $start, CarbonImmutable $end, ?string $employeeId = null): int
+    {
+        $employee = $employeeId ? Employee::find($employeeId) : null;
+        return $this->workSchedules->countWorkingDays(
+            $start->startOfDay(),
+            $end->startOfDay(),
+            $employee,
+        );
     }
 
     public function balanceFor(string $employeeId, string $leaveTypeId): float

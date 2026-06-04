@@ -9,6 +9,7 @@ The HRM module manages the complete lifecycle of an employee, including recruitm
 - **Initial Data Collection**: Serves as the primary entry point for [HR Staff Information](./employee_data_collection.md). Core fields (Name, Contact, Resumes, etc.) collected during recruitment are automatically migrated to the Employee Profile upon conversion.
 - **Job Vacancy Management**: Requisitions, job descriptions, and locations.
 - **Applicant Pipeline**: Tracking candidates from sourcing to offer.
+- **Digital Offer & Onboarding**: Digital contract drafting, eSignature integration (Mock/DocuSign), manual wet signature acceptance, and automated onboarding task checklists upon hire.
 - **Interview Management**: Scheduling and structured feedback.
 - **Candidate Quizzing Portal**: Secure magic-link authentication allowing candidates to log in without standard credentials to complete assessments.
 - **Interactive Quiz Engine**: Structured multi-choice/short-answer tests with automated grading and time tracking linked directly to the application.

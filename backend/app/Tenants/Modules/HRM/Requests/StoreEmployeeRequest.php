@@ -32,6 +32,7 @@ class StoreEmployeeRequest extends FormRequest
             'email'          => ['required', 'email',
                 Rule::unique('employees', 'email')->where($scoped)],
             'phone'          => 'nullable|string|max:30',
+            'gender'         => 'nullable|in:male,female,other',
             'hired_at'       => 'nullable|date',
             'base_salary'         => 'nullable|numeric|min:0',
             'bank_name'           => 'nullable|string|max:100',

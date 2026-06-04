@@ -11,6 +11,7 @@ use App\Models\Tenant\PayrollPeriod;
 use App\Models\Tenant\Payslip;
 use App\Tenants\Modules\FMS\Services\AccountingService;
 use App\Tenants\Modules\IAM\Services\WorkflowStatusService;
+use App\Tenants\Modules\Settings\Services\SettingService;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Collection;
@@ -27,25 +28,119 @@ class PayrollService
     private const NSSF_RATE = 0.04;
 
     /**
-     * Hourly-rate divisor: standard 160 hours per month (40 h/wk × 4 weeks).
-     * Used to derive the hourly rate for overtime earnings. Spec §3.B says
-     * "or per-tenant standard" — tenant override deferred to a future slice.
+     * Default hourly-rate divisor used when the tenant hasn't customised
+     * `hrm.payroll.monthly_work_hours_standard`. 40 h/wk × 4 weeks.
      */
-    private const STANDARD_MONTHLY_HOURS = 160;
+    private const DEFAULT_MONTHLY_HOURS = 160;
+
+    /**
+     * Default payday (day-of-month) used when the tenant hasn't customised
+     * `hrm.payroll.default_payday`. Matches the registry default.
+     */
+    private const DEFAULT_PAYDAY = 25;
+
+    /**
+     * Map of internal account-key → CoA-code setting key. The four codes
+     * used to be sourced from `config('payroll.accounts')`; Phase 9 moves
+     * them into per-tenant settings so multi-tenant rollouts don't need
+     * env edits to change the chart.
+     */
+    private const ACCOUNT_SETTING_KEYS = [
+        'wage_expense'  => 'hrm.payroll.account_wages_expense',
+        'tax_payable'   => 'hrm.payroll.account_tax_payable',
+        'nssf_payable'  => 'hrm.payroll.account_social_security_payable',
+        'wages_payable' => 'hrm.payroll.account_wages_payable',
+    ];
 
     public function __construct(
         private readonly WorkflowStatusService $statuses,
         private readonly AccountingService $accounting,
         private readonly AttendanceService $attendance,
         private readonly OvertimeService $overtime,
+        private readonly SettingService $settings,
     ) {
     }
+
+    /**
+     * Phase 9 hook: standard hours per month used as the overtime hourly-rate
+     * divisor. Reads `hrm.payroll.monthly_work_hours_standard`, clamps to a
+     * sane floor (>=1) so a zero value can't divide-by-zero, falls back to
+     * the 160h default.
+     */
+    public function monthlyWorkHoursStandard(): int
+    {
+        $raw = $this->settings->get('hrm.payroll.monthly_work_hours_standard');
+        return is_numeric($raw) && (int) $raw > 0 ? (int) $raw : self::DEFAULT_MONTHLY_HOURS;
+    }
+
+    /**
+     * Phase 9 hook: configured day-of-month for auto-generating draft
+     * payroll periods. Clamped to 1..31; non-numeric / out-of-range
+     * values fall back to the 25th.
+     */
+    public function defaultPayday(): int
+    {
+        $raw = $this->settings->get('hrm.payroll.default_payday');
+        if (!is_numeric($raw)) {
+            return self::DEFAULT_PAYDAY;
+        }
+        $day = (int) $raw;
+        return ($day >= 1 && $day <= 31) ? $day : self::DEFAULT_PAYDAY;
+    }
+
+    /**
+     * Phase 9 hook: when false, `closePeriod()` skips the FMS journal entry
+     * but still flips the period state to `closed`. Lets a tenant operate
+     * payroll without the accounting integration until they're ready.
+     */
+    public function fmsPostingEnabled(): bool
+    {
+        // Default true — the historic behavior always posted.
+        $raw = $this->settings->get('hrm.payroll.fms_posting_enabled');
+        return $raw === null ? true : (bool) $raw;
+    }
+
+    /**
+     * Active-employee count at or above this threshold pushes payroll
+     * processing onto the queue instead of running synchronously inside
+     * the HTTP request. Tuned so a typical SMB tenant (< 200 staff) still
+     * gets the inline experience while large customers don't timeout.
+     */
+    public const QUEUE_THRESHOLD = 200;
 
     public function createPeriod(array $data): PayrollPeriod
     {
         $data['status'] ??= $this->statuses->initialFor('hrm.payroll_period');
 
         return PayrollPeriod::create($data);
+    }
+
+    /**
+     * Returns true when the active workforce exceeds the synchronous
+     * threshold. PayrollPeriodController consults this to decide between
+     * inline processing and {@see ProcessPayrollPeriodJob}.
+     */
+    public function shouldQueueProcessing(): bool
+    {
+        return Employee::query()->where('status', 'active')->count() >= self::QUEUE_THRESHOLD;
+    }
+
+    /**
+     * Flip the period to `processing` and hand off to the queue. Callers
+     * (controller) get back the updated period so they can return a 202
+     * with the new status. Job dispatch itself happens after the status
+     * flip so a queue failure leaves the period in `processing` and is
+     * caught by the job's own rollback path.
+     */
+    public function queueProcessPeriod(PayrollPeriod $period): PayrollPeriod
+    {
+        $this->statuses->validateTransition('hrm.payroll_period', $period->status, 'processing');
+
+        $period->update(['status' => 'processing']);
+
+        \App\Jobs\ProcessPayrollPeriodJob::dispatch($period->id);
+
+        return $period->fresh();
     }
 
     /**
@@ -90,7 +185,13 @@ class PayrollService
         $this->statuses->validateTransition('hrm.payroll_period', $period->status, 'closed');
 
         return DB::transaction(function () use ($period) {
-            $journal = $this->postPayrollJournal($period);
+            // Phase 9: tenant can disable FMS posting per
+            // `hrm.payroll.fms_posting_enabled`. When off, we still close the
+            // period but leave `journal_entry_id` null — the FMS side stays
+            // untouched.
+            $journal = $this->fmsPostingEnabled()
+                ? $this->postPayrollJournal($period)
+                : null;
 
             $period->update([
                 'status'           => 'closed',
@@ -151,7 +252,7 @@ class PayrollService
                 // Overtime earnings.
                 $weighted = $this->overtime->approvedWeightedHoursFor($employee->id, $start->toDateString(), $end->toDateString());
                 if ($weighted > 0) {
-                    $hourly = $base / self::STANDARD_MONTHLY_HOURS;
+                    $hourly = $base / $this->monthlyWorkHoursStandard();
                     $earnings['overtime'] = round($weighted * $hourly, 2);
                 }
             }
@@ -240,14 +341,26 @@ class PayrollService
      */
     private function resolvePayrollAccounts(): array
     {
-        $codes = config('payroll.accounts');
+        // Phase 9: per-tenant codes come from `hrm.payroll.account_*`
+        // settings; `config('payroll.accounts')` (env-driven) is the
+        // fallback when a tenant hasn't customised a particular key, so
+        // existing PAYROLL_ACCOUNT_* env deployments keep working unchanged.
+        $fallbacks = config('payroll.accounts');
+        $codes = [];
+        foreach (self::ACCOUNT_SETTING_KEYS as $accountKey => $settingKey) {
+            $raw = $this->settings->get($settingKey);
+            $codes[$accountKey] = is_string($raw) && $raw !== ''
+                ? $raw
+                : ($fallbacks[$accountKey] ?? '');
+        }
+
         $accounts = Account::query()->whereIn('code', $codes)->get()->keyBy('code');
 
         $missing = [];
         $resolved = [];
         foreach ($codes as $key => $code) {
-            if (!$accounts->has($code)) {
-                $missing[] = $code;
+            if ($code === '' || !$accounts->has($code)) {
+                $missing[] = $code === '' ? "[{$key}: unset]" : $code;
                 continue;
             }
             $resolved[$key] = $accounts->get($code);
@@ -256,7 +369,7 @@ class PayrollService
         if (!empty($missing)) {
             throw new DomainException(
                 'Cannot close payroll: FMS chart of accounts is missing required codes: '
-                . implode(', ', $missing) . '. Configure them in /api/v1/accounts or override config/hrm/payroll.php.'
+                . implode(', ', $missing) . '. Configure them in /api/v1/accounts or set the matching `hrm.payroll.account_*` settings.'
             );
         }
 

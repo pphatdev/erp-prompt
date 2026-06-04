@@ -26,6 +26,11 @@ class TenantDatabaseSeeder extends Seeder
             ['name' => 'Delete Roles', 'slug' => 'iam.roles.delete', 'module' => 'iam', 'feature' => 'roles', 'action' => 'delete'],
             ['name' => 'Read Audit', 'slug' => 'iam.audit.read', 'module' => 'iam', 'feature' => 'audit', 'action' => 'read'],
 
+            // IAM — Workflow Statuses (per-tenant FSM configuration for every module)
+            ['name' => 'Read Workflow Statuses',   'slug' => 'iam.workflow_statuses.read',   'module' => 'iam', 'feature' => 'workflow_statuses', 'action' => 'read'],
+            ['name' => 'Write Workflow Statuses',  'slug' => 'iam.workflow_statuses.write',  'module' => 'iam', 'feature' => 'workflow_statuses', 'action' => 'write'],
+            ['name' => 'Delete Workflow Statuses', 'slug' => 'iam.workflow_statuses.delete', 'module' => 'iam', 'feature' => 'workflow_statuses', 'action' => 'delete'],
+
             // Sales
             ['name' => 'Read Orders', 'slug' => 'sales.orders.read', 'module' => 'sales', 'feature' => 'orders', 'action' => 'read'],
             ['name' => 'Write Orders', 'slug' => 'sales.orders.write', 'module' => 'sales', 'feature' => 'orders', 'action' => 'write'],
@@ -65,6 +70,10 @@ class TenantDatabaseSeeder extends Seeder
             // HRM — Performance / Appraisals (admin scope)
             ['name' => 'Read Appraisals',  'slug' => 'hrm.performance.read',  'module' => 'hrm', 'feature' => 'performance', 'action' => 'read'],
             ['name' => 'Write Appraisals', 'slug' => 'hrm.performance.write', 'module' => 'hrm', 'feature' => 'performance', 'action' => 'write'],
+            // HRM Phase 4 — dedicated peer-review grant so a line manager
+            // or HR partner can invite peers without unlocking the rest of
+            // the performance write surface.
+            ['name' => 'Invite Peer Reviewers', 'slug' => 'hrm.performance.peer_review', 'module' => 'hrm', 'feature' => 'performance', 'action' => 'peer_review'],
 
             // HRM — Payroll & Payslips (admin scope)
             ['name' => 'Read Payroll/Payslips',  'slug' => 'hrm.payroll.read',  'module' => 'hrm', 'feature' => 'payroll', 'action' => 'read'],
@@ -74,6 +83,21 @@ class TenantDatabaseSeeder extends Seeder
             ['name' => 'Read Recruitment',   'slug' => 'hrm.recruitment.read',   'module' => 'hrm', 'feature' => 'recruitment', 'action' => 'read'],
             ['name' => 'Write Recruitment',  'slug' => 'hrm.recruitment.write',  'module' => 'hrm', 'feature' => 'recruitment', 'action' => 'write'],
             ['name' => 'Delete Recruitment', 'slug' => 'hrm.recruitment.delete', 'module' => 'hrm', 'feature' => 'recruitment', 'action' => 'delete'],
+
+            // HRM Phase 8 — dedicated Offer + Onboarding grants so a tenant
+            // can build "Offer specialist" / "Onboarding lead" roles without
+            // unlocking the rest of the recruitment funnel. The existing
+            // hrm.recruitment.* slugs are still honored by OfferPolicy /
+            // OnboardingTaskPolicy.
+            ['name' => 'Issue Offers',         'slug' => 'hrm.recruitment.offer',      'module' => 'hrm', 'feature' => 'recruitment', 'action' => 'offer'],
+            ['name' => 'Manage Onboarding',    'slug' => 'hrm.recruitment.onboarding', 'module' => 'hrm', 'feature' => 'recruitment', 'action' => 'onboarding'],
+
+            // HRM Phase 10 — hierarchical Work Schedules. Dedicated grants
+            // so an HR coordinator can edit schedules without unlocking the
+            // full settings.* surface. `settings.read`/`settings.write` are
+            // still honored by WorkSchedulePolicy.
+            ['name' => 'Read Work Schedules',  'slug' => 'hrm.work_schedule.read',  'module' => 'hrm', 'feature' => 'work_schedule', 'action' => 'read'],
+            ['name' => 'Write Work Schedules', 'slug' => 'hrm.work_schedule.write', 'module' => 'hrm', 'feature' => 'work_schedule', 'action' => 'write'],
 
             // HRM — Quiz Authoring (admin scope)
             ['name' => 'Read Quizzes',   'slug' => 'hrm.quiz.read',   'module' => 'hrm', 'feature' => 'quiz', 'action' => 'read'],
@@ -405,6 +429,10 @@ class TenantDatabaseSeeder extends Seeder
 
         // Seed default workflow statuses for every HRM module
         $this->seedWorkflowStatuses();
+
+        // Seed the default global work schedule (HRM Phase 10).
+        // Idempotent — skips on tenants that already have a global row.
+        $this->seedDefaultWorkSchedule();
 
         // Seed default approval workflows and levels
         $this->seedApprovalWorkflows();
@@ -898,9 +926,15 @@ class TenantDatabaseSeeder extends Seeder
                 ['key' => 'terminated', 'label' => 'Terminated', 'color' => 'danger',    'icon' => 'ti-user-off',       'sequence' => 3,  'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
             ],
             'hrm.payroll_period' => [
-                ['key' => 'draft',      'label' => 'Draft',      'color' => 'secondary', 'icon' => 'ti-pencil',         'sequence' => 1,  'is_initial' => true,  'is_terminal' => false, 'allowed_next' => ['processed']],
-                ['key' => 'processed',  'label' => 'Processed',  'color' => 'success',   'icon' => 'ti-circle-check',   'sequence' => 2,  'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['closed']],
-                ['key' => 'closed',     'label' => 'Closed',     'color' => 'warning',   'icon' => 'ti-lock',           'sequence' => 3,  'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
+                ['key' => 'draft',      'label' => 'Draft',      'color' => 'secondary', 'icon' => 'ti-pencil',         'sequence' => 1, 'is_initial' => true,  'is_terminal' => false, 'allowed_next' => ['processing', 'processed']],
+                // `processing` is the transitional state used by
+                // ProcessPayrollPeriodJob when the controller dispatches
+                // the job for tenants above the 200-employee threshold.
+                // It transitions back to `draft` on failure or forward to
+                // `processed` on success.
+                ['key' => 'processing', 'label' => 'Processing', 'color' => 'info',      'icon' => 'ti-loader-2',       'sequence' => 2, 'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['processed', 'draft']],
+                ['key' => 'processed',  'label' => 'Processed',  'color' => 'success',   'icon' => 'ti-circle-check',   'sequence' => 3, 'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['closed']],
+                ['key' => 'closed',     'label' => 'Closed',     'color' => 'warning',   'icon' => 'ti-lock',           'sequence' => 4, 'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
             ],
             'hrm.quiz_attempt' => [
                 ['key' => 'invited',     'label' => 'Invited',     'color' => 'secondary', 'icon' => 'ti-mail',           'sequence' => 1, 'is_initial' => true,  'is_terminal' => false, 'allowed_next' => ['in_progress', 'expired', 'abandoned']],
@@ -915,15 +949,110 @@ class TenantDatabaseSeeder extends Seeder
                 ['key' => 'cancelled', 'label' => 'Cancelled', 'color' => 'secondary', 'icon' => 'ti-calendar-cancel',   'sequence' => 3, 'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
                 ['key' => 'no_show',   'label' => 'No Show',   'color' => 'danger',    'icon' => 'ti-user-x',            'sequence' => 4, 'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
             ],
+            'hrm.offer' => [
+                ['key' => 'draft',    'label' => 'Draft',    'color' => 'secondary', 'icon' => 'ti-file-pencil',     'sequence' => 1, 'is_initial' => true,  'is_terminal' => false, 'allowed_next' => ['sent']],
+                ['key' => 'sent',     'label' => 'Sent',     'color' => 'info',      'icon' => 'ti-mail-forward',    'sequence' => 2, 'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['accepted', 'declined', 'expired']],
+                ['key' => 'accepted', 'label' => 'Accepted', 'color' => 'success',   'icon' => 'ti-circle-check',    'sequence' => 3, 'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
+                ['key' => 'declined', 'label' => 'Declined', 'color' => 'danger',    'icon' => 'ti-circle-x',        'sequence' => 4, 'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
+                ['key' => 'expired',  'label' => 'Expired',  'color' => 'warning',   'icon' => 'ti-clock-cancel',    'sequence' => 5, 'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
+            ],
+            'hrm.onboarding_task' => [
+                ['key' => 'pending',     'label' => 'Pending',     'color' => 'secondary', 'icon' => 'ti-circle-dashed',  'sequence' => 1, 'is_initial' => true,  'is_terminal' => false, 'allowed_next' => ['in_progress', 'completed', 'skipped']],
+                ['key' => 'in_progress', 'label' => 'In Progress', 'color' => 'info',      'icon' => 'ti-progress',       'sequence' => 2, 'is_initial' => false, 'is_terminal' => false, 'allowed_next' => ['completed', 'skipped']],
+                ['key' => 'completed',   'label' => 'Completed',   'color' => 'success',   'icon' => 'ti-circle-check',   'sequence' => 3, 'is_initial' => false, 'is_terminal' => true,  'allowed_next' => []],
+                ['key' => 'skipped',     'label' => 'Skipped',     'color' => 'warning',   'icon' => 'ti-player-skip-forward', 'sequence' => 4, 'is_initial' => false, 'is_terminal' => true, 'allowed_next' => []],
+            ],
         ];
+
+        // Tenant key on this DB — stamped onto every row.
+        $tenantId = tenant()?->getTenantKey();
+        if (!$tenantId) {
+            return;
+        }
 
         foreach ($modules as $module => $rows) {
             foreach ($rows as $row) {
-                \App\Models\Tenant\WorkflowStatus::updateOrCreate(
-                    ['module' => $module, 'key' => $row['key']],
-                    array_merge($row, ['module' => $module])
-                );
+                // Bypass every global scope (BelongsToTenant + SoftDeletes)
+                // and look the row up by the actual unique-constraint key
+                // (tenant_id, module, key). The unique index has no
+                // partial WHERE deleted_at IS NULL clause, so a soft-
+                // deleted tombstone OR a row outside the current Eloquent
+                // scope context will still collide on insert — surface it
+                // and restore/update in place.
+                $existing = \App\Models\Tenant\WorkflowStatus::query()
+                    ->withoutGlobalScopes()
+                    ->where('tenant_id', $tenantId)
+                    ->where('module', $module)
+                    ->where('key', $row['key'])
+                    ->first();
+
+                if ($existing) {
+                    if ($existing->trashed()) {
+                        $existing->restore();
+                    }
+                    $existing->fill(array_merge($row, [
+                        'module'    => $module,
+                        'tenant_id' => $tenantId,
+                    ]))->save();
+                } else {
+                    \App\Models\Tenant\WorkflowStatus::create(array_merge($row, [
+                        'module'    => $module,
+                        'tenant_id' => $tenantId,
+                    ]));
+                }
             }
+        }
+    }
+
+    /**
+     * HRM Phase 10 - seed the default global work schedule.
+     *
+     * Mon-Fri full day (08:00-12:00 + 13:00-17:00), Sat half day
+     * (08:00-12:00), Sun off. Idempotent: each (target, day) row uses
+     * updateOrCreate so re-running this seeder doesn't dupe rows.
+     */
+    private function seedDefaultWorkSchedule(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('work_schedules')) {
+            return;
+        }
+
+        $full = [
+            ['start' => '08:00', 'end' => '12:00'],
+            ['start' => '13:00', 'end' => '17:00'],
+        ];
+        $half = [
+            ['start' => '08:00', 'end' => '12:00'],
+        ];
+
+        $week = [
+            1 => ['is_work' => true,  'intervals' => $full], // Mon
+            2 => ['is_work' => true,  'intervals' => $full], // Tue
+            3 => ['is_work' => true,  'intervals' => $full], // Wed
+            4 => ['is_work' => true,  'intervals' => $full], // Thu
+            5 => ['is_work' => true,  'intervals' => $full], // Fri
+            6 => ['is_work' => true,  'intervals' => $half], // Sat half-day
+            7 => ['is_work' => false, 'intervals' => []],    // Sun off
+        ];
+
+        $tenantId = tenant()?->getTenantKey();
+        if (!$tenantId) {
+            return;
+        }
+
+        foreach ($week as $dow => $row) {
+            \App\Models\Tenant\WorkSchedule::updateOrCreate(
+                [
+                    'target_type' => \App\Models\Tenant\WorkSchedule::TARGET_GLOBAL,
+                    'target_id'   => null,
+                    'day_of_week' => $dow,
+                ],
+                [
+                    'is_work_day' => $row['is_work'],
+                    'intervals'   => $row['intervals'],
+                    'tenant_id'   => $tenantId,
+                ]
+            );
         }
     }
 

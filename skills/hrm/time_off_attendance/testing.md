@@ -63,36 +63,75 @@ it('rejects clock in attempts outside the department geofence', function () {
 });
 ```
 
-### Leave Balance Restrictions (P1)
-Assert that employees cannot request leave that exceeds their remaining available balance.
+### Leave Balance & Allocation Restrictions (P1)
+Assert that leave requests validate against `employee_leave_allocations` and respect work schedule durations.
 ```php
-it('fails to submit leave request if balance is insufficient', function () {
+it('fails to submit leave request if allocated balance is insufficient', function () {
     $tenant = Tenant::factory()->create();
     $employee = Employee::factory()->forTenant($tenant)->create();
     
     $leaveType = LeaveType::factory()->forTenant($tenant)->create([
-        'annual_allowance' => 10,
+        'code' => 'sick',
+        'default_allowance' => 7.0,
+        'is_accrued' => false,
     ]);
 
-    // Employee already used 8 days
-    Leave::factory()->forTenant($tenant)->create([
+    // Create allocation of 7 days
+    EmployeeLeaveAllocation::create([
         'employee_id' => $employee->id,
         'leave_type_id' => $leaveType->id,
-        'start_date' => now()->startOfYear()->toDateString(),
-        'end_date' => now()->startOfYear()->addDays(7)->toDateString(), // 8 days total
-        'days' => 8,
-        'status' => 'approved',
+        'year' => now()->year,
+        'allocated_days' => 7.0,
+        'used_days' => 5.0, // Employee already used 5 days
+        'pending_days' => 0.0,
+        'tenant_id' => $tenant->id,
     ]);
 
-    // Attempting to request 3 days (total YTD would exceed 10)
+    // Attempting to request 3 days (exceeds remaining 2 days)
     $this->actingAs($employee->user)
         ->postJson('/api/v1/leaves', [
             'leave_type_id' => $leaveType->id,
             'start_date' => now()->toDateString(),
-            'end_date' => now()->addDays(2)->toDateString(), // 3 days
+            'end_date' => now()->addDays(2)->toDateString(),
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'Insufficient leave balance (2 day(s) remaining).');
+        ->assertJsonPath('message', 'Insufficient leave balance (2.0 day(s) remaining).');
+});
+
+it('calculates leave duration based on employee work schedule intervals', function () {
+    $tenant = Tenant::factory()->create();
+    $employee = Employee::factory()->forTenant($tenant)->create();
+    
+    $leaveType = LeaveType::factory()->forTenant($tenant)->create([
+        'code' => 'vacation',
+        'default_allowance' => 18.0,
+        'is_accrued' => true,
+    ]);
+
+    // Allocation of 18 days
+    EmployeeLeaveAllocation::create([
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'year' => now()->year,
+        'allocated_days' => 18.0,
+        'used_days' => 0.0,
+        'pending_days' => 0.0,
+        'tenant_id' => $tenant->id,
+    ]);
+
+    // Schedule has: Friday 8h, Saturday 4h, Sunday Off
+    // Submit request Friday -> Sunday (inclusive)
+    $friday = now()->next(Carbon\Carbon::FRIDAY);
+    $sunday = $friday->copy()->addDays(2);
+
+    $this->actingAs($employee->user)
+        ->postJson('/api/v1/leaves', [
+            'leave_type_id' => $leaveType->id,
+            'start_date' => $friday->toDateString(),
+            'end_date' => $sunday->toDateString(),
+        ])
+        ->assertStatus(201)
+        ->assertJsonPath('data.days', 1.5); // 1.0 (Friday) + 0.5 (Saturday) + 0.0 (Sunday)
 });
 ```
 

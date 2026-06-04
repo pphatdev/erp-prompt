@@ -26,6 +26,7 @@ class EmployeeResource extends JsonResource
             'lastName' => $this->last_name,
             'fullName' => trim("{$this->first_name} {$this->last_name}"),
             'email' => $this->email,
+            'gender' => $this->gender,
             'phone' => $this->phone,
             'imageUrl' => $this->image_path ? asset('storage/' . $this->image_path) : null,
             'status' => $this->status,
@@ -37,6 +38,7 @@ class EmployeeResource extends JsonResource
             'department' => $this->whenLoaded('department', fn () => $this->department ? new DepartmentResource($this->department) : null),
             'position' => $this->whenLoaded('position', fn () => $this->position ? new PositionResource($this->position) : null),
             'applications' => $this->whenLoaded('applications', fn () => ApplicationResource::collection($this->applications)),
+            'assets' => $this->whenLoaded('assets', fn () => \App\Tenants\Modules\Assets\Resources\AssetResource::collection($this->assets)),
             'createdAt' => optional($this->created_at)->toIso8601String(),
             'updatedAt' => optional($this->updated_at)->toIso8601String(),
         ];

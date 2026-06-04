@@ -44,7 +44,7 @@
                         type="button"
                         role="tab"
                         :aria-selected="activeTab === t.id"
-                        class="account-nav-link"
+                        class="account-nav-link text-left"
                         :class="activeTab === t.id ? 'account-nav-link--active' : ''"
                         @click="setActive(t.id)">
                         <i :class="['ti', t.icon, 'text-base']" />
@@ -56,7 +56,7 @@
                     </button>
                 </nav>
 
-                <button class="btn btn-ghost text-xs w-full inline-flex justify-center gap-2 rounded-full"
+                <button class="btn btn-danger text-xs w-full inline-flex justify-center gap-2 rounded-full"
                     @click="logout">
                     <i class="ti ti-logout" />
                     Sign out

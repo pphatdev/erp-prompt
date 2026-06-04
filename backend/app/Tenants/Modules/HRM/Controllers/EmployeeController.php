@@ -71,7 +71,7 @@ class EmployeeController extends Controller
     public function show(Employee $employee): EmployeeResource
     {
         $this->authorize('view', $employee);
-        return new EmployeeResource($employee->load(['department', 'position']));
+        return new EmployeeResource($employee->load(['department', 'position', 'assets']));
     }
 
     public function update(UpdateEmployeeRequest $request, Employee $employee): EmployeeResource
@@ -111,7 +111,7 @@ class EmployeeController extends Controller
 
         $this->authorize('view', $employee);
 
-        return new EmployeeResource($employee->load(['department', 'position']));
+        return new EmployeeResource($employee->load(['department', 'position', 'assets']));
     }
 
     /**

@@ -8,7 +8,7 @@
                         workforce.</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <NuxtLink to="/settings/hrm/leave-types" class="btn btn-ghost text-xs">
+                    <NuxtLink to="/settings/apps/hrm?tab=leave-types" class="btn btn-ghost text-xs">
                         <i class="ti ti-list" />Leave types
                     </NuxtLink>
                     <NuxtLink to="/approvals/forms/leave" class="btn btn-primary text-xs">

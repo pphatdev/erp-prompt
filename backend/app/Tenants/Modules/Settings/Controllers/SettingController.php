@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Tenants\Modules\Settings\Requests\UpdateSettingsRequest;
 use App\Tenants\Modules\Settings\Resources\SettingResource;
 use App\Tenants\Modules\Settings\Services\SettingService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,9 +23,17 @@ class SettingController extends Controller
      *
      * Returns the full setting catalogue for the tenant (or one group).
      * Materialises defaults on first call for the tenant.
+     *
+     * Gated by `settings.read` — self-service employees never see raw
+     * tenant configuration; they receive pre-computed values via the
+     * feature-specific payloads (payslips, leave balances, ...).
      */
     public function index(Request $request): JsonResponse
     {
+        if (!$request->user()?->hasPermission('settings.read')) {
+            throw new AuthorizationException('You do not have permission to read settings.');
+        }
+
         $group = $request->query('group');
         $rows = $this->settings->all(is_string($group) ? $group : null);
 

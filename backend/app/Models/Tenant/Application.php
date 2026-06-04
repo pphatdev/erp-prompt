@@ -76,6 +76,11 @@ class Application extends Model
         return $this->hasMany(EmployeeAppointment::class);
     }
 
+    public function offers(): HasMany
+    {
+        return $this->hasMany(Offer::class)->orderByDesc('created_at');
+    }
+
     /**
      * Pending appointment requests, newest first. Modeled as HasMany rather
      * than `hasOne()->latestOfMany('created_at')` because Laravel's

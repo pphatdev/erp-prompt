@@ -99,8 +99,12 @@ class QuizController extends Controller
         }
 
         $token = $result['token'];
+        // Candidate is anonymous — no login, no tenant store. The frontend
+        // resolves the tenant from the URL's `handle` query param so the
+        // sandboxed quiz page can ship X-Tenant-Handle on every request.
         $candidateUrl = URL::query(config('app.frontend_url', config('app.url')) . '/candidate/quiz', [
-            'token' => $token,
+            'token'  => $token,
+            'handle' => tenant()?->getTenantKey(),
         ]);
 
         return response()->json([

@@ -52,19 +52,15 @@ Detailed checklists for implementing the multi-tenant Fixed Assets Management sy
 - [x] Register routes in `routes/tenant.php` under `auth:api` (apiResource + nested depreciation / revaluation / disposal actions; static `/assets/depreciation` etc. declared before apiResource to avoid being captured as `{asset}` UUIDs).
 
 ### Phase 6: Nuxt Premium UI Shell
-- [ ] Create flat page components:
-  - `frontend/pages/assets/index.vue` (asset grid, table list, QR modals, condition dropdowns)
-  - `frontend/pages/assets/depreciation.vue` (depreciation books, batch runner, calendar)
-  - `frontend/pages/assets/revaluation.vue` (appraisal inputs, revaluation tables)
-  - `frontend/pages/assets/disposal.vue` (scrapping, write-off forms, sale wizard)
-- [ ] Create the flat client composable helper `frontend/composables/useAssets.ts` routing through `useApi()`.
-- [ ] Create the state store `frontend/stores/assets.ts`.
-- [ ] Build interactive dashboards featuring total book values, monthly schedules, and scan status counters using HSL theme variables.
-- [ ] Implement standard kebab menus for row actions, date formatting, and toast notifications.
+- [x] Flat page components: `frontend/pages/assets/index.vue` (577 lines - registry with KPI strip, search + status segmented + condition filter, asset cards, create/edit modal, QR modal, archive); `depreciation.vue` (250 lines - log list + per-asset Run/Preview); `revaluation.vue` (259 lines - log list + record-revaluation modal); `disposal.vue` (278 lines - log list + sale/scrap/writeoff wizard); plus `audits.vue` (420 lines - audit campaign workflow, beyond original scope).
+- [x] `frontend/composables/useAssets.ts` (253 lines): typed wrappers for every endpoint (assets, depreciation, revaluation, disposal, audit campaigns, verifications, scan profile). Domain types mirror the camelCase backend resources.
+- [x] `frontend/stores/assets.ts` Pinia store.
+- [x] Interactive KPI strip + condition dropdowns + status segmented + custom modals via design-token classes (badge-soft-*, glass-card, font-mono).
+- [x] Kebab action menus, locale-aware date formatting, toast confirmations.
 
 ### Phase 7: Verification & QA
-- [ ] Write P0 Tenancy Isolation tests asserting Tenant A users cannot read/modify Tenant B assets.
-- [ ] Write P0 Math Accuracy tests verifying Straight-line caps and declining formulas.
-- [ ] Write P1 FMS ledger integration tests verifying transaction rollbacks on locked period exceptions.
-- [ ] Write P1 Audit log assertions validating trait logs are successfully written.
-- [ ] Add REST mock examples inside `docs/postman/erp_collection.json`.
+- [x] P0 Tenancy Isolation - `tests/Feature/Tenant/Assets/AssetsTenancyIsolationTest.php` (3 cases): Tenant A writes Asset / DepreciationLog / AssetRevaluationLog + AssetDisposal; Tenant B's connection sees 0 of each via `BelongsToTenant` global scope and `find()` returns null.
+- [x] P0 Math Accuracy - `tests/Feature/Tenant/Assets/DepreciationMathTest.php` (7 cases): straight-line first period (12000/0/36m -> 333.33), straight-line salvage cap (final period truncates to remaining), already-fully-depreciated returns 0, DDB factor=2 first period rate (NBV * 2/months), DDB salvage cap, SYD first period fraction L/denominator, SYD salvage cap.
+- [x] P1 FMS rollback - `tests/Feature/Tenant/Assets/AssetsRollbackAndAuditTest.php::test_fms_failure_rolls_back_asset_and_depreciation_log`: stubs `FmsIntegrationService::postDepreciationJournal` to throw `RuntimeException('Fiscal period locked.')` via container bind; asserts asset.accumulated_depreciation rolls back to 0 + no DepreciationLog row survives.
+- [x] P1 Audit log - same test file `::test_auditable_trait_logs_*` uses `Log::spy()` and `Log::shouldHaveReceived('info')->withArgs(...)` to assert `Audit Log: create`/`update` was logged for Asset create, Asset update (post-depreciation accumulated bump), and DepreciationLog create.
+- [ ] Postman REST mock examples (deferred).

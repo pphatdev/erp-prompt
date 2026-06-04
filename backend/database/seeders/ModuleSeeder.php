@@ -156,8 +156,12 @@ class ModuleSeeder extends Seeder
         ['slug' => 'hrm-appraisals',             'prefix' => 'HRMPR',  'name' => 'Performance Management', 'icon' => 'ti-stars',            'route' => null,              'group' => 'apps', 'sort_order' => 4, 'parent_slug' => 'hrm'],
         ['slug' => 'hrm-appraisals-performance', 'prefix' => 'HRMPRP', 'name' => 'Performance Appraisals', 'icon' => 'ti-clipboard-check', 'route' => '/hrm/appraisals', 'group' => 'apps', 'sort_order' => 1, 'parent_slug' => 'hrm-appraisals'],
 
-        // HRM > Payroll (standalone, last item)
+        // HRM > Payroll (standalone)
         ['slug' => 'hrm-payroll', 'prefix' => 'HRMPA', 'name' => 'Payroll', 'icon' => 'ti-cash', 'route' => '/hrm/payroll', 'group' => 'apps', 'sort_order' => 5, 'parent_slug' => 'hrm'],
+
+        // HRM > Offers & Onboarding (Phase 8)
+        ['slug' => 'hrm-offers',     'prefix' => 'HRMOF', 'name' => 'Offers',     'icon' => 'ti-file-certificate', 'route' => '/hrm/offers',     'group' => 'apps', 'sort_order' => 6, 'parent_slug' => 'hrm'],
+        ['slug' => 'hrm-onboarding', 'prefix' => 'HRMON', 'name' => 'Onboarding', 'icon' => 'ti-checklist',        'route' => '/hrm/onboarding', 'group' => 'apps', 'sort_order' => 7, 'parent_slug' => 'hrm'],
 
         // Apps: standalone
         // Fleets: group → 3 leaf pages. The route on the parent stays null so
@@ -201,9 +205,11 @@ class ModuleSeeder extends Seeder
         // Backend setting keys (numbering.*) are unchanged; the grouping is a
         // pure UI organization concern. Invoice + Subscription sit under
         // Finance (financial documents), Asset Code under System (FAM infra).
-        ['slug' => 'settings-apps-hrm', 'prefix' => 'SETAH', 'name' => 'Human Resource', 'icon' => 'ti-users',   'route' => null, 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps'],
-        ['slug' => 'settings-apps-hrm-leave-types', 'prefix' => 'SETAHL', 'name' => 'Leave Types', 'icon' => 'ti-list', 'route' => '/settings/apps/hrm/leave-types', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-hrm'],
-        ['slug' => 'settings-apps-hrm-prefix-code', 'prefix' => 'SETAHP', 'name' => 'Prefix Code', 'icon' => 'ti-hash', 'route' => '/settings/apps/hrm/prefix-code', 'group' => 'apps', 'sort_order' => 2, 'is_core' => true, 'parent_slug' => 'settings-apps-hrm'],
+        // HRM settings collapsed into a single tabbed page (`/settings/apps/hrm`).
+        // The page itself renders Leave Types / Prefix Code / Recruitment / Leave /
+        // Attendance / Payroll / Performance as in-page tabs (via ?tab=...), so
+        // the sidebar exposes only the parent leaf.
+        ['slug' => 'settings-apps-hrm', 'prefix' => 'SETAH', 'name' => 'Human Resource', 'icon' => 'ti-users', 'route' => '/settings/apps/hrm', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps'],
         ['slug' => 'settings-apps-sales', 'prefix' => 'SETASLS', 'name' => 'Sales', 'icon' => 'ti-address-book', 'route' => null, 'group' => 'apps', 'sort_order' => 2, 'is_core' => true, 'parent_slug' => 'settings-apps'],
         ['slug' => 'settings-apps-sales-prefix-code', 'prefix' => 'SETASLSP', 'name' => 'Prefix Code', 'icon' => 'ti-hash', 'route' => '/settings/apps/sales/prefix-code', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-sales'],
         ['slug' => 'settings-apps-inventory', 'prefix' => 'SETAINV', 'name' => 'Inventory', 'icon' => 'ti-building-warehouse', 'route' => null, 'group' => 'apps', 'sort_order' => 3, 'is_core' => true, 'parent_slug' => 'settings-apps'],
@@ -215,8 +221,10 @@ class ModuleSeeder extends Seeder
         ['slug' => 'settings-apps-fleet', 'prefix' => 'SETAFLT', 'name' => 'Fleet', 'icon' => 'ti-truck', 'route' => null, 'group' => 'apps', 'sort_order' => 6, 'is_core' => true, 'parent_slug' => 'settings-apps'],
         ['slug' => 'settings-apps-fleet-vehicle-models', 'prefix' => 'SETAFLTV', 'name' => 'Vehicle Models', 'icon' => 'ti-car', 'route' => '/settings/apps/fleet/vehicle-models', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-apps-fleet'],
 
-        ['slug' => 'settings-users',  'prefix' => 'SETU', 'name' => 'User Directory', 'icon' => 'ti-users-group',  'route' => '/settings/users',    'group' => 'apps', 'sort_order' => 13, 'is_core' => true],
-        ['slug' => 'settings-roles',  'prefix' => 'SETR', 'name' => 'Roles Matrix',   'icon' => 'ti-shield-check', 'route' => '/settings/roles',    'group' => 'apps', 'sort_order' => 14, 'is_core' => true],
+        ['slug' => 'settings-users',             'prefix' => 'SETU',  'name' => 'User Directory',     'icon' => 'ti-users-group',  'route' => '/settings/users',              'group' => 'apps', 'sort_order' => 13, 'is_core' => true],
+        ['slug' => 'settings-roles',             'prefix' => 'SETR',  'name' => 'Roles Matrix',       'icon' => 'ti-shield-check', 'route' => '/settings/roles',              'group' => 'apps', 'sort_order' => 14, 'is_core' => true],
+        // Workflow Statuses moved into the HRM Settings page as the 9th tab
+        // (/settings/apps/hrm?tab=workflow-statuses). No standalone slug.
 
         ['slug' => 'settings-config', 'prefix' => 'SETC', 'name' => 'Configuration',  'icon' => 'ti-settings',     'route' => null, 'group' => 'apps', 'sort_order' => 16, 'is_core' => true],
         ['slug' => 'settings-config-branding', 'prefix' => 'SETCB', 'name' => 'Branding', 'icon' => 'ti-palette', 'route' => '/settings/configuration/branding', 'group' => 'apps', 'sort_order' => 1, 'is_core' => true, 'parent_slug' => 'settings-config'],

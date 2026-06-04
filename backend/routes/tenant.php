@@ -46,12 +46,16 @@ use App\Tenants\Modules\FMS\Controllers\LedgerController;
 use App\Tenants\Modules\FMS\Controllers\ReimbursementController;
 use App\Tenants\Modules\HRM\Controllers\ApplicationController;
 use App\Tenants\Modules\HRM\Controllers\AppraisalController;
+use App\Tenants\Modules\HRM\Controllers\AppraisalPeerFeedbackController;
 use App\Tenants\Modules\HRM\Controllers\EmployeeAppointmentController;
 use App\Tenants\Modules\HRM\Controllers\CandidateQuizController;
 use App\Tenants\Modules\HRM\Controllers\DepartmentController;
 use App\Tenants\Modules\HRM\Controllers\InterviewController;
 use App\Tenants\Modules\HRM\Controllers\EmployeeController;
 use App\Tenants\Modules\HRM\Controllers\JobVacancyController;
+use App\Tenants\Modules\HRM\Controllers\OfferController;
+use App\Tenants\Modules\HRM\Controllers\OnboardingTaskController;
+use App\Tenants\Modules\HRM\Controllers\WorkScheduleController;
 use App\Tenants\Modules\HRM\Controllers\HolidayController;
 use App\Tenants\Modules\HRM\Controllers\LeaveController;
 use App\Tenants\Modules\HRM\Controllers\LeaveTypeController;
@@ -127,6 +131,12 @@ Route::middleware([
 
     // Public branding (logo, primary color) — used by login & public surfaces.
     Route::get('/settings/public', [SettingController::class, 'public']);
+
+    // HRM Phase 8 — eSignature provider webhook. Lives outside auth:api so
+    // DocuSign / Adobe Sign can post directly; tenant still resolves via
+    // X-Tenant-Handle and the request is signature-verified by
+    // ESignatureService::verifySignature() before any state changes.
+    Route::post('/offers/sign-webhook', [OfferController::class, 'webhook']);
 
     // Public Catalog — unauthenticated storefront / partner integration surface.
     // Tenant resolved by X-Tenant-Handle header (same as the public careers
@@ -433,6 +443,12 @@ Route::middleware([
         Route::post('/hrm/payroll-periods/{payrollPeriod}/process', [PayrollPeriodController::class, 'process']);
         Route::post('/hrm/payroll-periods/{payrollPeriod}/close', [PayrollPeriodController::class, 'close']);
         Route::apiResource('payslips', PayslipController::class)->only(['index', 'show']);
+        // ESS portal — caller's own payslips. Force-scoped to the linked
+        // employee_id; no admin permission required.
+        Route::get('/me/payslips', [PayslipController::class, 'mine']);
+        // Server-rendered PDF (DomPDF). Gated by PayslipPolicy::view —
+        // owners + `hrm.payroll.read` admins.
+        Route::get('/payslips/{payslip}/pdf', [PayslipController::class, 'pdf']);
 
         // HRM Module — Phase 4A: Recruitment
         Route::apiResource('job-vacancies', JobVacancyController::class)
@@ -449,6 +465,23 @@ Route::middleware([
         Route::post('/applications/{application}/revert-employee-conversion', [ApplicationController::class, 'revertEmployeeConversion']);
         Route::post('/applications/{application}/quiz-attempts', [QuizController::class, 'assignToApplication']);
 
+        // HRM Module — Phase 8: Digital Offer & Onboarding Pipeline
+        Route::apiResource('offers', OfferController::class);
+        Route::post('/offers/{offer}/send', [OfferController::class, 'send']);
+        Route::post('/offers/{offer}/accept', [OfferController::class, 'accept']);
+        Route::post('/offers/{offer}/decline', [OfferController::class, 'decline']);
+
+        Route::get('/onboarding-checklists', [OnboardingTaskController::class, 'indexChecklists']);
+        Route::get('/onboarding-checklists/{checklist}', [OnboardingTaskController::class, 'showChecklist']);
+        Route::get('/onboarding-tasks', [OnboardingTaskController::class, 'indexTasks']);
+        Route::patch('/onboarding-tasks/{task}/status', [OnboardingTaskController::class, 'transition']);
+
+        // HRM Module — Phase 10: Hierarchical Working Days/Hours
+        Route::get('/work-schedules/snapshot', [WorkScheduleController::class, 'snapshot']);
+        Route::get('/work-schedules', [WorkScheduleController::class, 'index']);
+        Route::put('/work-schedules', [WorkScheduleController::class, 'upsert']);
+        Route::delete('/work-schedules', [WorkScheduleController::class, 'destroy']);
+
         // HRM Module — Phase 4A: Employee Appointment (post-hire workflow)
         Route::post('/employee-appointments', [EmployeeAppointmentController::class, 'store']);
         Route::get('/employee-appointments/{appointment}', [EmployeeAppointmentController::class, 'show']);
@@ -458,6 +491,11 @@ Route::middleware([
         Route::post('/appraisals/{appraisal}/submit', [AppraisalController::class, 'submit']);
         Route::post('/appraisals/{appraisal}/review', [AppraisalController::class, 'review']);
         Route::post('/appraisals/{appraisal}/close', [AppraisalController::class, 'close']);
+
+        // HRM Phase 4 — 360-degree peer feedback on appraisals.
+        Route::get('/appraisals/{appraisal}/peer-feedback', [AppraisalPeerFeedbackController::class, 'index']);
+        Route::post('/appraisals/{appraisal}/peer-feedback/invite', [AppraisalPeerFeedbackController::class, 'invite']);
+        Route::post('/appraisals/{appraisal}/peer-feedback/submit', [AppraisalPeerFeedbackController::class, 'submit']);
 
         // HRM Module — Phase 6: Quiz Assessment (admin authoring)
         Route::apiResource('quizzes', QuizController::class);

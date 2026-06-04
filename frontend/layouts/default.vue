@@ -587,6 +587,8 @@ interface NavItem {
      */
     excludePrefixes?: string[]
     children?: NavItem[]
+    external?: boolean
+    target?: string
 }
 interface NavGroup { id: string; label: string; items: NavItem[] }
 
@@ -666,7 +668,7 @@ const navGroups = reactive<NavGroup[]>([
                     // to match the Finance org chart. Backend paths unchanged — see rules/hybrid_sales_business_flow.md.
                     { label: 'Invoices', icon: 'ti-receipt', route: '/sales/invoices', operational: true, permission: ['sales.orders.read', 'sales.orders.write'] },
                     { label: 'Subscriptions', icon: 'ti-cloud', route: '/sales/subscriptions', operational: true, permission: ['sales.orders.read', 'sales.orders.write'] },
-                    { label: 'Payments', icon: 'ti-cash', route: '/finance/payments', operational: false },
+                    { label: 'Customer Receipts', icon: 'ti-cash', route: '/finance/receipts', operational: true, permission: ['fms.receipts.read', 'fms.receipts.write'] },
                     { label: 'Estimates', icon: 'ti-file-invoice', route: '/finance/estimates', operational: false },
                     { label: 'Exchange Rates', icon: 'ti-currency-dollar', route: '/finance/exchange-rates', operational: true, permission: ['fms.exchange_rate.read', 'fms.exchange_rate.write'] }
                 ]
@@ -811,17 +813,10 @@ const navGroups = reactive<NavGroup[]>([
         label: 'Configurations',
         items: [
             {
-                label: 'Apps Management',
+                label: 'App Management',
                 icon: 'ti-box',
                 children: [
-                    {
-                        label: 'Human Resource',
-                        icon: 'ti-users',
-                        children: [
-                            { label: 'Leave Types', icon: 'ti-list', route: '/settings/apps/hrm/leave-types', operational: true, permission: 'hrm.leave.read' },
-                            { label: 'Prefix Code', icon: 'ti-hash', route: '/settings/apps/hrm/prefix-code', operational: true, permission: 'settings.read' }
-                        ]
-                    },
+                    { label: 'Human Resource', icon: 'ti-users', route: '/settings/apps/hrm', operational: true, permission: 'settings.read' },
                     {
                         label: 'Sales',
                         icon: 'ti-address-book',
@@ -1088,6 +1083,10 @@ const SLUG_LABELS: Record<string, string> = {
     positions: 'Positions',
     leaves: 'Leave Requests',
     'leave-types': 'Leave Types',
+    recruitment: 'Recruitment',
+    leave: 'Leave',
+    attendance: 'Attendance',
+    performance: 'Performance',
     holidays: 'Holidays',
     calendar: 'Calendar',
     payroll: 'Payroll',
@@ -1101,7 +1100,6 @@ const SLUG_LABELS: Record<string, string> = {
     settings: 'Settings',
     hrm: 'HRM',
     projects: 'Projects',
-    tasks: 'Tasks',
     timesheets: 'Timesheets',
     sales: 'Sales',
     customers: 'Customers',
@@ -1111,6 +1109,7 @@ const SLUG_LABELS: Record<string, string> = {
     subscriptions: 'Subscriptions',
     finance: 'Finance',
     payments: 'Payments',
+    receipts: 'Customer Receipts',
     estimates: 'Estimates',
     accounting: 'Accounting',
     accounts: 'Chart of Accounts',
@@ -1167,6 +1166,16 @@ const breadcrumbItems = computed<Crumb[]>(() => {
     const path = router.currentRoute.value.path
     if (path === '/' || path === '') {
         return [{ label: 'Dashboard', to: '/dashboard' }]
+    }
+
+    // Page-level full-trail override. When a page declares
+    // `definePageMeta({ breadcrumbTrail: [{ label, to? }, ...] })` we use
+    // it verbatim, bypassing the URL-segment walker below. Useful for
+    // deep paths (e.g. /settings/apps/hrm) where the generated trail
+    // doesn't match the conceptual navigation hierarchy.
+    const trailOverride = router.currentRoute.value.meta.breadcrumbTrail
+    if (Array.isArray(trailOverride) && trailOverride.length > 0) {
+        return trailOverride as Crumb[]
     }
 
     const segments = path.split('/').filter(Boolean)

@@ -53,36 +53,39 @@ sequenceDiagram
 
 ## 2. Leave Request & eApprovals Integration Flow
 
-This diagram shows how leave requests interact with the centralized `eApprovals` engine and enforce balance checks.
+This diagram shows how leave requests calculate duration via the employee's work schedule, verify entitlement balances in `employee_leave_allocations`, and lock pending days during approval.
 
 ```mermaid
 flowchart TD
-    A[Employee Submits Leave Request] --> B{Validate Request Details}
-    B -->|Overlap / Invalid Dates| C[Return 422 Error]
-    B -->|Valid Dates| D{Check Available Balance}
+    A[Employee Submits Leave Request] --> B{Verify Dates & Allocation}
+    B -->|Overlap / No Allocation| C[Return 422 Error]
+    B -->|Active Allocation Exists| D[Calculate Request Duration via Work Schedule]
     
-    D -->|Insufficient Balance| C
-    D -->|Sufficient Balance| E{Central approval workflow configured for hrm.leave?}
+    D --> E[Iterate Date Range & Sum Daily Scheduled Hours / Standard Hours]
+    E --> F{Check Available Balance}
+    
+    F -->|Insufficient Balance| C
+    F -->|Sufficient Balance| G{Central approval workflow configured for hrm.leave?}
     
     %% Centralized Workflow Path
-    E -->|Yes| F[Create Leave with status = 'pending']
-    F --> G[Dispatch ApprovalRequest to eApprovals Engine]
-    G --> H[Lock Requested Days in available balance calculations]
-    H --> I{Approval Processed?}
+    G -->|Yes| H[Create Leave with status = 'pending']
+    H --> I[Dispatch ApprovalRequest to eApprovals Engine]
+    I --> J[Lock Days: Add duration to allocation.pending_days]
+    J --> K{Approval Processed?}
     
-    I -->|Rejected| J[Flip Leave status to 'rejected' via Listener]
-    J --> K[Release balance lock]
-    I -->|Approved| L[Flip Leave status to 'approved' via Listener]
-    L --> M[Deduct days permanently from YTD Allowance]
+    K -->|Rejected| L[Flip status to 'rejected' via Listener]
+    L --> M[Release Lock: Subtract duration from allocation.pending_days]
+    K -->|Approved| N[Flip status to 'approved' via Listener]
+    N --> O[Deduct: Subtract duration from pending_days & add to used_days]
     
     %% Legacy Fallback Path
-    E -->|No| N[Create Leave with status = 'pending']
-    N --> O[Wait for direct Admin Approve/Reject call]
-    O -->|Admin Direct Action| I
+    G -->|No| P[Create Leave with status = 'pending']
+    P --> Q[Wait for direct Admin Action]
+    Q -->|Admin Direct Action| K
     
     style C fill:#fee2e2,stroke:#ef4444,stroke-width:1px;
-    style L fill:#d1fae5,stroke:#10b981,stroke-width:1.5px;
-    style J fill:#f3f4f6,stroke:#9ca3af,stroke-width:1px;
+    style N fill:#d1fae5,stroke:#10b981,stroke-width:1.5px;
+    style L fill:#f3f4f6,stroke:#9ca3af,stroke-width:1px;
 ```
 
 ---

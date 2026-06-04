@@ -38,6 +38,7 @@ class UpdateEmployeeRequest extends FormRequest
             'email'          => ['sometimes', 'email',
                 Rule::unique('employees', 'email')->ignore($employeeId)->where($scoped)],
             'phone'          => 'nullable|string|max:30',
+            'gender'         => 'nullable|in:male,female,other',
             'hired_at'       => 'nullable|date',
             'base_salary'         => 'nullable|numeric|min:0',
             'bank_name'           => 'nullable|string|max:100',

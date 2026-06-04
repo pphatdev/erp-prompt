@@ -27,9 +27,6 @@
                     <NuxtLink v-if="canWrite" to="/hrm/applications/new" class="btn btn-primary text-xs">
                         <i class="ti ti-user-plus" /> Add candidate
                     </NuxtLink>
-                    <NuxtLink v-if="canWrite" to="/hrm/recruitments/vacancies" class="btn btn-ghost text-xs">
-                        <i class="ti ti-plus" /> Post New Job
-                    </NuxtLink>
                 </div>
             </header>
 
@@ -284,23 +281,55 @@ import { useApi } from '~/composables/useApi'
 import { formatDate, formatDateTime } from '~/composables/useDateFormat'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
+import { useWorkflowStatuses, type WorkflowColor } from '~/composables/useWorkflowStatuses'
 import Badge from '~/components/Badge.vue'
 
 interface VacancyLite { id: string; title: string }
 interface EmployeeLite { id: string; employeeId: string; fullName: string }
 
-type ApplicationStatus = 'applied' | 'screening' | 'shortlisted' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
+/**
+ * Statuses are no longer a fixed union. The Kanban hydrates the list
+ * from the `workflow_statuses` table (module `hrm.application`) on mount,
+ * so a tenant who adds `assessment` / `final_round` / etc. via the
+ * HRM Settings > Workflow Statuses tab sees them appear here.
+ *
+ * Domain-specific literal keys (`offer`, `hired`, `applied`) are still
+ * referenced in places where the BEHAVIOR depends on the meaning of
+ * that exact stage (e.g. salary preview on offer, revert-conversion on
+ * hired, "Add application" CTA on the empty applied column). Tenants
+ * who rename those keys would need to mirror the change in those
+ * behavior hooks — but the column rendering + transition validation
+ * is now fully data-driven.
+ */
+type ApplicationStatus = string
 
-const STATUS_FLOW: Record<ApplicationStatus, ApplicationStatus[]> = {
-    applied: ['screening', 'rejected', 'withdrawn'],
-    screening: ['shortlisted', 'interview', 'rejected', 'withdrawn'],
-    shortlisted: ['interview', 'rejected', 'withdrawn'],
-    interview: ['offer', 'rejected', 'withdrawn'],
-    offer: ['hired', 'rejected', 'withdrawn'],
-    hired: [],
-    rejected: [],
-    withdrawn: []
+interface StatusMeta {
+    key: string
+    label: string
+    color: WorkflowColor | null
+    icon: string | null
+    sequence: number
+    isInitial: boolean
+    isTerminal: boolean
+    allowedNext: string[]
 }
+
+// Sequences >= this are treated as off-ramp terminals (rejected,
+// withdrawn, ...) and rendered as actions on a card rather than as
+// Kanban columns. The seeded defaults reserve 90+ for that band.
+const OFFRAMP_SEQUENCE_THRESHOLD = 50
+
+// Hard-coded fallback used while the workflow_statuses fetch is in
+// flight (or if it fails). Mirrors the seeded `hrm.application`
+// defaults so a fresh tenant still sees a working pipeline.
+const FALLBACK_STATUSES: StatusMeta[] = [
+    { key: 'applied',     label: 'Applied',     color: 'secondary', icon: null, sequence: 1, isInitial: true,  isTerminal: false, allowedNext: ['screening', 'rejected', 'withdrawn'] },
+    { key: 'screening',   label: 'Screening',   color: 'info',      icon: null, sequence: 2, isInitial: false, isTerminal: false, allowedNext: ['shortlisted', 'interview', 'rejected', 'withdrawn'] },
+    { key: 'shortlisted', label: 'Shortlisted', color: 'primary',   icon: null, sequence: 3, isInitial: false, isTerminal: false, allowedNext: ['interview', 'rejected', 'withdrawn'] },
+    { key: 'interview',   label: 'Interview',   color: 'warning',   icon: null, sequence: 6, isInitial: false, isTerminal: false, allowedNext: ['offer', 'rejected', 'withdrawn'] },
+    { key: 'offer',       label: 'Offer',       color: 'primary',   icon: null, sequence: 7, isInitial: false, isTerminal: false, allowedNext: ['hired', 'rejected', 'withdrawn'] },
+    { key: 'hired',       label: 'Hired',       color: 'success',   icon: null, sequence: 8, isInitial: false, isTerminal: true,  allowedNext: [] },
+]
 
 interface Application {
     id: string
@@ -360,15 +389,58 @@ const canRevert = (app: Application): boolean =>
     !!app.employeeId &&
     isWithinRevertWindow(app)
 
-const COLUMNS: { status: ApplicationStatus; label: string }[] = [
-    { status: 'applied', label: 'Applied' },
-    { status: 'screening', label: 'Screening' },
-    { status: 'shortlisted', label: 'Shortlisted' },
-    { status: 'interview', label: 'Technical Interview' },
-    { status: 'offer', label: 'Offer Sent' },
-    { status: 'hired', label: 'Hired' }
-]
-const columns = COLUMNS
+// Workflow-statuses driver: starts on the fallback, replaced by the
+// `hrm.application` rows loaded on mount. The `statusFlow` + `statusMeta`
+// computeds derive everything the template needs from this single source.
+const workflowStatusesApi = useWorkflowStatuses()
+const allStatuses = ref<StatusMeta[]>([...FALLBACK_STATUSES])
+
+/** Lookup map keyed by status key — used by columnHeaderClass + cardBadge. */
+const statusMeta = computed<Record<string, StatusMeta>>(() => {
+    const out: Record<string, StatusMeta> = {}
+    for (const row of allStatuses.value) out[row.key] = row
+    return out
+})
+
+/** Dynamic transition map (mirrors the old STATUS_FLOW). */
+const statusFlow = computed<Record<string, string[]>>(() => {
+    const out: Record<string, string[]> = {}
+    for (const row of allStatuses.value) out[row.key] = [...row.allowedNext]
+    return out
+})
+
+/**
+ * Kanban columns = all statuses with sequence < OFFRAMP_SEQUENCE_THRESHOLD,
+ * sorted by sequence. Off-ramp terminals (rejected / withdrawn / etc.)
+ * stay in the data model but render as card actions, not columns.
+ */
+const columns = computed<{ status: string; label: string }[]>(() =>
+    allStatuses.value
+        .filter(s => s.sequence < OFFRAMP_SEQUENCE_THRESHOLD)
+        .sort((a, b) => a.sequence - b.sequence)
+        .map(s => ({ status: s.key, label: s.label }))
+)
+
+const loadWorkflowStatuses = async () => {
+    try {
+        const res = await workflowStatusesApi.list('hrm.application')
+        if (Array.isArray(res.data) && res.data.length > 0) {
+            allStatuses.value = res.data.map(row => ({
+                key: row.key,
+                label: row.label,
+                color: row.color,
+                icon: row.icon,
+                sequence: row.sequence,
+                isInitial: row.isInitial,
+                isTerminal: row.isTerminal,
+                allowedNext: row.allowedNext ?? [],
+            }))
+        }
+    } catch {
+        // Keep the fallback list — page stays functional even if the
+        // workflow-statuses endpoint is unreachable.
+    }
+}
 
 const applications = ref<Application[]>([])
 const vacancies = ref<VacancyLite[]>([])
@@ -405,12 +477,18 @@ const dragOverColumn = ref<ApplicationStatus | null>(null)
 const movingId = ref<string | null>(null)
 const pendingDropStatus = ref<ApplicationStatus | null>(null)
 
-const grouped = computed<Record<ApplicationStatus, Application[]>>(() => {
-    const seed: Record<ApplicationStatus, Application[]> = {
-        applied: [], screening: [], shortlisted: [], interview: [], offer: [], hired: [], rejected: [], withdrawn: []
-    }
+/**
+ * Seed buckets from the loaded workflow_statuses so a tenant who adds
+ * `assessment` / `final_round` / etc. doesn't lose cards (which would
+ * happen if we kept the hard-coded `seed[a.status]` lookup that
+ * silently dropped unknown statuses).
+ */
+const grouped = computed<Record<string, Application[]>>(() => {
+    const seed: Record<string, Application[]> = {}
+    for (const row of allStatuses.value) seed[row.key] = []
     for (const a of applications.value) {
-        if (seed[a.status]) seed[a.status].push(a)
+        if (!seed[a.status]) seed[a.status] = []
+        seed[a.status].push(a)
     }
     return seed
 })
@@ -471,29 +549,14 @@ const cardBadge = (a: Application, status: ApplicationStatus): CardBadge => {
     return HIDDEN_BADGE
 }
 
-const statusVariant = (s: ApplicationStatus): 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary' => {
-    switch (s) {
-        case 'applied': return 'secondary'
-        case 'screening': return 'info'
-        case 'shortlisted': return 'primary'
-        case 'interview': return 'warning'
-        case 'offer': return 'primary'
-        case 'hired': return 'success'
-        case 'rejected': return 'danger'
-        case 'withdrawn': return 'secondary'
-    }
-}
+type StatusVariant = 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'secondary'
+
+const statusVariant = (s: ApplicationStatus): StatusVariant =>
+    (statusMeta.value[s]?.color ?? 'secondary') as StatusVariant
 
 const columnHeaderClass = (s: ApplicationStatus) => {
-    switch (s) {
-        case 'applied': return 'badge-soft-secondary'
-        case 'screening': return 'badge-soft-info'
-        case 'shortlisted': return 'badge-soft-primary'
-        case 'interview': return 'badge-soft-warning'
-        case 'offer': return 'badge-soft-primary'
-        case 'hired': return 'badge-soft-success'
-        default: return 'badge-soft-secondary'
-    }
+    const color = statusMeta.value[s]?.color ?? 'secondary'
+    return `badge-soft-${color}`
 }
 
 const sourceIcon = (a: Application) => {
@@ -600,7 +663,7 @@ const onCardDragStart = (a: Application, ev: DragEvent) => {
         ev.preventDefault()
         return
     }
-    if (!STATUS_FLOW[a.status].length) {
+    if (!(statusFlow.value[a.status]?.length ?? 0)) {
         ev.preventDefault()
         return
     }
@@ -619,7 +682,7 @@ const onCardDragEnd = () => {
 const canDropOn = (target: ApplicationStatus) => {
     if (!draggingFrom.value) return false
     if (target === draggingFrom.value) return false
-    return STATUS_FLOW[draggingFrom.value].includes(target)
+    return (statusFlow.value[draggingFrom.value] ?? []).includes(target)
 }
 
 const onColumnDragOver = (status: ApplicationStatus, ev: DragEvent) => {
@@ -641,7 +704,7 @@ const onColumnDrop = async (status: ApplicationStatus) => {
     dragOverColumn.value = null
     draggingId.value = null
     draggingFrom.value = null
-    if (!id || !from || from === status || !STATUS_FLOW[from].includes(status)) return
+    if (!id || !from || from === status || !(statusFlow.value[from] ?? []).includes(status)) return
 
     const idx = applications.value.findIndex(a => a.id === id)
     if (idx === -1) return
@@ -694,7 +757,11 @@ const revertConversion = async (app: Application): Promise<void> => {
 }
 
 onMounted(async () => {
-    await Promise.all([loadLookups(), loadApplications()])
+    // Load workflow statuses BEFORE applications so the first paint of the
+    // Kanban renders the tenant's configured columns (instead of briefly
+    // flashing the fallback layout). loadLookups / loadApplications still
+    // run in parallel for speed.
+    await Promise.all([loadWorkflowStatuses(), loadLookups(), loadApplications()])
 })
 </script>
 

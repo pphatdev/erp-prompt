@@ -79,6 +79,21 @@ class AppraisalPolicy
     }
 
     /**
+     * Inviting peer reviewers (Phase 4 360-degree feedback). The line
+     * manager assigned to the appraisal can invite peers in addition to
+     * holders of the dedicated `hrm.performance.peer_review` slug and the
+     * broader `hrm.performance.write` grant.
+     */
+    public function inviteReviewer(User $user, Appraisal $appraisal): bool
+    {
+        if ($user->employee?->id === $appraisal->reviewer_id) {
+            return true;
+        }
+        return $user->hasPermission('hrm.performance.peer_review')
+            || $user->hasPermission('hrm.performance.write');
+    }
+
+    /**
      * Performance has no dedicated delete permission per rules.md — write-level
      * authority covers archive. Closed appraisals are blocked at the controller.
      */

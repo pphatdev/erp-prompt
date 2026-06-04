@@ -67,7 +67,19 @@ class DemoVendorsWarehousesSeeder extends Seeder
         ];
 
         foreach ($rows as $row) {
-            Warehouse::updateOrCreate(['code' => $row['code']], $row);
+            $warehouse = Warehouse::withoutGlobalScope(\Stancl\Tenancy\Database\TenantScope::class)
+                ->withTrashed()
+                ->where('code', $row['code'])
+                ->first();
+
+            if ($warehouse) {
+                $warehouse->update(collect($row)->except('tenant_id')->toArray());
+                if ($warehouse->trashed()) {
+                    $warehouse->restore();
+                }
+            } else {
+                Warehouse::create($row);
+            }
         }
     }
 
@@ -156,7 +168,19 @@ class DemoVendorsWarehousesSeeder extends Seeder
         ];
 
         foreach ($rows as $row) {
-            Supplier::updateOrCreate(['code' => $row['code']], $row);
+            $supplier = Supplier::withoutGlobalScope(\Stancl\Tenancy\Database\TenantScope::class)
+                ->withTrashed()
+                ->where('code', $row['code'])
+                ->first();
+
+            if ($supplier) {
+                $supplier->update(collect($row)->except('tenant_id')->toArray());
+                if ($supplier->trashed()) {
+                    $supplier->restore();
+                }
+            } else {
+                Supplier::create($row);
+            }
         }
     }
 }

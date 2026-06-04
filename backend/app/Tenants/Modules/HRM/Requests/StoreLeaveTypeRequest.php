@@ -18,6 +18,7 @@ class StoreLeaveTypeRequest extends FormRequest
         return [
             'name' => 'required|string|max:80',
             'annual_allowance' => 'required|integer|min:0|max:365',
+            'applicable_gender' => 'sometimes|in:any,male,female',
         ];
     }
 }
