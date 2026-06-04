@@ -3,6 +3,8 @@
 # .task/*
 # .agent/*
 
+dev.log
+
 
 /backend/vendor
 /backend/.env
