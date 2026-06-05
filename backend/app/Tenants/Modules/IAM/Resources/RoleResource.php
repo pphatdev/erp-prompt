@@ -19,6 +19,8 @@ class RoleResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,
+            'usersCount' => $this->when($this->users_count !== null, fn () => (int) $this->users_count),
+            'updatedAt' => optional($this->updated_at)->toIso8601String(),
             'permissions' => PermissionResource::collection($this->whenLoaded('permissions')),
         ];
     }

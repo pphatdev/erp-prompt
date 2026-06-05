@@ -40,7 +40,7 @@
                 </div>
 
                 <!-- Action buttons -->
-                <div class="ml-auto flex items-center gap-2 flex-wrap">
+                <div class="ml-auto flex items-center gap-2 flex-wrap max-sm:justify-center">
                     <button v-if="scope !== 'global' && selectedTargetId" type="button" class="btn btn-ghost text-xs"
                         :disabled="clearing" @click="onClearOverrides">
                         <i :class="['ti', clearing ? 'ti-loader-2 animate-spin' : 'ti-trash']" />
@@ -59,7 +59,7 @@
             </div>
 
             <!-- Active filter chips -->
-            <div v-if="activeChips.length > 0" class="flex items-center gap-2 flex-wrap pt-3">
+            <div v-if="activeChips.length > 0" class="flex items-center gap-2 flex-wrap max-sm:justify-center pt-3">
                 <span class="text-xxs uppercase tracking-wider text-(--text-muted) font-semibold">Editing</span>
                 <span v-for="c in activeChips" :key="c.key" class="active-filter-chip">
                     <span class="text-(--text-muted)">{{ c.label }}</span>

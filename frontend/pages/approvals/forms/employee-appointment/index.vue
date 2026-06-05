@@ -108,7 +108,7 @@
                                 <span>{{ pickerInitials(c.applicantName) }}</span>
                             </div>
                             <div class="flex-1 min-w-0 space-y-1">
-                                <div class="flex items-center gap-2 flex-wrap">
+                                <div class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                                     <span class="text-sm font-semibold text-(--text-heading) truncate">{{ c.applicantName }}</span>
                                     <Badge variant="success" :dot="true">Hired</Badge>
                                 </div>
@@ -256,7 +256,12 @@
                                     required />
                             </div>
                             <p class="form-hint">
-                                <i class="ti ti-info-circle mr-1" />Becomes the employee's <code class="text-xxs">hired_at</code>.
+                                <i class="ti ti-info-circle mr-1" />
+                                <span v-if="acceptedOffer?.effectiveDate">
+                                    Defaulted from signed offer
+                                    <span class="font-mono">{{ acceptedOffer.referenceNumber }}</span>.
+                                </span>
+                                <span v-else>Becomes the employee's <code class="text-xxs">hired_at</code>.</span>
                             </p>
                         </div>
                         <div>
@@ -269,8 +274,14 @@
                             </div>
                             <p class="form-hint">
                                 <i class="ti ti-info-circle mr-1" />
-                                <span v-if="application?.expectedSalary != null">
-                                    Candidate expected <span class="font-mono">{{ formatMoney(application.expectedSalary) }}</span>.
+                                <span v-if="acceptedOffer?.baseSalary != null">
+                                    Defaulted from signed offer
+                                    <span class="font-mono">{{ acceptedOffer.referenceNumber }}</span>
+                                    (<span class="font-mono">{{ formatMoneyWithCurrency(acceptedOffer.baseSalary, acceptedOffer.currency) }}</span>).
+                                </span>
+                                <span v-else-if="application?.expectedSalary != null">
+                                    No signed offer on file — candidate expected
+                                    <span class="font-mono">{{ formatMoney(application.expectedSalary) }}</span>.
                                 </span>
                                 <span v-else>Encrypted at rest. Visible only to HR.</span>
                             </p>
@@ -367,6 +378,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useApi } from '~/composables/useApi'
 import { useAuthStore } from '~/stores/auth'
 import { useDateFormat } from '~/composables/useDateFormat'
+import { useOffers, type Offer } from '~/composables/useOffers'
 import Badge from '~/components/Badge.vue'
 
 interface EmployeeLite { id: string; employeeId: string; fullName: string }
@@ -405,6 +417,7 @@ const applicationId = ref((route.query.applicationId as string) || '')
 const canPick = computed(() => authStore.hasPermission('hrm.recruitment.write'))
 
 const application = ref<ApplicationView | null>(null)
+const acceptedOffer = ref<Offer | null>(null)
 const employees = ref<EmployeeLite[]>([])
 const departments = ref<DepartmentLite[]>([])
 const positions = ref<PositionLite[]>([])
@@ -412,6 +425,8 @@ const loading = ref(true)
 const loadError = ref<string | null>(null)
 const isSubmitting = ref(false)
 const formError = ref<string | null>(null)
+
+const offers = useOffers()
 
 // Picker state — surfaced when no applicationId is in the URL but the user
 // has permission to start a new appointment request.
@@ -455,6 +470,18 @@ const candidateInitials = computed(() => {
 
 const formatMoney = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+
+const formatMoneyWithCurrency = (n: number, currency: string | null) => {
+    try {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: currency || 'USD',
+            maximumFractionDigits: 0,
+        }).format(n)
+    } catch {
+        return `${n}`
+    }
+}
 
 const employmentTypeLabel = computed(() =>
     employmentTypes.find(t => t.value === form.employment_type)?.label || form.employment_type
@@ -527,17 +554,19 @@ const loadEverything = async () => {
     showPicker.value = false
 
     try {
-        const [app, deps, pos, emps] = await Promise.all([
+        const [app, deps, pos, emps, offerList] = await Promise.all([
             api.get<{ data: ApplicationView }>(`/applications/${applicationId.value}`),
             api.get<Paginated<DepartmentLite>>('/departments?limit=100').catch(() => null),
             api.get<Paginated<PositionLite>>('/positions?limit=100').catch(() => null),
-            api.get<Paginated<EmployeeLite>>('/employees?limit=200').catch(() => null)
+            api.get<Paginated<EmployeeLite>>('/employees?limit=200').catch(() => null),
+            offers.list({ applicationId: applicationId.value, status: 'accepted', limit: 1 }).catch(() => null),
         ])
 
         application.value = app.data
         departments.value = deps?.data ?? []
         positions.value = pos?.data ?? []
         employees.value = emps?.data ?? []
+        acceptedOffer.value = offerList?.data?.[0] ?? null
 
         if (app.data.status !== 'hired') {
             loadError.value = 'Only hired candidates can be appointed.'
@@ -552,8 +581,13 @@ const loadEverything = async () => {
             return
         }
 
-        // Prefill from candidate / vacancy
-        form.base_salary = app.data.expectedSalary ?? null
+        // Prefill defaults — accepted Job Offer wins over vacancy + candidate
+        // expectations because the offer is the artifact the candidate signed.
+        const offer = acceptedOffer.value
+        form.base_salary = offer?.baseSalary ?? app.data.expectedSalary ?? null
+        if (offer?.effectiveDate) {
+            form.start_date = offer.effectiveDate
+        }
         form.department_id = app.data.vacancy?.departmentId ?? ''
         form.position_id = app.data.vacancy?.positionId ?? ''
     } catch (err: any) {

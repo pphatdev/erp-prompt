@@ -6,7 +6,7 @@
                     <h1 class="text-xl font-semibold">Attendance</h1>
                     <p class="text-xs text-(--text-muted) mt-1">Clock-in / clock-out and daily attendance ledger.</p>
                 </div>
-                <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                     <button v-if="canClock" class="btn btn-primary text-xs" :disabled="clocking" @click="clockIn">
                         <i :class="['ti', clocking ? 'ti-loader animate-spin' : 'ti-login-2']" />
                         {{ clocking ? 'Stamping...' : 'Clock in' }}

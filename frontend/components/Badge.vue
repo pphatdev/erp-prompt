@@ -1,5 +1,5 @@
 <template>
-    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xxs font-bold uppercase tracking-wider"
+    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xxs font-bold uppercase tracking-wider"
         :class="classes">
         <i v-if="dot" class="ti ti-circle-filled text-[6px]" />
         <i v-else-if="icon" class="ti text-[10px]" :class="icon" />

@@ -29,7 +29,7 @@ This document defines the **requirements, scope, and constraints** for collectin
 
 ## **📋 3. Functional Requirements**
 
-> **Recruitment Integration Note**: The collection of this data begins during the **Recruitment phase**. Core fields such as Full Name, Email, Phone, Resumes, and Certifications are initially captured on the Candidate/Application record. When a candidate is hired, this data MUST be automatically mapped and transferred over to populate the new Employee Profile to eliminate duplicate data entry.
+> **Recruitment Integration Note**: The collection of this data begins during the **Recruitment phase**. Core fields such as Full Name, Email, Phone, Resumes, and Certifications are initially captured on the Candidate/Application record. The transfer to a new Employee Profile is **not** triggered by offer acceptance — it runs inside `SyncEmployeeAppointmentFromApproval` when HR's Employee Appointment request is approved through eApprovals. At that point `RecruitmentService::convertToEmployee` materialises the Employee row using the appointment's editable overrides (which default to the captured candidate data) and the application status advances from `hired` to `onboarding`. This keeps the HR governance gate in front of payroll provisioning while still eliminating duplicate data entry. See `skills/hrm/recruitment/flow.md` § Stage 5 §6 for the full automation chain.
 
 ### **3.1 Core Employee Data**
  | **Category**          | **Field**                          | **Type**       | **Mandatory?** | **Sensitive?** | **Retention Period** | **Notes**                          |

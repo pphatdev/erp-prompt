@@ -21,7 +21,7 @@
             </section>
 
             <!-- Filter chips + search -->
-            <section class="flex items-center gap-2 flex-wrap">
+            <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                 <button type="button" class="chip" :class="{ active: filterStatus === 'all' }"
                     @click="filterStatus = 'all'; load()">All</button>
                 <button v-for="s in ORDER_STATUSES" :key="s.value" type="button"

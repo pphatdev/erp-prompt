@@ -12,20 +12,17 @@
                 </button>
             </header>
 
-            <!-- Filters -->
-            <section class="glass-card rounded-xl p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
-                <div class="relative w-full md:w-80">
-                    <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm" />
-                    <input v-model="searchQuery" type="search" placeholder="Search by name or email..."
-                        class="form-control pl-9" />
-                </div>
-                <div class="flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
-                    <button v-for="s in (['all', 'active', 'inactive'] as const)" :key="s"
-                        class="px-3 py-1 rounded text-xxs uppercase tracking-widest font-bold transition-colors"
-                        :class="filterStatus === s ? 'bg-(--bg-card) text-(--color-primary) shadow-(--shadow-sm)' : 'text-(--text-muted) hover:text-(--text-heading)'"
-                        @click="filterStatus = s">
-                        {{ s }}
-                    </button>
+            <!-- Filter chips + search -->
+            <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
+                <button type="button" class="chip" :class="{ active: filterStatus === 'all' }"
+                    @click="filterStatus = 'all'">All</button>
+                <button v-for="s in USER_STATUSES" :key="s.value" type="button"
+                    class="chip" :class="{ active: filterStatus === s.value }"
+                    @click="filterStatus = s.value">
+                    <i class="ti" :class="s.icon" /> {{ s.label }}
+                </button>
+                <div class="ml-auto">
+                    <input v-model="searchQuery" type="search" placeholder="Search by name or email..." class="form-control text-xs w-64 rounded-full! px-5" />
                 </div>
             </section>
 
@@ -75,7 +72,7 @@
                         </div>
                     </div>
 
-                    <footer class="mt-auto pt-3 border-t border-(--border-color)/50 flex justify-end gap-2 relative z-10">
+                    <footer class="mt-auto pt-3 border-(--border-color)/50 flex justify-end gap-2 relative z-10">
                         <button class="btn btn-ghost text-xs" @click="openEditModal(user)">
                             <i class="ti ti-pencil" />Edit
                         </button>
@@ -218,6 +215,11 @@ const loading = ref(false)
 const searchQuery = ref('')
 const filterStatus = ref<'all' | 'active' | 'inactive'>('all')
 
+const USER_STATUSES = [
+    { value: 'active',   label: 'Active',   icon: 'ti-circle-check' },
+    { value: 'inactive', label: 'Inactive', icon: 'ti-circle-x' },
+] as const
+
 const showModal = ref(false)
 const editingUser = ref<User | null>(null)
 const form = ref({ name: '', email: '', password: '', role_ids: [] as string[], is_active: true })
@@ -336,5 +338,29 @@ onMounted(loadData)
 .topbar-btn:hover {
     background: var(--bg-muted);
     color: var(--text-heading);
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    font-size: 11px;
+    color: var(--text-body);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.chip:hover {
+    background: var(--bg-muted);
+}
+
+.chip.active {
+    background: rgb(var(--color-primary-rgb) / 0.12);
+    color: var(--color-primary);
+    border-color: rgb(var(--color-primary-rgb) / 0.4);
 }
 </style>

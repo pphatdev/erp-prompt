@@ -28,7 +28,7 @@
             </section>
 
             <!-- Filter chips -->
-            <section class="flex items-center gap-2 flex-wrap">
+            <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                 <button type="button" class="chip" :class="{ active: filterStatus === 'all' }"
                     @click="filterStatus = 'all'; load()">
                     <i class="ti ti-list" /> All

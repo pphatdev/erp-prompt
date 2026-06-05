@@ -112,8 +112,7 @@
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
-                            <tr
-                                class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
+                            <tr class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
                                 <th v-if="canWrite" class="pl-4 pr-1 py-3 w-8">
                                     <input type="checkbox" class="row-checkbox" :checked="allSelectableSelected"
                                         :indeterminate.prop="someSelectableSelected && !allSelectableSelected"
@@ -138,22 +137,24 @@
                                     <input type="checkbox" class="row-checkbox" :checked="selectedIds.has(v.id)"
                                         @change="toggleRow(v)">
                                 </td>
-                                <td class="px-4 py-3">
+                                <td class="px-4 py-3 whitespace-nowrap">
                                     <div class="text-xs font-semibold text-(--text-heading)">{{ v.title }}</div>
-                                    <div class="text-xxs text-(--text-muted) font-mono">{{ formatDate(v.postedAt) }}
+                                    <div class="text-xxs text-(--text-muted) font-mono">
+                                        {{ formatDate(v.postedAt) }}
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-xs">{{ v.department?.name || '—' }}</td>
                                 <td class="px-4 py-3 text-xs">{{ v.location || '—' }}</td>
-                                <td class="px-4 py-3 text-xs capitalize">{{ (v.employmentType || '').replace('_', ' ')
-                                    }}</td>
-                                <td class="px-4 py-3 font-mono text-xs text-right">
+                                <td class="px-4 py-3 text-xs capitalize whitespace-nowrap">
+                                    {{ (v.employmentType || '').replace('_', ' ') }}
+                                </td>
+                                <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-right">
                                     <span v-if="v.salaryMin != null && v.salaryMax != null">
                                         {{ formatMoney(v.salaryMin) }} – {{ formatMoney(v.salaryMax) }}
                                     </span>
                                     <span v-else class="text-(--text-muted)">—</span>
                                 </td>
-                                <td class="px-4 py-3 font-mono text-xs text-right">
+                                <td class="px-4 py-3 font-mono text-xs whitespace-nowrap text-right">
                                     <NuxtLink :to="`/hrm/recruitments/applications?vacancyId=${v.id}`"
                                         class="text-(--color-primary) hover:underline">
                                         {{ v.applicationCount ?? 0 }}

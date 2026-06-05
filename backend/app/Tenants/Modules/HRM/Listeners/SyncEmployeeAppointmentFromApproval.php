@@ -5,16 +5,32 @@ declare(strict_types=1);
 namespace App\Tenants\Modules\HRM\Listeners;
 
 use App\Models\Tenant\EmployeeAppointment;
+use App\Models\Tenant\Offer;
 use App\Tenants\Modules\Approvals\Events\ApprovalRequestFinalized;
+use App\Tenants\Modules\HRM\Services\OnboardingService;
 use App\Tenants\Modules\HRM\Services\RecruitmentService;
+use App\Tenants\Modules\IAM\Services\WorkflowStatusService;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Phase 8.5 — this listener is the single conversion gate.
+ *
+ * When HR's Employee Appointment request is approved through eApprovals
+ * the listener (a) materialises the Employee row, (b) links the accepted
+ * Offer (if any), (c) seeds the default onboarding checklist, and
+ * (d) advances the Application from `hired` → `onboarding`. Offer
+ * acceptance no longer triggers any of these — see
+ * {@see \App\Tenants\Modules\HRM\Services\OfferService::markAccepted()}.
+ */
 class SyncEmployeeAppointmentFromApproval
 {
-    public function __construct(private readonly RecruitmentService $recruitment)
-    {
+    public function __construct(
+        private readonly RecruitmentService $recruitment,
+        private readonly OnboardingService $onboarding,
+        private readonly WorkflowStatusService $statuses,
+    ) {
     }
 
     public function handle(ApprovalRequestFinalized $event): void
@@ -45,9 +61,10 @@ class SyncEmployeeAppointmentFromApproval
 
             DB::transaction(function () use ($appointment) {
                 $appointment->loadMissing('application');
+                $application = $appointment->application;
 
                 $result = $this->recruitment->convertToEmployee(
-                    $appointment->application,
+                    $application,
                     [
                         'first_name'      => $appointment->first_name,
                         'last_name'       => $appointment->last_name,
@@ -61,8 +78,28 @@ class SyncEmployeeAppointmentFromApproval
                     ],
                 );
 
+                $employee = $result['employee'];
+
+                // Link the accepted Offer (if any) to the new Employee and
+                // seed the onboarding checklist. Appointments raised without
+                // a prior offer (admin / backfill path) simply skip this
+                // block — the recruiter can attach a checklist manually.
+                $offer = $application?->offers()
+                    ->where('status', Offer::STATUS_ACCEPTED)
+                    ->first();
+                if ($offer) {
+                    $offer->update(['employee_id' => $employee->id]);
+                    $this->onboarding->seedDefaultChecklist($offer->fresh());
+                }
+
+                // Advance the Application to the terminal-success status.
+                if ($application && $application->status === 'hired') {
+                    $this->statuses->validateTransition('hrm.application', 'hired', 'onboarding');
+                    $application->update(['status' => 'onboarding']);
+                }
+
                 $appointment->update([
-                    'employee_id'  => $result['employee']->id,
+                    'employee_id'  => $employee->id,
                     'status'       => EmployeeAppointment::STATUS_APPROVED,
                     'processed_at' => now(),
                 ]);

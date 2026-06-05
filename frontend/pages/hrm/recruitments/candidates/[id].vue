@@ -19,13 +19,6 @@
 
         <!-- ============================ Profile ============================ -->
         <div v-else class="space-y-6">
-            <!-- Breadcrumb -->
-            <nav class="text-xxs text-(--text-muted) flex items-center gap-1.5">
-                <NuxtLink to="/hrm/recruitments/candidates" class="hover:text-(--color-primary)">Candidates</NuxtLink>
-                <i class="ti ti-chevron-right text-[10px]" />
-                <span class="text-(--text-body) truncate max-w-[260px]">{{ app.applicantName }}</span>
-            </nav>
-
             <!-- ===== Hero header ===== -->
             <section class="glass-card rounded-2xl p-6 md:p-7">
                 <div class="flex flex-col md:flex-row items-start md:items-center gap-5">
@@ -37,7 +30,7 @@
 
                     <!-- Identity -->
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                             <h1 class="text-lg md:text-xl font-semibold text-(--text-heading) truncate">
                                 {{ app.applicantName }}
                             </h1>
@@ -106,8 +99,20 @@
                 </Badge>
             </section>
 
+            <!-- ===== Tabs ===== -->
+            <nav class="glass-card rounded-xl px-2 py-1.5 flex items-center gap-1 overflow-x-auto">
+                <button type="button" class="tab-btn" :class="{ active: activeTab === 'overview' }"
+                    @click="activeTab = 'overview'">
+                    <i class="ti ti-user-circle" /> Overview
+                </button>
+                <button v-if="canOffer" type="button" class="tab-btn" :class="{ active: activeTab === 'offer' }"
+                    @click="activeTab = 'offer'">
+                    <i class="ti ti-file-certificate" /> Offer &amp; Onboarding
+                </button>
+            </nav>
+
             <!-- ===== Bento grid ===== -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div v-if="activeTab === 'overview'" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <!-- ============== LEFT COLUMN ============== -->
                 <div class="lg:col-span-8 space-y-6">
                     <!-- Cover letter / Summary -->
@@ -391,24 +396,503 @@
                     </article>
                 </div>
             </div>
+
+            <!-- ===== Offer & Onboarding tab ===== -->
+            <section v-else-if="activeTab === 'offer' && canOffer" class="space-y-6">
+                <div v-if="offerLoading" class="py-16 flex flex-col items-center gap-3">
+                    <span
+                        class="w-7 h-7 rounded-full border-2 border-(--color-primary)/20 border-t-(--color-primary) animate-spin" />
+                    <span class="text-xxs text-(--text-muted)">Loading offer...</span>
+                </div>
+
+                <template v-else>
+                    <!-- Too early in pipeline -->
+                    <article v-if="!offer && !canDraftFromStage"
+                        class="glass-card rounded-2xl p-6 text-center space-y-3">
+                        <i class="ti ti-info-circle text-3xl text-(--color-info)" />
+                        <h3 class="text-sm font-semibold text-(--text-heading)">Not ready for an offer yet</h3>
+                        <p class="text-xs text-(--text-muted)">
+                            Advance the candidate to the <strong>Offer</strong> stage from "Advance stage" above
+                            before drafting the letter.
+                        </p>
+                    </article>
+
+                    <!-- Ready to draft (status === 'offer') -->
+                    <article v-else-if="!offer && canDraftFromStage"
+                        class="glass-card rounded-2xl p-6 text-center space-y-3">
+                        <i class="ti ti-file-certificate text-3xl text-(--color-primary)" />
+                        <h3 class="text-sm font-semibold text-(--text-heading)">Ready to extend an offer</h3>
+                        <p class="text-xs text-(--text-muted)">
+                            Draft a binding offer letter to send via e-signature.
+                            The candidate's acceptance is what advances them to <strong>Hired</strong>.
+                        </p>
+                        <button v-if="canWrite" type="button" class="btn btn-primary text-xs"
+                            :disabled="draftShortcutBusy" @click="draftOfferShortcut">
+                            <i :class="['ti', draftShortcutBusy ? 'ti-loader-2 animate-spin' : 'ti-file-plus']" />
+                            Draft Offer Letter
+                        </button>
+                    </article>
+
+                    <!-- Hired without an offer record (legacy / admin path) — surface the appointment-request CTA -->
+                    <article v-else-if="!offer && app.status === 'hired'"
+                        class="glass-card rounded-2xl p-6 text-center space-y-3">
+                        <i class="ti ti-hourglass-high text-3xl text-(--color-warning)" />
+                        <h3 class="text-sm font-semibold text-(--text-heading)">No offer record on file</h3>
+                        <p class="text-xs text-(--text-muted)">
+                            This candidate reached <strong>Hired</strong> without an offer letter
+                            (legacy or admin path). Submit an Employee Appointment request to provision the employee.
+                        </p>
+                        <NuxtLink v-if="canWrite" :to="`/approvals/forms/employee-appointment?applicationId=${app.id}`"
+                            class="btn btn-primary text-xs">
+                            <i class="ti ti-send" /> Submit Appointment Request
+                        </NuxtLink>
+                    </article>
+
+                    <!-- Active offer -->
+                    <template v-else-if="offer">
+                        <article class="glass-card rounded-2xl p-6 space-y-5">
+                            <header class="flex flex-wrap items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="text-xxs uppercase tracking-widest font-bold text-(--text-muted)">
+                                        Offer Letter
+                                    </p>
+                                    <h2 class="text-base font-semibold text-(--text-heading) truncate">
+                                        {{ offer.title }}
+                                    </h2>
+                                    <p class="text-xxs text-(--text-muted) font-mono">{{ offer.referenceNumber }}</p>
+                                </div>
+                                <Badge :variant="OFFER_STATUS_META[offer.status].variant" :dot="true">
+                                    <i :class="['ti', OFFER_STATUS_META[offer.status].icon]" />
+                                    {{ OFFER_STATUS_META[offer.status].label }}
+                                </Badge>
+                            </header>
+
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div class="stat-tile">
+                                    <p class="stat-label">Effective</p>
+                                    <p class="stat-value text-(--text-heading) font-mono text-sm">
+                                        {{ formatOfferDate(offer.effectiveDate) }}
+                                    </p>
+                                </div>
+                                <div class="stat-tile">
+                                    <p class="stat-label">Expires</p>
+                                    <p class="stat-value text-(--text-heading) font-mono text-sm">
+                                        {{ formatOfferDate(offer.expiresAt) }}
+                                    </p>
+                                </div>
+                                <div v-if="canSeePayroll" class="stat-tile">
+                                    <p class="stat-label">Base Salary</p>
+                                    <p class="stat-value font-mono text-sm text-(--color-primary)">
+                                        {{ offer.baseSalary != null
+                                            ? formatOfferMoney(offer.baseSalary, offer.currency)
+                                            : '—' }}
+                                    </p>
+                                </div>
+                                <div class="stat-tile">
+                                    <p class="stat-label">Probation</p>
+                                    <p class="stat-value text-(--text-heading) font-mono text-sm">
+                                        {{ offer.probationMonths != null ? `${offer.probationMonths} mo` : '—' }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div v-if="canSeePayroll && offer.signingBonus" class="text-xs text-(--text-muted)">
+                                Signing bonus
+                                <span class="font-mono text-(--color-primary)">
+                                    {{ formatOfferMoney(offer.signingBonus, offer.currency) }}
+                                </span>
+                            </div>
+
+                            <div v-if="offer.notes"
+                                class="rounded-lg bg-(--bg-muted)/40 border border-(--border-color) p-3 text-xs text-(--text-body) whitespace-pre-wrap">
+                                {{ offer.notes }}
+                            </div>
+
+                            <!-- Status-specific metadata + actions -->
+                            <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-(--border-color)">
+                                <!-- DRAFT -->
+                                <template v-if="offer.status === 'draft'">
+                                    <button v-if="canWrite" type="button" class="btn btn-soft-primary text-xs"
+                                        @click="openOfferForm(offer)">
+                                        <i class="ti ti-pencil" /> Edit
+                                    </button>
+                                    <button v-if="canWrite" type="button" class="btn btn-soft-danger text-xs"
+                                        @click="openDeleteOffer">
+                                        <i class="ti ti-trash" /> Delete
+                                    </button>
+                                    <div class="flex-1" />
+                                    <button v-if="canWrite" type="button" class="btn btn-primary text-xs"
+                                        @click="openSendOffer">
+                                        <i class="ti ti-send" /> Send Offer
+                                    </button>
+                                </template>
+
+                                <!-- SENT -->
+                                <template v-else-if="offer.status === 'sent'">
+                                    <div class="text-xxs text-(--text-muted) space-y-1">
+                                        <p>
+                                            <i class="ti ti-send text-[10px]" />
+                                            Sent {{ formatRelative(offer.sentAt) }} via
+                                            <span class="font-mono">{{ offer.esignProvider || '—' }}</span>
+                                        </p>
+                                        <p v-if="offer.esignEnvelopeId" class="font-mono">
+                                            Envelope: {{ offer.esignEnvelopeId }}
+                                        </p>
+                                    </div>
+                                    <div class="flex-1" />
+                                    <button v-if="canWrite" type="button" class="btn btn-soft-danger text-xs"
+                                        @click="openDeclineOffer">
+                                        <i class="ti ti-x" /> Decline
+                                    </button>
+                                    <button v-if="canWrite" type="button" class="btn btn-primary text-xs"
+                                        @click="openAcceptOffer">
+                                        <i class="ti ti-check" /> Accept manually
+                                    </button>
+                                </template>
+
+                                <!-- ACCEPTED -->
+                                <template v-else-if="offer.status === 'accepted'">
+                                    <div class="text-xxs text-(--text-muted) space-y-1">
+                                        <p>
+                                            <i class="ti ti-check text-(--color-success)" />
+                                            Signed {{ formatRelative(offer.signedAt) }}.
+                                        </p>
+                                        <p v-if="app.status === 'hired'" class="font-semibold text-(--color-warning)">
+                                            <i class="ti ti-hourglass-high" />
+                                            HR appointment request needed to provision the employee.
+                                        </p>
+                                        <p v-else-if="app.status === 'onboarding'" class="font-semibold text-(--color-success)">
+                                            <i class="ti ti-checklist" /> Onboarding in progress.
+                                        </p>
+                                    </div>
+                                    <div class="flex-1" />
+                                    <NuxtLink v-if="app.status === 'hired' && !app.pendingAppointmentRequest && canWrite"
+                                        :to="`/approvals/forms/employee-appointment?applicationId=${app.id}`"
+                                        class="btn btn-primary text-xs">
+                                        <i class="ti ti-send" /> Submit Appointment Request
+                                    </NuxtLink>
+                                    <NuxtLink v-else-if="app.status === 'hired' && app.pendingAppointmentRequest"
+                                        :to="`/approvals/requests/${app.pendingAppointmentRequest.id}`"
+                                        class="btn btn-soft-warning text-xs">
+                                        <i class="ti ti-hourglass-high" /> View pending request
+                                    </NuxtLink>
+                                    <NuxtLink v-else-if="offer.employeeId" :to="`/hrm/employees/${offer.employeeId}`"
+                                        class="btn btn-soft-success text-xs">
+                                        <i class="ti ti-user-check" /> View Employee
+                                    </NuxtLink>
+                                </template>
+
+                                <!-- DECLINED -->
+                                <template v-else-if="offer.status === 'declined'">
+                                    <div class="text-xxs text-(--text-muted) space-y-0.5">
+                                        <p>
+                                            <i class="ti ti-x text-(--color-danger)" />
+                                            Declined {{ formatRelative(offer.declinedAt) }}.
+                                        </p>
+                                        <p v-if="offer.declineReason" class="italic">
+                                            "{{ offer.declineReason }}"
+                                        </p>
+                                    </div>
+                                    <div class="flex-1" />
+                                    <button v-if="canWrite && app.status === 'offer'" type="button"
+                                        class="btn btn-soft-primary text-xs" @click="openOfferForm()">
+                                        <i class="ti ti-plus" /> Draft new offer
+                                    </button>
+                                </template>
+
+                                <!-- EXPIRED -->
+                                <template v-else-if="offer.status === 'expired'">
+                                    <p class="text-xxs text-(--text-muted)">
+                                        <i class="ti ti-clock-off text-(--color-warning)" /> Offer expired.
+                                    </p>
+                                    <div class="flex-1" />
+                                    <button v-if="canWrite && app.status === 'offer'" type="button"
+                                        class="btn btn-soft-primary text-xs" @click="openOfferForm()">
+                                        <i class="ti ti-plus" /> Draft new offer
+                                    </button>
+                                </template>
+                            </div>
+                        </article>
+
+                        <!-- Onboarding checklist (live progress when accepted) -->
+                        <article v-if="checklist" class="glass-card rounded-2xl p-6 space-y-4">
+                            <header class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <h3 class="text-sm font-semibold text-(--text-heading) flex items-center gap-2">
+                                        <i class="ti ti-checklist text-(--color-primary)" /> Onboarding Checklist
+                                    </h3>
+                                    <p class="text-xxs text-(--text-muted) mt-1">
+                                        {{ checklist.completedTasks }} of {{ checklist.totalTasks }} tasks complete
+                                    </p>
+                                </div>
+                                <NuxtLink :to="`/hrm/onboarding?focus=${checklist.id}`"
+                                    class="text-xxs text-(--color-primary) hover:underline whitespace-nowrap">
+                                    Open workspace <i class="ti ti-arrow-up-right text-[10px]" />
+                                </NuxtLink>
+                            </header>
+
+                            <div class="space-y-1.5">
+                                <div class="flex items-center justify-between text-xxs font-mono text-(--text-muted)">
+                                    <span>Progress</span>
+                                    <span>{{ checklist.progressPercent }}%</span>
+                                </div>
+                                <div class="h-2 rounded-full bg-(--bg-muted) overflow-hidden">
+                                    <div class="h-full rounded-full transition-all"
+                                        :class="progressTint(checklist.progressPercent)"
+                                        :style="{ width: `${checklist.progressPercent}%` }" />
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div v-for="role in OWNER_ROLES" :key="role" class="rounded-lg bg-(--bg-muted)/40 border border-(--border-color) p-3">
+                                    <p class="text-xxs uppercase tracking-widest font-bold text-(--text-muted) flex items-center gap-1">
+                                        <i :class="['ti text-[10px]', OWNER_ROLE_META[role].icon]" />
+                                        {{ OWNER_ROLE_META[role].label }}
+                                    </p>
+                                    <p class="font-mono text-sm text-(--text-heading) mt-1">
+                                        {{ countDoneByRole(role) }} / {{ countByRole(role) }}
+                                    </p>
+                                </div>
+                            </div>
+                        </article>
+                    </template>
+                </template>
+            </section>
+        </div>
+
+        <!-- ===== Offer Form Modal (create / edit) ===== -->
+        <div v-if="offerFormOpen" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="glass-card rounded-2xl w-full max-w-2xl bg-(--bg-card) shadow-(--shadow-lg)">
+                <header class="flex items-center justify-between p-5 border-b border-(--border-color)">
+                    <h3 class="font-semibold text-sm">
+                        {{ offerForm.id ? 'Edit Draft Offer' : 'Draft Offer Letter' }}
+                    </h3>
+                    <button type="button" class="w-8 h-8 rounded-full hover:bg-(--bg-muted) flex items-center justify-center"
+                        @click="offerFormOpen = false">
+                        <i class="ti ti-x" />
+                    </button>
+                </header>
+                <form @submit.prevent="saveOffer">
+                    <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-1 md:col-span-2">
+                            <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Title *</label>
+                            <input v-model="offerForm.title" type="text" required maxlength="160"
+                                placeholder="e.g. Senior Backend Engineer — Permanent"
+                                class="form-control text-xs" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Effective date *</label>
+                            <input v-model="offerForm.effectiveDate" type="date" required class="form-control text-xs font-mono" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Expires</label>
+                            <input v-model="offerForm.expiresAt" type="date" class="form-control text-xs font-mono" />
+                        </div>
+                        <template v-if="canSeePayroll">
+                            <div class="space-y-1">
+                                <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Base salary</label>
+                                <input v-model.number="offerForm.baseSalary" type="number" step="0.01" min="0"
+                                    class="form-control text-xs font-mono" />
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Signing bonus</label>
+                                <input v-model.number="offerForm.signingBonus" type="number" step="0.01" min="0"
+                                    class="form-control text-xs font-mono" />
+                            </div>
+                        </template>
+                        <div class="space-y-1">
+                            <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Currency</label>
+                            <input v-model="offerForm.currency" type="text" maxlength="3"
+                                placeholder="USD" class="form-control text-xs font-mono uppercase" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Probation (months)</label>
+                            <input v-model.number="offerForm.probationMonths" type="number" min="0" max="120"
+                                class="form-control text-xs font-mono" />
+                        </div>
+                        <div class="space-y-1 md:col-span-2">
+                            <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Notes</label>
+                            <textarea v-model="offerForm.notes" rows="3" maxlength="2000"
+                                class="form-control text-xs resize-none"
+                                placeholder="Optional terms, perks, or special conditions..." />
+                        </div>
+                    </div>
+                    <footer class="p-5 border-t border-(--border-color) flex justify-end gap-2">
+                        <button type="button" class="btn btn-ghost text-xs" @click="offerFormOpen = false">Cancel</button>
+                        <button type="submit" class="btn btn-primary text-xs" :disabled="!offerFormValid || offerBusy">
+                            <i v-if="offerBusy" class="ti ti-loader-2 animate-spin" />
+                            {{ offerForm.id ? 'Save' : 'Create draft' }}
+                        </button>
+                    </footer>
+                </form>
+            </div>
+        </div>
+
+        <!-- Delete draft confirm -->
+        <div v-if="offerDeleteOpen" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="glass-card rounded-2xl w-full max-w-md bg-(--bg-card) shadow-(--shadow-lg)">
+                <header class="flex items-center justify-between p-5 border-b border-(--border-color)">
+                    <h3 class="font-semibold text-sm">Delete Draft Offer</h3>
+                    <button type="button" class="w-8 h-8 rounded-full hover:bg-(--bg-muted) flex items-center justify-center"
+                        @click="offerDeleteOpen = false">
+                        <i class="ti ti-x" />
+                    </button>
+                </header>
+                <div class="p-5 text-xs text-(--text-muted)">
+                    Permanently delete draft <span class="font-mono text-(--text-heading)">{{ offer?.referenceNumber }}</span>?
+                </div>
+                <footer class="p-5 border-t border-(--border-color) flex justify-end gap-2">
+                    <button type="button" class="btn btn-ghost text-xs" @click="offerDeleteOpen = false">Cancel</button>
+                    <button type="button" class="btn btn-danger text-xs" :disabled="offerBusy" @click="confirmDeleteOffer">
+                        <i v-if="offerBusy" class="ti ti-loader-2 animate-spin" />
+                        Delete
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Send modal (provider picker) -->
+        <div v-if="offerSendOpen" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="glass-card rounded-2xl w-full max-w-md bg-(--bg-card) shadow-(--shadow-lg)">
+                <header class="flex items-center justify-between p-5 border-b border-(--border-color)">
+                    <h3 class="font-semibold text-sm">Send Offer for Signature</h3>
+                    <button type="button" class="w-8 h-8 rounded-full hover:bg-(--bg-muted) flex items-center justify-center"
+                        @click="offerSendOpen = false">
+                        <i class="ti ti-x" />
+                    </button>
+                </header>
+                <div class="p-5 space-y-3">
+                    <p class="text-xs text-(--text-muted)">
+                        Choose an e-signature provider. The candidate receives a signing link by email.
+                    </p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" class="provider-btn"
+                            :class="{ active: sendProvider === 'mock' }" @click="sendProvider = 'mock'">
+                            <i class="ti ti-flask text-(--color-info)" />
+                            <span class="font-semibold text-xs">Mock</span>
+                            <span class="text-xxs text-(--text-muted)">Demo / sandbox</span>
+                        </button>
+                        <button type="button" class="provider-btn"
+                            :class="{ active: sendProvider === 'docusign' }" @click="sendProvider = 'docusign'">
+                            <i class="ti ti-signature text-(--color-primary)" />
+                            <span class="font-semibold text-xs">DocuSign</span>
+                            <span class="text-xxs text-(--text-muted)">Production</span>
+                        </button>
+                    </div>
+                </div>
+                <footer class="p-5 border-t border-(--border-color) flex justify-end gap-2">
+                    <button type="button" class="btn btn-ghost text-xs" @click="offerSendOpen = false">Cancel</button>
+                    <button type="button" class="btn btn-primary text-xs" :disabled="offerBusy" @click="confirmSendOffer">
+                        <i v-if="offerBusy" class="ti ti-loader-2 animate-spin" />
+                        Send
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Accept (manual / wet-ink) -->
+        <div v-if="offerAcceptOpen" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="glass-card rounded-2xl w-full max-w-md bg-(--bg-card) shadow-(--shadow-lg)">
+                <header class="flex items-center justify-between p-5 border-b border-(--border-color)">
+                    <h3 class="font-semibold text-sm">Confirm Wet-Ink Signature</h3>
+                    <button type="button" class="w-8 h-8 rounded-full hover:bg-(--bg-muted) flex items-center justify-center"
+                        @click="offerAcceptOpen = false">
+                        <i class="ti ti-x" />
+                    </button>
+                </header>
+                <div class="p-5 text-xs text-(--text-muted) space-y-2">
+                    <p>
+                        Mark <span class="font-mono text-(--text-heading)">{{ offer?.referenceNumber }}</span>
+                        as accepted? This will:
+                    </p>
+                    <ul class="list-disc list-inside space-y-1">
+                        <li>Convert the candidate into an Employee record</li>
+                        <li>Seed the default onboarding checklist</li>
+                    </ul>
+                    <p class="italic">Only use this for off-band signatures (printed copy, in-person).</p>
+                </div>
+                <footer class="p-5 border-t border-(--border-color) flex justify-end gap-2">
+                    <button type="button" class="btn btn-ghost text-xs" @click="offerAcceptOpen = false">Cancel</button>
+                    <button type="button" class="btn btn-primary text-xs" :disabled="offerBusy" @click="confirmAcceptOffer">
+                        <i v-if="offerBusy" class="ti ti-loader-2 animate-spin" />
+                        Accept &amp; Convert
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Decline -->
+        <div v-if="offerDeclineOpen" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="glass-card rounded-2xl w-full max-w-md bg-(--bg-card) shadow-(--shadow-lg)">
+                <header class="flex items-center justify-between p-5 border-b border-(--border-color)">
+                    <h3 class="font-semibold text-sm">Decline Offer</h3>
+                    <button type="button" class="w-8 h-8 rounded-full hover:bg-(--bg-muted) flex items-center justify-center"
+                        @click="offerDeclineOpen = false">
+                        <i class="ti ti-x" />
+                    </button>
+                </header>
+                <div class="p-5 space-y-3">
+                    <p class="text-xs text-(--text-muted)">
+                        Decline offer <span class="font-mono text-(--text-heading)">{{ offer?.referenceNumber }}</span>?
+                    </p>
+                    <div class="space-y-1">
+                        <label class="text-xxs font-bold text-(--text-muted) uppercase tracking-wider">Reason (optional)</label>
+                        <textarea v-model="declineReason" rows="3" maxlength="500"
+                            class="form-control text-xs resize-none"
+                            placeholder="e.g. Candidate accepted a competing offer." />
+                    </div>
+                </div>
+                <footer class="p-5 border-t border-(--border-color) flex justify-end gap-2">
+                    <button type="button" class="btn btn-ghost text-xs" @click="offerDeclineOpen = false">Cancel</button>
+                    <button type="button" class="btn btn-danger text-xs" :disabled="offerBusy" @click="confirmDeclineOffer">
+                        <i v-if="offerBusy" class="ti ti-loader-2 animate-spin" />
+                        Decline
+                    </button>
+                </footer>
+            </div>
         </div>
     </NuxtLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useApi } from '~/composables/useApi'
+import { useBreadcrumbOverride } from '~/composables/useBreadcrumbOverride'
 import { formatDate } from '~/composables/useDateFormat'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
 import Badge from '~/components/Badge.vue'
+import {
+    useOffers,
+    OFFER_STATUS_META,
+    type Offer,
+    type OfferPayload,
+} from '~/composables/useOffers'
+import {
+    useOnboarding,
+    OWNER_ROLE_META,
+    type OnboardingChecklist,
+    type OnboardingOwnerRole,
+} from '~/composables/useOnboarding'
 
 definePageMeta({
     breadcrumb: 'Candidate Profile'
 })
 
-type ApplicationStatus = 'applied' | 'screening' | 'shortlisted' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
+type ApplicationStatus =
+    | 'applied'
+    | 'screening'
+    | 'shortlisted'
+    | 'assessment'
+    | 'assessment_completed'
+    | 'interview'
+    | 'final_interview'
+    | 'offer'
+    | 'hired'
+    | 'onboarding'
+    | 'rejected'
+    | 'withdrawn'
 
 interface VacancyLite { id: string; title: string }
 interface ReferrerLite { id: string; employeeId: string; fullName: string }
@@ -441,35 +925,163 @@ interface Application {
     pendingAppointmentRequest?: { id: string; status: string; createdAt: string } | null
 }
 
+// Manual recruiter advancement caps at `offer`. Both downstream transitions
+// are event-driven and intentionally absent from this map:
+//   offer → hired       fires when OfferService::markAccepted runs (offer
+//                       accept webhook or wet-ink admin click).
+//   hired → onboarding  fires when SyncEmployeeAppointmentFromApproval runs
+//                       on appointment-request approval.
+// rejected / withdrawn remain manual escape hatches from any non-terminal row.
 const STATUS_FLOW: Record<ApplicationStatus, ApplicationStatus[]> = {
-    applied: ['screening', 'rejected', 'withdrawn'],
-    screening: ['shortlisted', 'interview', 'rejected', 'withdrawn'],
-    shortlisted: ['interview', 'rejected', 'withdrawn'],
-    interview: ['offer', 'rejected', 'withdrawn'],
-    offer: ['hired', 'rejected', 'withdrawn'],
-    hired: [],
-    rejected: [],
-    withdrawn: []
+    applied:              ['screening', 'rejected', 'withdrawn'],
+    screening:            ['shortlisted', 'assessment', 'interview', 'rejected', 'withdrawn'],
+    shortlisted:          ['assessment', 'interview', 'rejected', 'withdrawn'],
+    assessment:           ['assessment_completed', 'rejected', 'withdrawn'],
+    assessment_completed: ['interview', 'final_interview', 'offer', 'rejected', 'withdrawn'],
+    interview:            ['final_interview', 'offer', 'rejected', 'withdrawn'],
+    final_interview:      ['offer', 'rejected', 'withdrawn'],
+    offer:                ['rejected', 'withdrawn'],
+    hired:                ['rejected', 'withdrawn'],
+    onboarding:           [],
+    rejected:             [],
+    withdrawn:            [],
 }
 
 const STAGE_INDEX: Record<ApplicationStatus, number> = {
-    applied: 0, screening: 1, shortlisted: 2, interview: 3, offer: 4, hired: 5,
-    rejected: -1, withdrawn: -1
+    applied: 0,
+    screening: 1,
+    shortlisted: 2,
+    assessment: 3,
+    assessment_completed: 3,
+    interview: 4,
+    final_interview: 5,
+    offer: 6,
+    hired: 7,
+    onboarding: 8,
+    rejected: -1,
+    withdrawn: -1,
 }
 
 const route = useRoute()
 const api = useApi()
 const authStore = useAuthStore()
 const toast = useToast()
+const breadcrumb = useBreadcrumbOverride()
 
 const canWrite = computed(() => authStore.hasPermission('hrm.recruitment.write'))
 const canSeeSalary = computed(() => authStore.hasPermission('hrm.recruitment.read'))
+const canOffer = computed(() => authStore.hasPermission('hrm.recruitment.offer'))
+const canSeePayroll = computed(() => authStore.hasPermission('hrm.payroll.read'))
 
 const loading = ref(true)
 const app = ref<Application | null>(null)
 const advancing = ref(false)
 const openAdvanceMenu = ref(false)
 const copied = ref(false)
+
+// ----- Tab state -----
+type TabKey = 'overview' | 'offer'
+const activeTab = ref<TabKey>(route.hash === '#offer' ? 'offer' : 'overview')
+
+// ----- Offer + onboarding state -----
+const offers = useOffers()
+const onboarding = useOnboarding()
+const offer = ref<Offer | null>(null)
+const checklist = ref<OnboardingChecklist | null>(null)
+const offerLoading = ref(false)
+const offerBusy = ref(false)
+
+const offerFormOpen = ref(false)
+const offerDeleteOpen = ref(false)
+const offerSendOpen = ref(false)
+const offerAcceptOpen = ref(false)
+const offerDeclineOpen = ref(false)
+
+const sendProvider = ref<'mock' | 'docusign'>('mock')
+const declineReason = ref('')
+const draftShortcutBusy = ref(false)
+
+// Drafting a Job Offer requires the application to be at the `offer` stage
+// — see backend OfferService::createOffer. The previous shortcut that also
+// allowed `hired` was removed in Phase 8.5: at `hired` the candidate has
+// already accepted; the next action is to submit the appointment request.
+const canDraftFromStage = computed(() => app.value?.status === 'offer')
+
+interface OfferFormState {
+    id: string | null
+    title: string
+    effectiveDate: string
+    expiresAt: string
+    baseSalary: number | null
+    signingBonus: number | null
+    currency: string
+    probationMonths: number | null
+    notes: string
+}
+
+const blankOfferForm = (): OfferFormState => ({
+    id: null,
+    title: '',
+    effectiveDate: new Date().toISOString().slice(0, 10),
+    expiresAt: '',
+    baseSalary: null,
+    signingBonus: null,
+    currency: 'USD',
+    probationMonths: 3,
+    notes: '',
+})
+
+const offerForm = reactive<OfferFormState>(blankOfferForm())
+
+const offerFormValid = computed(() =>
+    !!offerForm.title.trim() && !!offerForm.effectiveDate
+)
+
+const OWNER_ROLES: OnboardingOwnerRole[] = ['hr', 'it', 'finance', 'manager', 'facilities', 'other']
+
+const countByRole = (role: OnboardingOwnerRole) =>
+    (checklist.value?.tasks ?? []).filter(t => t.ownerRole === role).length
+
+const countDoneByRole = (role: OnboardingOwnerRole) =>
+    (checklist.value?.tasks ?? []).filter(t => t.ownerRole === role && t.status === 'completed').length
+
+const progressTint = (pct: number) => {
+    if (pct >= 100) return 'bg-(--color-success)'
+    if (pct >= 50) return 'bg-(--color-primary)'
+    if (pct > 0) return 'bg-(--color-info)'
+    return 'bg-(--text-muted)/40'
+}
+
+const formatOfferDate = (iso: string | null) => {
+    if (!iso) return '—'
+    const d = new Date(iso)
+    return isNaN(d.getTime()) ? iso : d.toISOString().slice(0, 10)
+}
+
+const formatOfferMoney = (n: number, currency: string | null) => {
+    try {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: currency || 'USD',
+            maximumFractionDigits: 0,
+        }).format(n)
+    } catch {
+        return `${n}`
+    }
+}
+
+const formatRelative = (iso: string | null) => {
+    if (!iso) return '—'
+    const diff = Date.now() - new Date(iso).getTime()
+    if (diff < 0) return 'just now'
+    const min = Math.floor(diff / 60_000)
+    if (min < 60) return `${min || 1}m ago`
+    const hr = Math.floor(min / 60)
+    if (hr < 24) return `${hr}h ago`
+    const days = Math.floor(hr / 24)
+    if (days < 30) return `${days}d ago`
+    return formatDate(iso)
+}
 
 const loadCandidate = async () => {
     const id = route.params.id as string
@@ -481,6 +1093,9 @@ const loadCandidate = async () => {
     try {
         const res = await api.get<{ data: Application } | Application>(`/applications/${id}`)
         app.value = (res as { data?: Application })?.data ?? (res as Application)
+        if (app.value?.applicantName) {
+            breadcrumb.set(app.value.applicantName)
+        }
     } catch (err) {
         console.error('Failed to load candidate', err)
         app.value = null
@@ -513,8 +1128,18 @@ const relativeTime = (iso: string | null): string => {
 
 const statusLabel = (s: ApplicationStatus): string => {
     const labels: Record<ApplicationStatus, string> = {
-        applied: 'Applied', screening: 'Screening', shortlisted: 'Shortlisted', interview: 'Interview',
-        offer: 'Offer sent', hired: 'Hired', rejected: 'Rejected', withdrawn: 'Withdrawn'
+        applied: 'Applied',
+        screening: 'Screening',
+        shortlisted: 'Shortlisted',
+        assessment: 'Assessment',
+        assessment_completed: 'Assessment Done',
+        interview: 'Interview',
+        final_interview: 'Final Interview',
+        offer: 'Job Offer',
+        hired: 'Hired',
+        onboarding: 'Onboarding',
+        rejected: 'Rejected',
+        withdrawn: 'Withdrawn',
     }
     return labels[s]
 }
@@ -524,9 +1149,13 @@ const statusVariant = (s: ApplicationStatus): 'primary' | 'success' | 'warning' 
         case 'applied': return 'secondary'
         case 'screening': return 'info'
         case 'shortlisted': return 'primary'
+        case 'assessment': return 'info'
+        case 'assessment_completed': return 'info'
         case 'interview': return 'warning'
+        case 'final_interview': return 'warning'
         case 'offer': return 'primary'
         case 'hired': return 'success'
+        case 'onboarding': return 'success'
         case 'rejected': return 'danger'
         case 'withdrawn': return 'secondary'
     }
@@ -553,11 +1182,6 @@ const skills = computed(() => app.value?.skills ?? [])
 const education = computed(() => app.value?.education ?? [])
 const workExperience = computed(() => app.value?.workExperience ?? [])
 const referrer = computed(() => app.value?.referrer ?? null)
-
-const currentStageIndex = computed(() => {
-    if (!app.value) return -1
-    return STAGE_INDEX[app.value.status] ?? -1
-})
 
 const nextStages = computed<ApplicationStatus[]>(() => {
     if (!app.value) return []
@@ -590,54 +1214,99 @@ const resumeHref = computed(() => {
 const timeline = computed(() => {
     const a = app.value
     if (!a) return []
-    const idx = currentStageIndex.value
-    const events: Array<{ key: string; label: string; detail: string; done: boolean; icon: string }> = [
+
+    type TimelineEvent = { key: string; label: string; detail: string; done: boolean; icon: string }
+    const reached = (key: ApplicationStatus): boolean => STAGE_INDEX[a.status] >= STAGE_INDEX[key]
+    const touched = (key: ApplicationStatus): boolean => a.status === key || reached(key)
+
+    const events: TimelineEvent[] = [
         {
             key: 'applied',
             label: 'Application received',
             detail: a.appliedAt ? formatDate(a.appliedAt) : 'Not recorded',
-            done: idx >= 0,
-            icon: 'ti-send'
+            done: true,
+            icon: 'ti-send',
         },
         {
             key: 'screening',
             label: 'Screening',
-            detail: idx >= 1 ? 'Reviewed by recruiter' : 'Awaiting screening',
-            done: idx >= 1,
-            icon: 'ti-search'
+            detail: reached('screening') ? 'Reviewed by recruiter' : 'Awaiting screening',
+            done: reached('screening'),
+            icon: 'ti-search',
         },
         {
-            key: 'interview',
-            label: 'Interview stage',
-            detail: idx >= 2 ? 'Advanced to interview' : 'Pending interview',
-            done: idx >= 2,
-            icon: 'ti-microphone-2'
+            key: 'shortlisted',
+            label: 'Shortlisted',
+            detail: reached('shortlisted') ? 'Shortlisted for next round' : 'Pending shortlist',
+            done: reached('shortlisted'),
+            icon: 'ti-list-check',
         },
+    ]
+
+    // Optional middle stages — only render when the candidate touched them.
+    if (touched('assessment') || touched('assessment_completed')) {
+        events.push({
+            key: 'assessment',
+            label: 'Assessment',
+            detail: reached('assessment_completed') ? 'Assignment submitted' : 'Assignment issued',
+            done: reached('assessment_completed'),
+            icon: 'ti-clipboard-list',
+        })
+    }
+
+    events.push({
+        key: 'interview',
+        label: 'Interview',
+        detail: reached('interview') ? 'Advanced to interview' : 'Pending interview',
+        done: reached('interview'),
+        icon: 'ti-microphone-2',
+    })
+
+    if (touched('final_interview')) {
+        events.push({
+            key: 'final_interview',
+            label: 'Final interview',
+            detail: reached('final_interview') ? 'Final round complete' : 'Pending final round',
+            done: reached('final_interview'),
+            icon: 'ti-microphone-2',
+        })
+    }
+
+    events.push(
         {
             key: 'offer',
             label: 'Offer extended',
-            detail: idx >= 3 ? 'Offer sent to candidate' : 'No offer yet',
-            done: idx >= 3,
-            icon: 'ti-file-certificate'
-        }
-    ]
-    if (a.status === 'hired') {
-        events.push({
+            detail: reached('offer') ? 'Offer letter drafted' : 'No offer yet',
+            done: reached('offer'),
+            icon: 'ti-file-certificate',
+        },
+        {
             key: 'hired',
-            label: 'Hired',
-            detail: a.convertedAt ? `Converted ${formatDate(a.convertedAt)}` : 'Pending conversion',
-            done: true,
-            icon: 'ti-confetti'
-        })
-    } else if (a.status === 'rejected') {
+            label: 'Offer accepted',
+            detail: reached('hired') ? 'Candidate signed the offer' : 'Awaiting candidate acceptance',
+            done: reached('hired'),
+            icon: 'ti-check',
+        },
+        {
+            key: 'onboarding',
+            label: 'Onboarding',
+            detail: reached('onboarding')
+                ? (a.convertedAt ? `Approved ${formatDate(a.convertedAt)}` : 'Approved by HR')
+                : 'Pending appointment approval',
+            done: reached('onboarding'),
+            icon: 'ti-confetti',
+        },
+    )
+
+    if (a.status === 'rejected') {
         events.push({
             key: 'rejected', label: 'Rejected',
-            detail: 'Candidate no longer in pipeline', done: true, icon: 'ti-x'
+            detail: 'Candidate no longer in pipeline', done: true, icon: 'ti-x',
         })
     } else if (a.status === 'withdrawn') {
         events.push({
             key: 'withdrawn', label: 'Withdrawn',
-            detail: 'Candidate withdrew from pipeline', done: true, icon: 'ti-arrow-back'
+            detail: 'Candidate withdrew from pipeline', done: true, icon: 'ti-arrow-back',
         })
     }
     return events
@@ -677,7 +1346,191 @@ const goToEdit = () => {
     navigateTo(`/hrm/recruitments/applications?id=${app.value.id}`)
 }
 
-onMounted(loadCandidate)
+// ---------- Offer + Onboarding ----------
+const loadOffer = async () => {
+    if (!app.value || !canOffer.value) return
+    offerLoading.value = true
+    try {
+        const res = await offers.list({ applicationId: app.value.id, limit: 5 })
+        offer.value = res.data[0] ?? null
+        if (offer.value) {
+            const fresh = await offers.show(offer.value.id)
+            offer.value = fresh.data
+            const cid = fresh.data.onboardingChecklist?.id
+            if (cid) {
+                const cl = await onboarding.showChecklist(cid)
+                checklist.value = cl.data
+            } else {
+                checklist.value = null
+            }
+        } else {
+            checklist.value = null
+        }
+    } catch (err: any) {
+        if (err?.status !== 403) {
+            toast.error('Failed to load offer', err?.data?.message)
+        }
+    } finally {
+        offerLoading.value = false
+    }
+}
+
+const openOfferForm = (existing?: Offer | null) => {
+    Object.assign(offerForm, blankOfferForm())
+    if (existing) {
+        offerForm.id = existing.id
+        offerForm.title = existing.title
+        offerForm.effectiveDate = existing.effectiveDate ?? offerForm.effectiveDate
+        offerForm.expiresAt = existing.expiresAt ?? ''
+        offerForm.baseSalary = existing.baseSalary
+        offerForm.signingBonus = existing.signingBonus
+        offerForm.currency = existing.currency ?? 'USD'
+        offerForm.probationMonths = existing.probationMonths
+        offerForm.notes = existing.notes ?? ''
+    }
+    offerFormOpen.value = true
+}
+
+const saveOffer = async () => {
+    if (!app.value || !offerFormValid.value) return
+    offerBusy.value = true
+    try {
+        const payload: OfferPayload = {
+            title: offerForm.title.trim(),
+            effectiveDate: offerForm.effectiveDate,
+            expiresAt: offerForm.expiresAt || null,
+            currency: offerForm.currency.trim().toUpperCase() || null,
+            probationMonths: offerForm.probationMonths,
+            notes: offerForm.notes.trim() || null,
+        }
+        if (canSeePayroll.value) {
+            payload.baseSalary = offerForm.baseSalary
+            payload.signingBonus = offerForm.signingBonus
+        }
+        if (offerForm.id) {
+            await offers.update(offerForm.id, payload)
+            toast.success('Draft updated')
+        } else {
+            payload.applicationId = app.value.id
+            await offers.create(payload)
+            toast.success('Draft created')
+        }
+        offerFormOpen.value = false
+        await loadOffer()
+    } catch (err: any) {
+        toast.error('Save failed', err?.data?.message)
+    } finally {
+        offerBusy.value = false
+    }
+}
+
+const openDeleteOffer = () => { offerDeleteOpen.value = true }
+const confirmDeleteOffer = async () => {
+    if (!offer.value) return
+    offerBusy.value = true
+    try {
+        await offers.destroy(offer.value.id)
+        toast.success('Draft deleted')
+        offerDeleteOpen.value = false
+        await loadOffer()
+    } catch (err: any) {
+        toast.error('Delete failed', err?.data?.message)
+    } finally {
+        offerBusy.value = false
+    }
+}
+
+const openSendOffer = () => {
+    sendProvider.value = 'mock'
+    offerSendOpen.value = true
+}
+const confirmSendOffer = async () => {
+    if (!offer.value) return
+    offerBusy.value = true
+    try {
+        await offers.send(offer.value.id, sendProvider.value)
+        toast.success('Offer sent', `Via ${sendProvider.value}.`)
+        offerSendOpen.value = false
+        await loadOffer()
+    } catch (err: any) {
+        toast.error('Send failed', err?.data?.message)
+    } finally {
+        offerBusy.value = false
+    }
+}
+
+const openAcceptOffer = () => { offerAcceptOpen.value = true }
+const confirmAcceptOffer = async () => {
+    if (!offer.value) return
+    offerBusy.value = true
+    try {
+        await offers.accept(offer.value.id)
+        toast.success('Offer accepted', 'Candidate moved to Hired — submit the Employee Appointment Request next.')
+        offerAcceptOpen.value = false
+        await loadOffer()
+        await loadCandidate()
+    } catch (err: any) {
+        toast.error('Accept failed', err?.data?.message)
+    } finally {
+        offerBusy.value = false
+    }
+}
+
+const openDeclineOffer = () => {
+    declineReason.value = ''
+    offerDeclineOpen.value = true
+}
+const confirmDeclineOffer = async () => {
+    if (!offer.value) return
+    offerBusy.value = true
+    try {
+        await offers.decline(offer.value.id, declineReason.value.trim() || undefined)
+        toast.success('Offer declined')
+        offerDeclineOpen.value = false
+        await loadOffer()
+    } catch (err: any) {
+        toast.error('Decline failed', err?.data?.message)
+    } finally {
+        offerBusy.value = false
+    }
+}
+
+const draftOfferShortcut = async () => {
+    if (!app.value || draftShortcutBusy.value) return
+    if (app.value.status !== 'offer') return
+    draftShortcutBusy.value = true
+    try {
+        openOfferForm()
+    } finally {
+        draftShortcutBusy.value = false
+    }
+}
+
+const bootstrap = async () => {
+    await loadCandidate()
+    if (!app.value) return
+    await loadOffer()
+    // Auto-open the Offer & Onboarding tab when the candidate is at or past
+    // the offer stage — that's where the next actionable step lives at every
+    // status in the chain (draft offer at `offer`, submit appointment request
+    // at `hired`, watch checklist at `onboarding`). Honor an explicit
+    // `#overview` hash so deep-links still win.
+    const offerStages: ApplicationStatus[] = ['offer', 'hired', 'onboarding']
+    if (
+        route.hash !== '#overview'
+        && canOffer.value
+        && app.value
+        && offerStages.includes(app.value.status)
+    ) {
+        activeTab.value = 'offer'
+    }
+}
+
+onMounted(bootstrap)
+
+onBeforeUnmount(() => {
+    breadcrumb.clear()
+})
 </script>
 
 <style scoped>
@@ -765,4 +1618,45 @@ onMounted(loadCandidate)
     border-radius: 0.5rem;
     flex-shrink: 0;
 }
+
+.tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-body);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+}
+.tab-btn:hover { background: var(--bg-muted); }
+.tab-btn.active {
+    background: rgb(var(--color-primary-rgb) / 0.12);
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.provider-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.provider-btn:hover { background: var(--bg-muted); }
+.provider-btn.active {
+    background: rgb(var(--color-primary-rgb) / 0.08);
+    border-color: var(--color-primary);
+}
+.provider-btn i { font-size: 20px; }
 </style>

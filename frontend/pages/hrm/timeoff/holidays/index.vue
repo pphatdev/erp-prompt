@@ -31,7 +31,7 @@
                 </div>
             </section>
 
-            <section class="flex items-center gap-2 flex-wrap">
+            <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                 <button type="button" class="chip" :class="{ active: typeFilter === '' }" @click="setTypeFilter('')">All</button>
                 <button v-for="t in HOLIDAY_TYPES" :key="t.value" type="button"
                     class="chip" :class="{ active: typeFilter === t.value }" @click="setTypeFilter(t.value)">

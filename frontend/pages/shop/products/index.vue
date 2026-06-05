@@ -21,7 +21,7 @@
                         </button>
                     </div>
 
-                    <div class="ml-auto flex items-center gap-2 flex-wrap">
+                    <div class="ml-auto flex items-center gap-2 flex-wrap max-sm:justify-center">
                         <div class="segmented" role="group" aria-label="Stock filter">
                             <button type="button" class="seg-btn"
                                 :class="{ active: stockFilter === 'all' }"
@@ -69,7 +69,7 @@
                     </div>
                 </div>
 
-                <div v-if="activeFilterChips.length > 0" class="flex items-center gap-2 flex-wrap pt-3">
+                <div v-if="activeFilterChips.length > 0" class="flex items-center gap-2 flex-wrap max-sm:justify-center pt-3">
                     <span class="text-xxs uppercase tracking-wider text-(--text-muted) font-semibold">
                         Filtered by
                     </span>

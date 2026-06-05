@@ -5,8 +5,9 @@
                 <div>
                     <h1 class="text-xl font-semibold">Applications</h1>
                     <p class="text-xs text-(--text-muted) mt-1">
-                        <span v-if="activeVacancy">For <span class="font-semibold text-(--text-heading)">{{
-                                activeVacancy.title }}</span>.</span>
+                        <span v-if="activeVacancy">For <span class="font-semibold text-(--text-heading)">
+                            {{ activeVacancy.title }}
+                        </span>.</span>
                         <span v-else>Applicant pipeline across all vacancies.</span>
                     </p>
                 </div>
@@ -28,8 +29,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                     <div class="relative md:col-span-5">
                         <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm" />
-                        <input v-model="filters.search" type="search" placeholder="Search by name or email..."
-                            class="form-control pl-9" />
+                        <input v-model="filters.search" type="search" placeholder="Search by name or email..." class="form-control pl-9" />
                     </div>
 
                     <div class="md:col-span-4">
@@ -88,7 +88,8 @@
                                 <i :class="['ti', bulkConverting ? 'ti-loader animate-spin' : 'ti-user-plus']" />
                                 {{ bulkConverting
                                     ? 'Converting...'
-                                    : `Convert ${selectedConvertible.length} to Employee` }}
+                                    : `Convert ${selectedConvertible.length} to Employee`
+                                }}
                             </button>
                             <button v-if="canWrite" type="button"
                                 class="btn btn-ghost text-xs px-3 py-1.5 text-(--color-danger) hover:bg-(--color-danger-subtle) hover:text-(--color-danger)"
@@ -98,7 +99,8 @@
                                 <i :class="['ti', bulkDeleting ? 'ti-loader animate-spin' : 'ti-trash']" />
                                 {{ bulkDeleting
                                     ? 'Deleting...'
-                                    : `Delete ${selectedDeletable.length}` }}
+                                    : `Delete ${selectedDeletable.length}`
+                                }}
                             </button>
                         </div>
                     </div>
@@ -136,21 +138,33 @@
                                         @change="toggleRow(a)">
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="font-mono text-xxs text-(--text-muted)">{{ a.candidateCode || '—'
-                                        }}</span>
+                                    <span class="font-mono text-xxs text-(--text-muted)">
+                                        {{ a.candidateCode || '—' }}
+                                    </span>
                                 </td>
                                 <td class="px-4 py-3">
                                     <NuxtLink :to="`/hrm/recruitments/candidates/${a.id}`"
                                         class="text-xs font-semibold text-(--text-heading) hover:text-(--color-primary) hover:underline underline-offset-2">
                                         {{ a.applicantName }}
                                     </NuxtLink>
-                                    <div class="text-xxs text-(--text-muted)">{{ a.applicantEmail }}</div>
+                                    <div class="text-xxs text-(--text-muted)">
+                                        {{ a.applicantEmail }}
+                                    </div>
                                 </td>
-                                <td class="px-4 py-3 text-xs">{{ a.vacancy?.title || '—' }}</td>
-                                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{
-                                    formatDateTime(a.appliedAt) }}</td>
+                                <td class="px-4 py-3 text-xs whitespace-nowrap">
+                                    {{ a.vacancy?.title || '—' }}
+                                </td>
+                                <td class="px-4 py-3 font-mono text-xxs whitespace-nowrap text-(--text-muted)">
+                                    {{
+                                        formatDateTime(a.appliedAt)
+                                    }}
+                                </td>
                                 <td v-if="canSeeSalary" class="px-4 py-3 font-mono text-xs text-right">
-                                    {{ a.expectedSalary != null ? formatMoney(a.expectedSalary) : '—' }}
+                                    {{
+                                        a.expectedSalary != null
+                                            ? formatMoney(a.expectedSalary)
+                                            : '—'
+                                    }}
                                 </td>
                                 <td class="px-4 py-3">
                                     <Badge :variant="statusVariant(a.status)" :dot="true">{{ a.status }}</Badge>

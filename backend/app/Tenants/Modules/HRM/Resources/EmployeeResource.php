@@ -11,7 +11,22 @@ class EmployeeResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $canSeePayroll = $request->user()?->can('hrm.payroll.read') ?? false;
+        // `hrm.payroll.read` is a permission slug attached via the
+        // roles_permissions table — Laravel's Gate has no `define()` for it,
+        // so `->can()` returns false for non-admin permission-holders.
+        // Use `hasPermission()` to consult the actual role grant. The
+        // admin-role bypass still wires through automatically because the
+        // seeder syncs every permission onto the admin role.
+        $user = $request->user();
+        $canSeePayroll = $user?->hasPermission('hrm.payroll.read') ?? false;
+
+        // Self-service: an employee viewing their own record sees their
+        // own salary when they hold `hrm.payroll.read.self`, even without
+        // the global payroll read.
+        $isSelf = $user?->employee?->id === $this->id;
+        if (!$canSeePayroll && $isSelf && $user?->hasPermission('hrm.payroll.read.self')) {
+            $canSeePayroll = true;
+        }
 
         $prefix = app(\App\Tenants\Modules\Settings\Services\SettingService::class)->get('numbering.employee_id_prefix') ?: (\App\Tenants\Modules\HRM\Services\RecruitmentService::EMPLOYEE_ID_PREFIX . '-');
         $employeeId = $this->employee_id;

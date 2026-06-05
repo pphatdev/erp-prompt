@@ -60,7 +60,7 @@
                     <input v-model="search" type="search" placeholder="Search by currency code..."
                         class="form-control pl-9 text-xs" />
                 </div>
-                <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                     <div class="relative">
                         <i class="ti ti-flag absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm pointer-events-none" />
                         <select v-model="filterBase" class="form-control pl-9 text-xs appearance-none">

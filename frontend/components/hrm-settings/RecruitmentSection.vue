@@ -49,6 +49,6 @@ import NumberField from '~/components/hrm-settings/NumberField.vue'
 import ToggleField from '~/components/hrm-settings/ToggleField.vue'
 
 defineProps<{
-    draft: Record<string, unknown>
+    draft: Record<string, any>
 }>()
 </script>

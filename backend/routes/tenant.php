@@ -67,6 +67,7 @@ use App\Tenants\Modules\HRM\Controllers\PositionController;
 use App\Tenants\Modules\HRM\Controllers\ShiftController;
 use App\Tenants\Modules\HRM\Controllers\PublicCareersController;
 use App\Tenants\Modules\HRM\Controllers\QuizController;
+use App\Tenants\Modules\IAM\Controllers\PermissionController;
 use App\Tenants\Modules\IAM\Controllers\RoleController;
 use App\Tenants\Modules\IAM\Controllers\UserController;
 use App\Tenants\Modules\IAM\Controllers\WorkflowStatusController;
@@ -182,6 +183,7 @@ Route::middleware([
         Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword']);
         Route::apiResource('users', UserController::class);
         Route::apiResource('roles', RoleController::class);
+        Route::get('/permissions', [PermissionController::class, 'index']);
 
         // Workflow Statuses (per-tenant configurable status flows)
         Route::get('/workflow-statuses/modules', [WorkflowStatusController::class, 'modules']);

@@ -49,7 +49,7 @@
                 </div>
             </section>
 
-            <section class="flex items-center gap-2 flex-wrap">
+            <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                 <button type="button" class="chip" :class="{ active: statusFilter === '' }" @click="setStatusFilter('')">All</button>
                 <button v-for="s in PROJECT_STATUSES" :key="s.value" type="button"
                     class="chip" :class="{ active: statusFilter === s.value }" @click="setStatusFilter(s.value)">

@@ -4,8 +4,7 @@
             <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                     <h1 class="text-xl font-semibold">Payroll periods</h1>
-                    <p class="text-xs text-(--text-muted) mt-1">Create monthly periods, process payslips, and lock for
-                        compliance.</p>
+                    <p class="text-xs text-(--text-muted) mt-1">Create monthly periods, process payslips, and lock for compliance.</p>
                 </div>
                 <button v-if="canWrite" class="btn btn-primary text-xs" @click="openCreateModal">
                     <i class="ti ti-plus" />New period
@@ -68,9 +67,14 @@
                     </table>
                 </div>
 
-                <Pagination :page="pagination.page" :limit="pagination.limit" :total="pagination.total"
-                    :total-pages="pagination.totalPages" @update:page="(p) => { pagination.page = p; loadPeriods() }"
-                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadPeriods() }" />
+                <Pagination
+                    :page="pagination.page"
+                    :limit="pagination.limit"
+                    :total="pagination.total"
+                    :total-pages="pagination.totalPages"
+                    @update:page="(p) => { pagination.page = p; loadPeriods() }"
+                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadPeriods() }"
+                />
             </section>
 
             <!-- Create period modal -->
@@ -92,27 +96,23 @@
                     <form class="form-grid" @submit.prevent="createPeriod">
                         <div class="form-grid-full">
                             <label class="form-label form-label-required">Name</label>
-                            <input v-model="form.name" type="text" required class="form-control"
-                                placeholder="May 2026" />
+                            <input v-model="form.name" type="text" required class="form-control" placeholder="May 2026" />
                             <span class="form-hint">Human-readable label shown on payslips and the period list.</span>
                         </div>
 
                         <div>
                             <label class="form-label form-label-required">Start date</label>
-                            <input v-model="form.start_date" type="date" required class="form-control"
-                                :max="form.end_date || undefined" />
+                            <input v-model="form.start_date" type="date" required class="form-control" :max="form.end_date || undefined" />
                         </div>
                         <div>
                             <label class="form-label form-label-required">End date</label>
-                            <input v-model="form.end_date" type="date" required class="form-control"
-                                :min="form.start_date || undefined" />
+                            <input v-model="form.end_date" type="date" required class="form-control" :min="form.start_date || undefined" />
                         </div>
 
                         <div v-if="formError" class="form-grid-full form-error">{{ formError }}</div>
 
                         <footer class="form-grid-full pt-4 border-t border-(--border-color) flex justify-end gap-2">
-                            <button type="button" class="btn btn-ghost text-xs" :disabled="saving"
-                                @click="closeCreateModal">Cancel</button>
+                            <button type="button" class="btn btn-ghost text-xs" :disabled="saving" @click="closeCreateModal">Cancel</button>
                             <button type="submit" class="btn btn-primary text-xs" :disabled="saving || !canSubmitForm">
                                 <i :class="['ti', saving ? 'ti-loader animate-spin' : 'ti-device-floppy']" />
                                 {{ saving ? 'Saving...' : 'Create period' }}

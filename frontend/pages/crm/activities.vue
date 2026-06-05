@@ -62,7 +62,7 @@
                             :class="{ 'opacity-60': act.status === 'cancelled' }">
                             <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b border-(--border-color) mb-2">
                                 <div class="min-w-0 flex-1">
-                                    <h3 class="text-sm font-semibold text-(--text-heading) flex items-center gap-2 flex-wrap"
+                                    <h3 class="text-sm font-semibold text-(--text-heading) flex items-center gap-2 flex-wrap max-sm:justify-center"
                                         :class="{ 'line-through': act.status === 'cancelled' }">
                                         <span class="truncate">{{ act.subject }}</span>
                                         <Badge :variant="crmBadgeVariant(act.status)">{{ act.status }}</Badge>

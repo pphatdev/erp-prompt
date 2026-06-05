@@ -49,7 +49,7 @@
             </section>
 
             <!-- Status filter chips -->
-            <section class="flex items-center gap-2 flex-wrap">
+            <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                 <button type="button" class="chip" :class="{ active: statusFilter === '' }" @click="setStatusFilter('')">All</button>
                 <button type="button" class="chip" :class="{ active: statusFilter === 'open' }" @click="setStatusFilter('open')">
                     <i class="ti ti-circle" /> Open

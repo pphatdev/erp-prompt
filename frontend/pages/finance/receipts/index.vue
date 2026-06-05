@@ -25,7 +25,7 @@
                         </button>
                     </div>
 
-                    <div class="ml-auto flex items-center gap-2 flex-wrap">
+                    <div class="ml-auto flex items-center gap-2 flex-wrap max-sm:justify-center">
                         <div class="segmented" role="group" aria-label="Status filter">
                             <button type="button" class="seg-btn" :class="{ active: filters.status === '' }"
                                 @click="setStatus('')"><i class="ti ti-list" /> All</button>

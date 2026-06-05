@@ -116,9 +116,10 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-xs">{{ emp.department?.name || '—' }}</td>
-                                <td class="px-4 py-3 text-xs">{{ emp.position?.title || '—' }}</td>
-                                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted)">{{ formatDate(emp.hiredAt)
-                                    }}</td>
+                                <td class="px-4 py-3 text-xs whitespace-nowrap">{{ emp.position?.title || '—' }}</td>
+                                <td class="px-4 py-3 font-mono text-xxs text-(--text-muted) whitespace-nowrap">
+                                    {{ formatDate(emp.hiredAt)}}
+                                </td>
                                 <td v-if="canSeeSalary" class="px-4 py-3 text-right font-mono text-xs">
                                     {{ emp.baseSalary != null ? formatMoney(emp.baseSalary) : '—' }}
                                 </td>

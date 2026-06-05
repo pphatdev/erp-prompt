@@ -19,11 +19,11 @@ use Illuminate\Support\Facades\DB;
  * Lifecycle owner for {@see Offer}.
  *
  * Generates the OFR-YYYYMM-NNN reference (per-month bucket, settings-driven
- * prefix), validates state transitions through `WorkflowStatusService`, and
- * is the single touch-point that turns an accepted offer into an Employee +
- * provisioning checklist. Separation from RecruitmentService keeps each
- * service focused on one concern (Recruitment owns the candidate funnel;
- * Offer owns the binding-document lifecycle).
+ * prefix) and validates state transitions through `WorkflowStatusService`.
+ * On acceptance the service flips the offer status and advances the parent
+ * Application from `offer` → `hired`; Employee creation + onboarding seeding
+ * is deferred to {@see SyncEmployeeAppointmentFromApproval} so HR's
+ * appointment-request approval stays the single conversion gate (Phase 8.5).
  */
 class OfferService
 {
@@ -32,16 +32,18 @@ class OfferService
     public function __construct(
         private readonly WorkflowStatusService $statuses,
         private readonly SettingService $settings,
-        private readonly RecruitmentService $recruitment,
-        private readonly OnboardingService $onboarding,
         private readonly ESignatureService $esign,
     ) {
     }
 
     public function createOffer(Application $application, array $data): Offer
     {
-        if ($application->status !== 'hired') {
-            throw new DomainException('Offers can only be drafted for hired applications.');
+        // Offers belong to the `offer` funnel stage. Acceptance is what
+        // promotes the application to `hired`; HR governance (eApprovals)
+        // is what promotes `hired` to `onboarding`. See
+        // skills/hrm/rules.md §13 for the canonical flow.
+        if ($application->status !== 'offer') {
+            throw new DomainException('Offers can only be drafted while the application is at the Job Offer stage.');
         }
 
         return GenerationRetry::handle(function () use ($application, $data) {
@@ -87,13 +89,19 @@ class OfferService
     }
 
     /**
-     * Mark the offer accepted and run the post-hire automation chain:
-     *   - convertToEmployee (idempotent — same row when already linked)
-     *   - seedDefaultChecklist (idempotent — same checklist when already seeded)
+     * Mark the offer accepted and advance the Application to `hired`.
+     *
+     * As of Phase 8.5 this method NO LONGER calls `convertToEmployee` or
+     * `seedDefaultChecklist`. The Employee row + onboarding checklist are
+     * materialised in {@see SyncEmployeeAppointmentFromApproval} when HR's
+     * Employee Appointment request is approved through eApprovals. This
+     * keeps the HR governance gate in front of payroll provisioning.
      *
      * Called from {@see ESignatureService::handleWebhookPayload()} when the
      * provider tells us the candidate signed, AND from the admin manual-mark
-     * endpoint for mock/manual workflows.
+     * endpoint for mock/manual workflows. Idempotent — a duplicate webhook
+     * returns the existing accepted offer without re-running the application
+     * transition.
      */
     public function markAccepted(Offer $offer, ?array $providerPayload = null): Offer
     {
@@ -109,11 +117,15 @@ class OfferService
                 'esign_payload' => $providerPayload ?? $offer->esign_payload,
             ]);
 
-            // Hand off to the Employee provisioning pipeline. Idempotent.
-            $conversion = $this->recruitment->convertToEmployee($offer->application);
-            $offer->update(['employee_id' => $conversion['employee']->id]);
-
-            $this->onboarding->seedDefaultChecklist($offer->fresh());
+            // Advance the Application from `offer` → `hired`. The Application
+            // is loaded via the offer relation; if a sibling offer for the
+            // same application already moved the app past `offer` (race),
+            // validateTransition will throw and the DB::transaction rolls back.
+            $application = $offer->application;
+            if ($application && $application->status === 'offer') {
+                $this->statuses->validateTransition('hrm.application', $application->status, 'hired');
+                $application->update(['status' => 'hired']);
+            }
 
             return $offer->fresh();
         });

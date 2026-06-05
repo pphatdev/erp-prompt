@@ -304,44 +304,73 @@ Each Kanban column's data behavior can be customized by saving configuration opt
 
 ## 13. Digital Offer & Onboarding Pipeline
 
-This feature manages the digital contract issuance and transition of candidates into active employee personnel profiles with tracked onboarding checklists.
+This feature manages the digital contract issuance, HR governance gate, and provisioning of new hires.
 
-### A. Offer Lifecycle & eSignature (P0)
+### A. Canonical end-to-end flow (P0)
+
+```
+Applied → Screening → Shortlisted
+  → Interview (optional, settings-driven)
+  → Technical Assignment (optional, settings-driven — `assessment` for quizzes, `technical_assignment` for take-homes)
+  → Final Interview (optional, settings-driven)
+  → Job Offer       ← Offer letter is drafted here (NOT at `hired`).
+  → Hired           ← Reached automatically when the candidate accepts the offer. HR submits the appointment request here.
+  → Onboarding      ← Reached automatically when the appointment request is approved. Employee record + checklist materialise here.
+```
+
+Stage-transition authority:
+- `applied` → `offer`: recruiter clicks "Advance stage" (validated by `WorkflowStatusService`).
+- `offer` → `hired`: event-driven by `OfferService::markAccepted` (webhook or wet-ink). Recruiters cannot manually jump here.
+- `hired` → `onboarding`: event-driven by `SyncEmployeeAppointmentFromApproval` when the eApprovals request is approved. Recruiters cannot manually jump here.
+- `rejected` / `withdrawn`: terminal alternatives, allowed from any non-terminal stage.
+
+### B. Offer Lifecycle & eSignature (P0)
 1. **Status Flow (`hrm.offer`)**:
-   - `draft` $\rightarrow$ `sent` $\rightarrow$ `accepted` | `declined` | `expired`.
-   - Offers are created in the `draft` state (`POST /api/v1/offers`). Only `draft` offers can be updated (`PUT /api/v1/offers/{id}`) or deleted (`DELETE /api/v1/offers/{id}`).
+   - `draft` → `sent` → `accepted` | `declined` | `expired`.
+   - Offers are created in the `draft` state (`POST /api/v1/offers`). **The application MUST be in `offer` status — `OfferService::createOffer` throws `DomainException` otherwise.** Only `draft` offers can be updated (`PATCH /api/v1/offers/{id}`) or deleted (`DELETE /api/v1/offers/{id}`).
    - Compensation fields (`base_salary`, `signing_bonus`) use the `EncryptedWithFallback` cast to protect sensitive financial details at rest.
 2. **Sending & eSignature Gateways**:
    - Triggered via `POST /api/v1/offers/{id}/send`. Requires choosing an eSignature provider (`mock` or `docusign`).
-   - Mock provider generates a temporary signed document simulation link. DocuSign connects to the DocuSign Envelope REST API.
+   - Mock provider generates a temporary signed-document simulation link. DocuSign connects to the DocuSign Envelope REST API.
    - Webhook updates flow through `POST /api/v1/offers/sign-webhook`. Gated by signature verification (`X-Signature` header matching the webhook secret).
-3. **Manual Acceptance & Rejection**:
-   - **Wet-Ink Acceptance**: Admins with `hrm.recruitment.offer` permission can bypass the digital signature link and mark an offer as manually accepted (`POST /api/v1/offers/{id}/accept`).
-   - **Declined Offers**: Candidates or recruiters can decline an offer (`POST /api/v1/offers/{id}/decline`), requiring a structured decline reason.
+3. **Acceptance hand-off (CHANGED — see Phase 8.5 in `.task/hrm/task.md`)**:
+   - On accept (webhook or `POST /api/v1/offers/{id}/accept`), `OfferService::markAccepted`:
+     - Flips the offer to `accepted` and stamps `signed_at`.
+     - Transitions the Application status from `offer` → `hired` (validated through `WorkflowStatusService`).
+     - **Does NOT call `convertToEmployee` and does NOT seed the onboarding checklist** — those now run only after HR appointment-request approval (§C).
+   - `markAccepted` remains idempotent: a duplicate webhook call returns the existing accepted offer without re-running the application transition.
+4. **Decline**:
+   - `POST /api/v1/offers/{id}/decline` records a reason. Application status stays at `offer` (the recruiter can draft a replacement offer or withdraw the candidate).
 
-### B. Onboarding Checklist Generation
-1. **Atomic Promotion**:
-   - When an offer is marked `accepted` (via webhook or manual click), the system triggers a database transaction that:
-     - Converts the `Application` to an `Employee` (if not already linked) with `status = 'active'`.
-     - Generates a unique sequential `employee_id`.
-     - Materials an `OnboardingChecklist` with 11 default tasks spanning HR, IT, Finance, Managers, and Facilities.
-2. **Onboarding Task Transitions**:
-   - Tasks carry target dates computed via pre-arrival offsets (e.g. IT setup `-3` days before effective start date) or post-arrival offsets (e.g., probation reviews `+90` days).
-   - Task progression follows `pending` $\rightarrow$ `in_progress` $\rightarrow$ `completed` | `skipped`, driving the parent checklist completion percentage.
+### C. Appointment Request → Employee Conversion (P0)
 
-### C. Frontend UI Integration Specs
-1. **Offers Directory (`/hrm/offers`)**:
-   - Renders a paginated, searchable grid of all candidates' offers.
-   - Displays reference number (`OFR-YYYYMM-NNN`), candidate name, target vacancy, salary (only visible if the user holds `hrm.payroll.read`), effective date, and status badges.
-2. **Onboarding Board (`/hrm/onboarding`)**:
-   - Displays active checklists, listing employee name, progress bar, counts (e.g., `4/11 completed`), and target completion date.
-   - Clicking a checklist opens the task detail pane, letting users (IT/HR/Managers) filter by their role and check off/skip their assigned checklist items.
-3. **Candidate Profile Offer Tab**:
-   - Embeds an **Offer** tab on the Candidate Detail page (`frontend/pages/hrm/recruitments/candidates/[id].vue`).
-   - Gated by `hrm.recruitment.offer`.
-   - **Contextual Form**: If no active offer exists, renders a form to draft an offer (salary, bonus, start/expires dates, probation months, notes).
-   - **Workflow Actions**: If draft, renders "Send Offer" (opens dialog to toggle provider) and "Delete". If sent, renders "Manual Accept" and "Decline" with reason input.
-   - **Onboarding checklist**: If accepted, hides the forms and renders the real-time onboarding checklist task checklist directly within the tab.
+After offer acceptance the candidate sits in `hired` until HR submits an Employee Appointment request through the eApprovals module (`POST /api/v1/employee-appointments`). On approval:
+
+1. `App\Tenants\Modules\HRM\Listeners\SyncEmployeeAppointmentFromApproval::handle()` fires from the `ApprovalRequestFinalized` event.
+2. Inside one DB transaction the listener:
+   - Calls `RecruitmentService::convertToEmployee($application, $overrides)` with the appointment's editable fields (name, dept, position, salary, start date, employment type).
+   - Links the accepted `Offer` (if any) to the new employee by setting `offers.employee_id`.
+   - Seeds the default onboarding checklist via `OnboardingService::seedDefaultChecklist()`.
+   - Transitions the Application status from `hired` → `onboarding`.
+   - Updates the appointment row with `employee_id`, `status = approved`, and `processed_at`.
+3. Listener failures (DomainException) are logged via `Log::warning` so the approval action HTTP response is never 500'd after the decision is recorded.
+
+Rejected appointment requests flip the appointment to `rejected` and leave the application in `hired` (HR can resubmit with corrected payload).
+
+### D. Onboarding Checklist
+- Materialised by `OnboardingService::seedDefaultChecklist(Offer)` — the listener loads the application's most recent accepted offer and passes it in. If no offer exists (e.g. an admin appointment without an offer letter), the service should still accept the call via an overload that derives the effective date from the appointment row; until that overload ships, appointments without an offer must be handled manually.
+- Default template ships 11 tasks spanning HR / IT / Finance / Manager / Facilities owners with offsets `-7..+30` days relative to the offer's effective date.
+- Task progression follows `pending` → `in_progress` → `completed` | `skipped`, driving the parent checklist `progress_percent`.
+
+### E. Frontend UI Integration Specs
+1. **Offers Directory (`/hrm/offers`)**: paginated, searchable grid of all offers. Shows reference number (`OFR-YYYYMM-NNN`), candidate, position, effective date, salary (gated by `hrm.payroll.read`), status badge. Action menu: open candidate offer tab, delete draft, manual accept, decline.
+2. **Onboarding Workspace (`/hrm/onboarding`)**: master/detail layout. Left rail lists checklists with progress bars; right pane groups the selected checklist's tasks by owner role and exposes complete/skip buttons.
+3. **Candidate Profile Offer Tab** (`frontend/pages/hrm/recruitments/candidates/[id].vue`):
+   - Gated by `hrm.recruitment.offer`. Auto-selected when the candidate is at `offer` or beyond and no draft exists.
+   - `canDraftFromStage` is **`status === 'offer'` only** (the previous `offer | hired` shortcut is removed — drafting at `hired` is no longer possible).
+   - `draftOfferShortcut` no longer auto-advances the application to `hired`; the recruiter's only path to `hired` is offer acceptance.
+   - At `hired`, the tab surfaces the appointment-request CTA (re-using the existing eApprovals form) and shows the accepted offer's metadata.
+   - At `onboarding`, the tab shows the live checklist (overall progress + per-owner-role tiles) plus a "View Employee" link.
 
 
 

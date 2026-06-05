@@ -1,35 +1,62 @@
 <template>
     <NuxtLayout name="default">
         <div class="space-y-6">
+            <!-- Page header -->
             <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
                     <h1 class="text-xl font-semibold">Performance appraisals</h1>
-                    <p class="text-xs text-(--text-muted) mt-1">Cycle reviews with ratings, strengths, growth areas, and
-                        OKR goals.</p>
+                    <p class="text-xs text-(--text-muted) mt-1">
+                        <span v-if="pagination.total">
+                            Tracking {{ pagination.total.toLocaleString() }} appraisal{{ pagination.total === 1 ? '' : 's' }}
+                            across cycles — ratings, strengths, growth areas, and OKR goals.
+                        </span>
+                        <span v-else>Cycle reviews with ratings, strengths, growth areas, and OKR goals.</span>
+                    </p>
                 </div>
-                <NuxtLink v-if="canWrite" to="/approvals/forms/appraisal" class="btn btn-primary text-xs">
-                    <i class="ti ti-external-link" />Submit via eApprovals
-                </NuxtLink>
+                <div class="flex items-center gap-2">
+                    <!-- View toggle: persisted in localStorage so refresh keeps the user's choice. -->
+                    <div class="inline-flex items-center bg-(--bg-card) border border-(--border-color) rounded-lg p-1">
+                        <button v-for="opt in (['table', 'grid'] as const)" :key="opt" type="button"
+                            class="px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+                            :class="view === opt
+                                ? 'bg-(--color-primary-subtle) text-(--color-primary)'
+                                : 'text-(--text-muted) hover:text-(--text-heading)'" @click="setView(opt)">
+                            <i :class="['ti', opt === 'table' ? 'ti-list' : 'ti-layout-grid']" />
+                            {{ opt === 'table' ? 'List' : 'Grid' }}
+                        </button>
+                    </div>
+
+                    <button class="btn btn-ghost text-xs" disabled>
+                        <i class="ti ti-download" />Export
+                    </button>
+                    <NuxtLink v-if="canWrite" to="/approvals/forms/appraisal" class="btn btn-primary text-xs">
+                        <i class="ti ti-external-link" />Submit via eApprovals
+                    </NuxtLink>
+                </div>
             </header>
 
             <!-- Filters -->
             <section class="glass-card rounded-xl p-4">
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-                    <div class="md:col-span-4">
-                        <select v-model="filters.employeeId" class="form-control">
+                    <div class="relative md:col-span-5">
+                        <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm" />
+                        <input v-model="filters.cycle" type="search" placeholder="Search cycle (e.g. 2026-Q2)..."
+                            class="form-control pl-9" />
+                    </div>
+
+                    <div class="relative md:col-span-3">
+                        <i class="ti ti-user absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm pointer-events-none" />
+                        <select v-model="filters.employeeId" class="form-control pl-9 appearance-none">
                             <option :value="''">All employees</option>
-                            <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.fullName }} ({{ e.employeeId
-                                }})</option>
+                            <option v-for="e in employees" :key="e.id" :value="e.id">
+                                {{ e.fullName }} ({{ e.employeeId }})
+                            </option>
                         </select>
                     </div>
-                    <div class="md:col-span-3">
-                        <input v-model="filters.cycle" type="text" placeholder="Cycle (e.g. 2026-Q2)"
-                            class="form-control" />
-                    </div>
-                    <div
-                        class="md:col-span-5 flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1">
+
+                    <div class="md:col-span-4 flex items-center border border-(--border-color) rounded-lg bg-(--bg-muted) p-1 overflow-x-auto">
                         <button v-for="s in (['', 'draft', 'submitted', 'reviewed', 'closed'] as const)"
-                            :key="s || 'all'"
+                            :key="s || 'all'" type="button"
                             class="flex-1 px-3 py-1 rounded text-xxs uppercase tracking-widest font-bold transition-colors"
                             :class="filters.status === s ? 'bg-(--bg-card) text-(--color-primary) shadow-(--shadow-sm)' : 'text-(--text-muted) hover:text-(--text-heading)'"
                             @click="filters.status = s">
@@ -51,7 +78,8 @@
                 <p class="text-xs text-(--text-muted) mt-1">Open the first review cycle for an employee.</p>
             </div>
 
-            <section v-else class="glass-card rounded-2xl overflow-hidden">
+            <!-- Table view (default) -->
+            <section v-else-if="view === 'table'" class="glass-card rounded-2xl overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
@@ -69,27 +97,39 @@
                         <tbody class="divide-y divide-(--border-color)">
                             <tr v-for="a in appraisals" :key="a.id" class="hover:bg-(--bg-muted) transition-colors">
                                 <td class="px-4 py-3 text-xs">
-                                    <div class="font-semibold text-(--text-heading)">{{ a.employee?.fullName || '—' }}
+                                    <div class="font-semibold text-(--text-heading)">
+                                        {{ a.employee?.fullName || '—' }}
                                     </div>
-                                    <div class="text-xxs text-(--text-muted) font-mono">{{ a.employee?.employeeId || ''
-                                        }}</div>
+                                    <div class="text-xxs text-(--text-muted) font-mono">
+                                        {{ a.employee?.employeeId || '' }}
+                                    </div>
                                 </td>
-                                <td class="px-4 py-3 text-xs">{{ a.reviewer?.fullName || '—' }}</td>
+                                <td class="px-4 py-3 text-xs">
+                                    <div class="font-semibold text-(--text-heading)">
+                                        {{ a.reviewer?.fullName || '—' }}
+                                    </div>
+                                    <div class="text-xxs text-(--text-muted) font-mono">
+                                        {{ a.reviewer?.employeeId || '' }}
+                                    </div>
+                                </td>
                                 <td class="px-4 py-3 font-mono text-xs">{{ a.cycle }}</td>
-                                <td class="px-4 py-3 text-xxs font-mono">
-                                    <div>{{ formatDate(a.periodStart) }}</div>
-                                    <div class="text-(--text-muted)">→ {{ formatDate(a.periodEnd) }}</div>
+                                <td class="px-4 py-3 text-xxs font-mono whitespace-nowrap">
+                                    <span>{{ formatDate(a.periodStart) }}</span>
+                                    <span class="text-(--text-muted)"> → {{ formatDate(a.periodEnd) }}</span>
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs text-right">
                                     <span v-if="a.overallRating != null" class="font-semibold"
                                         :class="ratingColor(a.overallRating)">
                                         {{ a.overallRating.toFixed(2) }}
                                     </span>
-                                    <span v-else class="text-(--text-muted)">{{ a.status === 'reviewed' || a.status ===
-                                        'closed' ? '••••' : '—' }}</span>
+                                    <span v-else class="text-(--text-muted)">
+                                        {{ a.status === 'reviewed' || a.status === 'closed' ? '••••' : '—' }}
+                                    </span>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <Badge :variant="statusVariant(a.status)" :dot="true">{{ a.status }}</Badge>
+                                    <Badge :variant="statusVariant(a.status)" :dot="true">
+                                        {{ a.status }}
+                                    </Badge>
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     <button type="button" class="action-trigger"
@@ -102,11 +142,67 @@
                         </tbody>
                     </table>
                 </div>
-
-                <Pagination :page="pagination.page" :limit="pagination.limit" :total="pagination.total"
-                    :total-pages="pagination.totalPages" @update:page="(p) => { pagination.page = p; loadAppraisals() }"
-                    @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadAppraisals() }" />
             </section>
+
+            <!-- Grid view -->
+            <section v-else-if="view === 'grid'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div v-for="a in appraisals" :key="a.id"
+                    class="glass-card rounded-2xl p-5 flex flex-col justify-between relative transition-all duration-150 border border-(--border-color) hover:border-(--color-primary)/40">
+                    <header class="flex items-start justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-(--color-primary-subtle) text-(--color-primary) flex items-center justify-center font-bold text-sm shrink-0">
+                                {{ initials(a.employee?.fullName) }}
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="text-xs font-semibold text-(--text-heading) truncate">{{ a.employee?.fullName || '—' }}</h3>
+                                <p class="text-xxs text-(--text-muted) font-mono truncate">{{ a.employee?.employeeId || '' }}</p>
+                            </div>
+                        </div>
+                        <button type="button" class="action-trigger shrink-0"
+                            :class="{ 'action-trigger-open': actionMenu.open && actionMenu.appraisal?.id === a.id }"
+                            title="Actions" @click.stop="openActionMenu(a, $event)">
+                            <i class="ti ti-dots-vertical" />
+                        </button>
+                    </header>
+
+                    <div class="my-4 space-y-2 border-t border-(--border-color)/50 pt-3">
+                        <div class="flex justify-between text-xxs gap-2">
+                            <span class="text-(--text-muted) shrink-0">Reviewer:</span>
+                            <span class="font-semibold text-(--text-heading) truncate">{{ a.reviewer?.fullName || 'Self Review' }}</span>
+                        </div>
+                        <div class="flex justify-between text-xxs">
+                            <span class="text-(--text-muted)">Cycle:</span>
+                            <span class="font-mono text-(--text-heading)">{{ a.cycle }}</span>
+                        </div>
+                        <div class="flex justify-between text-xxs">
+                            <span class="text-(--text-muted)">Period:</span>
+                            <span class="font-mono text-(--text-heading) whitespace-nowrap">
+                                {{ formatDate(a.periodStart) }} → {{ formatDate(a.periodEnd) }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <footer class="flex items-center justify-between border-t border-(--border-color)/50 pt-3 mt-auto">
+                        <Badge :variant="statusVariant(a.status)" :dot="true">{{ a.status }}</Badge>
+                        <div class="text-right">
+                            <p class="text-[10px] text-(--text-muted) uppercase font-bold tracking-wider leading-none mb-1">Rating</p>
+                            <span v-if="a.overallRating != null" class="font-mono text-xs font-semibold"
+                                :class="ratingColor(a.overallRating)">
+                                {{ a.overallRating.toFixed(2) }}
+                            </span>
+                            <span v-else class="text-xxs text-(--text-muted)">
+                                {{ a.status === 'reviewed' || a.status === 'closed' ? '••••' : '—' }}
+                            </span>
+                        </div>
+                    </footer>
+                </div>
+            </section>
+
+            <!-- Pagination (rendered below list/grid views) -->
+            <Pagination :page="pagination.page" :limit="pagination.limit" :total="pagination.total"
+                :total-pages="pagination.totalPages" @update:page="(p) => { pagination.page = p; loadAppraisals() }"
+                @update:limit="(l) => { pagination.limit = l; pagination.page = 1; loadAppraisals() }" />
+
 
             <!-- Create / edit modal -->
             <div v-if="showModal"
@@ -289,7 +385,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useApi } from '~/composables/useApi'
 import { useAuthStore } from '~/stores/auth'
 import { useDateFormat } from '~/composables/useDateFormat'
@@ -300,6 +396,23 @@ interface EmployeeLite { id: string; employeeId: string; fullName: string }
 interface Goal { title: string; status?: 'pending' | 'in_progress' | 'achieved' | 'missed'; due?: string | null }
 
 type AppraisalStatus = 'draft' | 'submitted' | 'reviewed' | 'closed'
+
+// View toggle: 'table' (default — denser) or 'grid' (card layout). Persisted
+// in localStorage so a refresh keeps the user's last choice.
+type View = 'table' | 'grid'
+const VIEW_KEY = 'appraisals_view'
+const view = ref<View>('table')
+
+const setView = (v: View) => {
+    view.value = v
+    if (import.meta.client) localStorage.setItem(VIEW_KEY, v)
+}
+
+const initials = (name: string | null | undefined): string => {
+    if (!name) return '?'
+    const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2)
+    return parts.map(p => p[0]?.toUpperCase() || '').join('') || '?'
+}
 
 interface Appraisal {
     id: string
@@ -553,8 +666,18 @@ const actionArchive = async () => { const a = actionMenu.appraisal; closeActionM
 onMounted(async () => {
     if (import.meta.client) {
         document.addEventListener('click', closeActionMenu)
+        const saved = localStorage.getItem('appraisals_view')
+        if (saved === 'table' || saved === 'grid') {
+            view.value = saved
+        }
     }
     await Promise.all([loadLookups(), loadAppraisals()])
+})
+
+onBeforeUnmount(() => {
+    if (import.meta.client) {
+        document.removeEventListener('click', closeActionMenu)
+    }
 })
 </script>
 
@@ -646,4 +769,5 @@ onMounted(async () => {
 .action-item-danger:hover {
     background: var(--color-danger-subtle);
 }
+
 </style>

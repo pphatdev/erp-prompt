@@ -23,7 +23,7 @@
             </header>
 
             <!-- Layer filter chips (per design.md §10.2 / kanban layer pattern) -->
-            <section class="flex items-center gap-2 flex-wrap">
+            <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                 <span class="text-xxs uppercase tracking-widest text-(--text-muted) font-bold mr-1">Layers:</span>
                 <button v-for="src in SOURCES" :key="src" type="button"
                     class="chip" :class="{ active: activeLayers.has(src) }"

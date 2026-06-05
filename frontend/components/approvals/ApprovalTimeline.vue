@@ -27,7 +27,7 @@
                 <!-- Content Card -->
                 <div class="timeline-card rounded-xl p-4 transition-all" :class="cardClass(item.action)">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                             <span class="badge-pill px-2.5 py-0.5 rounded-full text-xxs font-bold uppercase tracking-wider" 
                                 :class="badgeClass(item.action)">
                                 {{ item.action.replace('_', ' ') }}

@@ -10,9 +10,10 @@ class RoleService
 {
     public function buildIndexQuery(): Builder
     {
-        $query = Role::query()->with('permissions');
-        $query->orderBy('name');
-        return $query;
+        return Role::query()
+            ->with('permissions')
+            ->withCount('users')
+            ->orderBy('name');
     }
 
     /**

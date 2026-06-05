@@ -71,7 +71,7 @@
                 </div>
             </section>
 
-            <section class="flex items-center gap-2 flex-wrap">
+            <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                 <button type="button" class="tab-btn" :class="{ active: activeTab === 'tasks' }" @click="setTab('tasks')">
                     <i class="ti ti-checkbox" /> Tasks
                 </button>
@@ -82,7 +82,7 @@
 
             <!-- Tasks tab -->
             <section v-if="activeTab === 'tasks'" class="space-y-4">
-                <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                     <button type="button" class="chip" :class="{ active: taskStatusFilter === '' }" @click="setTaskStatusFilter('')">All</button>
                     <button v-for="s in TASK_STATUSES" :key="s.value" type="button"
                         class="chip" :class="{ active: taskStatusFilter === s.value }" @click="setTaskStatusFilter(s.value)">

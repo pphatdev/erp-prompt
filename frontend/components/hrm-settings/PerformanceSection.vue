@@ -48,7 +48,7 @@ import GuidancePanel from '~/components/hrm-settings/GuidancePanel.vue'
 import NumberField from '~/components/hrm-settings/NumberField.vue'
 
 const props = defineProps<{
-    draft: Record<string, unknown>
+    draft: Record<string, any>
 }>()
 
 const weightSum = computed(() => {

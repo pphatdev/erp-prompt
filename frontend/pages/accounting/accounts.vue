@@ -27,7 +27,7 @@
             </section>
 
             <!-- Filter chips -->
-            <section class="flex items-center gap-2 flex-wrap">
+            <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                 <button type="button" class="chip" :class="{ active: typeFilter === '' }" @click="typeFilter = ''">All</button>
                 <button v-for="t in ACCOUNT_TYPES" :key="t.value" type="button"
                     class="chip" :class="{ active: typeFilter === t.value }" @click="typeFilter = t.value">
@@ -450,29 +450,5 @@ const AccountNode: Component = defineComponent({
 .action-btn-danger:hover {
     color: var(--color-danger);
     border-color: rgb(var(--color-danger-rgb) / 0.4);
-}
-
-.chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-card);
-    font-size: 11px;
-    color: var(--text-body);
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.chip:hover {
-    background: var(--bg-muted);
-}
-
-.chip.active {
-    background: rgb(var(--color-primary-rgb) / 0.12);
-    color: var(--color-primary);
-    border-color: rgb(var(--color-primary-rgb) / 0.4);
 }
 </style>

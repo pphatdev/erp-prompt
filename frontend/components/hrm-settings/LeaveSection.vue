@@ -128,7 +128,7 @@ import ToggleField from '~/components/hrm-settings/ToggleField.vue'
 import { useWorkSchedules, type WorkScheduleRow } from '~/composables/useWorkSchedules'
 
 defineProps<{
-    draft: Record<string, unknown>
+    draft: Record<string, any>
 }>()
 
 const weekdays = [

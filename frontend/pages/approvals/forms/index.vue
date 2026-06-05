@@ -35,7 +35,7 @@
             <div class="space-y-6">
                 <!-- Filters Tab list -->
                 <div class="flex items-center justify-between  pb-4 flex-wrap gap-4">
-                    <section class="flex items-center gap-2 flex-wrap">
+                    <section class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                         <button v-for="cat in categories" :key="cat.id" type="button" 
                             class="chip"
                             :class="{ active: activeCategory === cat.id }"

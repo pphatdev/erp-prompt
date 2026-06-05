@@ -11,7 +11,11 @@ class EmployeeAppointmentResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $canSeeSalary = $request->user()?->can('hrm.recruitment.read') ?? false;
+        // Same caveat as EmployeeResource — `hrm.recruitment.read` is a
+        // role-table permission slug, not a Gate-defined ability. Use
+        // `hasPermission()` so non-admin recruiters with the grant see
+        // the salary. Gate::before still bypasses for admin.
+        $canSeeSalary = $request->user()?->hasPermission('hrm.recruitment.read') ?? false;
 
         return [
             'id'              => $this->id,

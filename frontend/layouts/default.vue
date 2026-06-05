@@ -734,7 +734,9 @@ const navGroups = reactive<NavGroup[]>([
                         children: [
                             { label: 'Vacancies', icon: 'ti-briefcase-2', route: '/hrm/recruitments/vacancies', operational: true, permission: 'hrm.recruitment.read' },
                             { label: 'Applications', icon: 'ti-user-search', route: '/hrm/recruitments/applications', operational: true, permission: 'hrm.recruitment.read' },
-                            { label: 'Candidate Stages', icon: 'ti-layout-kanban', route: '/hrm/recruitments/candidates', operational: true, permission: 'hrm.recruitment.read' }
+                            { label: 'Candidate Stages', icon: 'ti-layout-kanban', route: '/hrm/recruitments/candidates', operational: true, permission: 'hrm.recruitment.read' },
+                            { label: 'Job Offers', icon: 'ti-file-certificate', route: '/hrm/offers', operational: true, permission: 'hrm.recruitment.read', moduleSlug: 'hrm-offers' },
+                            { label: 'Onboarding', icon: 'ti-checklist', route: '/hrm/onboarding', operational: true, permission: 'hrm.onboarding.read', moduleSlug: 'hrm-onboarding' }
                         ]
                     },
                     {
@@ -1093,6 +1095,9 @@ const SLUG_LABELS: Record<string, string> = {
     vacancies: 'Vacancies',
     applications: 'Applications',
     candidates: 'Candidates',
+    final_interview: 'Final Interview',
+    offers: 'Job Offers',
+    onboarding: 'Onboarding',
     appraisals: 'Appraisals',
     users: 'User Directory',
     roles: 'Roles Matrix',
@@ -1123,7 +1128,6 @@ const SLUG_LABELS: Record<string, string> = {
     'advance-settlements': 'Advance Settlements',
     expenses: 'Expenses',
     receivable: 'Receivable',
-    receipts: 'Receipts',
     'credit-notes': 'Credit Notes',
     'debit-notes': 'Debit Notes',
     'bank-reconciliation': 'Bank Reconciliation',
@@ -1137,7 +1141,6 @@ const SLUG_LABELS: Record<string, string> = {
     activities: 'Interaction Timeline',
     approvals: 'eApprovals',
     forms: 'Forms Portal',
-    leave: 'Leave Request',
     'requests': 'My Requests',
     review: 'Review Portal',
     // Fixed Assets — `assets` matches the parent NavItem label so the dedup

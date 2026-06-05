@@ -152,6 +152,10 @@ This document outlines the **end-to-end flow for applicants** in the **Recruitme
 
 **Hard rule**: Transitioning the application to `hired` (Stage 4 Decision) **only changes status**. It does NOT create an Employee record. The link is an explicit, audit-bounded step performed by HR — never a side-effect of the kanban drag.
 
+**Primary path (production)**: After offer acceptance (Stage 5) the application sits in `hired`. HR submits an Employee Appointment request through eApprovals; on approval the listener `SyncEmployeeAppointmentFromApproval` calls `convertToEmployee` and the application advances to `onboarding`. See Stage 5 §6 for the full automation chain.
+
+**Direct convert endpoint (admin / exception path)**: The legacy `POST /applications/{application}/convert-to-employee` is retained for tenants who skip the eApprovals gate or for backfilling historical hires that pre-date Phase 8. It is not the recommended path for new hires and the candidate UI hides it behind `hrm.recruitment.write + hrm.employee.write`.
+
 #### **Sub-Processes**
 
 1. **Single Conversion**
@@ -193,52 +197,69 @@ This document outlines the **end-to-end flow for applicants** in the **Recruitme
 
 ---
 
-### **Stage 5: Offer & Onboarding**
+### **Stage 5: Offer → Hired → Onboarding**
 
-**Objective**: Secure the candidate and integrate them into the company.
+**Objective**: Issue a binding letter, capture the candidate's acceptance, run HR governance, and provision the Employee + onboarding checklist.
+
+**State transitions** (all validated by `WorkflowStatusService`):
+
+| From | To | Trigger | Authority |
+|---|---|---|---|
+| `final_interview` (or `interview` if final round is skipped) | `offer` | Recruiter clicks "Advance stage" | Recruiter |
+| `offer` | `hired` | Offer accept event (webhook or wet-ink) — `OfferService::markAccepted` | System |
+| `hired` | `onboarding` | Appointment request approval — `SyncEmployeeAppointmentFromApproval` | System |
+
+Recruiters **cannot** manually advance past `offer`; both downstream transitions are event-driven so the audit trail always names the upstream artifact (the signed offer or the approval action).
 
 #### **Sub-Processes**
 
-1. **Offer Preparation**
-  - HR drafts an **offer letter** including:
-    - Position, salary, benefits.
-    - Start date, probation period.
-    - Contingencies (e.g., background check, reference checks).
-  - **Approval**: Hiring manager and finance (for budget) approve the offer.
-2. **Offer Communication**
-  - HR sends the offer via:
-    - **Email**: PDF attachment or eSignature link (e.g., DocuSign).
-    - **Portal**: Candidate logs in to accept/reject.
-  - **Automation**:
-    - ATS tracks offer status (Pending/Accepted/Rejected).
-    - Sends reminders if no response within **3-5 days**.
-3. **Offer Negotiation (if applicable)**
-  - Candidate may negotiate salary, benefits, or start date.
-  - HR and hiring manager discuss and update the offer.
-4. **Acceptance & Pre-Onboarding**
-  - Candidate accepts the offer (e.g., signs digitally).
-  - **Automation**:
-    - ATS triggers **pre-onboarding tasks**:
-      - Background check initiation.
-      - Document collection (ID, certificates, bank details).
-      - IT setup (laptop, email, system access).
-  - **Welcome Email**: Sent with:
-    - Onboarding schedule.
-    - First-day instructions (e.g., dress code, reporting time).
-    - Links to company policies/handbook.
-5. **Onboarding**
-  - **Day 1**:
-    - HR introduces the employee to the team.
-    - IT provides access to systems/tools.
-    - Manager conducts a **role orientation**.
-  - **First Week**:
-    - Training sessions (company culture, tools, processes).
-    - Meetings with key stakeholders.
-  - **30/60/90-Day Check-ins**: Manager reviews progress and addresses concerns.
+1. **Stage entry — application moved to `offer`**
+   - Recruiter advances the candidate via the kanban or candidate-profile "Advance stage" control.
+   - This is the moment the candidate-profile auto-opens the **Offer & Onboarding** tab (frontend Phase 8).
+
+2. **Offer Preparation (status = `offer`)**
+   - HR drafts an **offer letter** including position, salary, signing bonus, currency, probation months, effective + expires dates, and any notes.
+   - Endpoint: `POST /api/v1/offers` with `applicationId`. `OfferService::createOffer` **requires `application.status === 'offer'`** and throws `DomainException` otherwise.
+   - Reference number `OFR-YYYYMM-NNN` is generated server-side; prefix configurable via `numbering.offer_reference_prefix` setting.
+
+3. **Offer Sending**
+   - Endpoint: `POST /api/v1/offers/{id}/send` with optional `provider` (`mock` | `docusign`).
+   - Mock provider returns a fake envelope id for sandbox demos. DocuSign envelope is created via the provider SDK.
+   - Webhook callback: `POST /offers/sign-webhook` (outside `auth:api`, gated by `X-Signature` verification).
+
+4. **Acceptance hand-off (status = `offer` → `hired`)**
+   - Webhook path: provider posts `signed` → `ESignatureService::handleWebhookPayload` resolves the envelope, calls `OfferService::markAccepted`.
+   - Manual path: admin clicks "Accept manually" → `POST /api/v1/offers/{id}/accept` → same `markAccepted` entry point.
+   - `markAccepted` is idempotent (a duplicate webhook returns the existing accepted offer) and performs ONLY these state changes:
+     - `offer.status = accepted`, `signed_at = now()`
+     - `application.status = offer → hired` (validated transition)
+   - It **does NOT** create the Employee or seed the checklist. That happens in Step 6.
+
+5. **Appointment Request (status = `hired`)**
+   - HR submits via `POST /api/v1/employee-appointments` with overrides (name, dept, position, salary, start date, employment type).
+   - `EmployeeAppointmentService::submit` opens an `ApprovalRequest` if a workflow with `module=hrm, type=employee_appointment` exists for the tenant.
+   - Frontend surface: candidate profile right-column "Request Appointment of Employee" CTA + the dedicated `/approvals/forms/employee-appointment` form.
+
+6. **Approval → Conversion + Onboarding (status = `hired` → `onboarding`)**
+   - On `ApprovalRequestFinalized` with `finalStatus = approved`, `SyncEmployeeAppointmentFromApproval::handle()` runs one DB transaction:
+     - `RecruitmentService::convertToEmployee($application, $overrides)` — creates the Employee (dedupes by active-email; reuses linked row when idempotent).
+     - Links the accepted Offer (if present) by setting `offers.employee_id`.
+     - `OnboardingService::seedDefaultChecklist($offer)` — 11-task default template across HR / IT / Finance / Manager / Facilities with offsets `-7..+30` days relative to the offer's effective date.
+     - `WorkflowStatusService::validateTransition('hrm.application', 'hired', 'onboarding')` then `application->update(['status' => 'onboarding'])`.
+     - Updates the appointment row with `employee_id`, `status = approved`, `processed_at`.
+   - On `finalStatus = rejected`: appointment row flipped to `rejected`, application stays at `hired`, HR may resubmit.
+   - DomainException during conversion is logged via `Log::warning` (the HTTP response for the approval action has already returned).
+
+7. **Onboarding (status = `onboarding`)**
+   - Day 1 / week 1 / 30-day work happens against the seeded checklist (`/hrm/onboarding`).
+   - When every task lands in `completed` or `skipped`, `OnboardingService::refreshChecklistProgress` flips the checklist to `completed`.
+   - The application stays at `onboarding` — it is the terminal-success status for the recruitment funnel.
 
 #### **Output**
 
-- Employee is fully integrated into the workforce.
+- Application is in `onboarding` and linked to an active Employee.
+- Employee is visible in `GET /api/v1/employees` and ready for payroll, leave, and other downstream HRM modules.
+- The accepted Offer carries `employee_id` so HR can trace from offer-letter back to the workforce row.
 
 ---
 
@@ -279,28 +300,37 @@ flowchart TD
     Decision -->|Next Round| Schedule
     Decision -->|Select Candidate| OfferPrep[Offer Preparation: Salary & Start Date]
     
-    %% Offer & Onboarding
-    OfferPrep --> OfferSend[Send Offer: eSignature Link / DocuSign]
-    OfferSend --> Negotiate{Negotiate?}
-    Negotiate -->|Yes| OfferPrep
-    Negotiate -->|No / Accepted| Accept[Digital Offer Acceptance]
-    
-    Accept --> PreOnboarding[Pre-Onboarding: Background Checks & IT Setup]
-    PreOnboarding --> Welcome[Send Welcome Email & Instructions]
-    Welcome --> Day1[Day 1: Team Intro, IT Access & Role Orientation]
-    Day1 --> Week1[Week 1: Training & Stakeholder Alignment]
-    Week1 --> Checkins[30/60/90-Day Performance Check-ins]
-    Checkins --> End([Employee Fully Integrated])
+    %% Offer & Onboarding — status-driven chain (see Stage 5)
+    Decision -->|Select Candidate| StatusOffer[application.status = offer]
+    StatusOffer --> OfferDraft[Draft Offer Letter: POST /offers]
+    OfferDraft --> OfferSend[Send Offer: eSignature mock or docusign]
+    OfferSend --> AcceptDecision{Candidate accepts?}
+    AcceptDecision -->|Declines| DeclineEnd([offer.status = declined])
+    AcceptDecision -->|Accepts — webhook or wet-ink| MarkAccepted[OfferService::markAccepted]
+    MarkAccepted --> StatusHired[application.status = hired]
+
+    StatusHired --> AppointmentSubmit[HR submits Employee Appointment Request]
+    AppointmentSubmit --> ApprovalDecision{Approval outcome}
+    ApprovalDecision -->|Rejected| StatusHired
+    ApprovalDecision -->|Approved| SyncListener[SyncEmployeeAppointmentFromApproval]
+    SyncListener --> ConvertEmployee[convertToEmployee + link offers.employee_id]
+    ConvertEmployee --> SeedChecklist[seedDefaultChecklist 11 tasks]
+    SeedChecklist --> StatusOnboarding[application.status = onboarding]
+    StatusOnboarding --> Day1[Day 1 / Week 1 / 30-day checklist work]
+    Day1 --> ChecklistDone[Checklist completed]
+    ChecklistDone --> End([Employee fully integrated])
 
     %% Styling Theme
     classDef stage fill:#fdfdfd,stroke:#555,stroke-width:1px,stroke-dasharray: 2 2;
     classDef process fill:#f4f7fb,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a;
     classDef decision fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f;
     classDef endPoint fill:#ecfdf5,stroke:#10b981,stroke-width:2px,color:#065f46;
+    classDef statusNode fill:#eef2ff,stroke:#6366f1,stroke-width:1.5px,color:#3730a3;
 
-    class Start,End endPoint;
-    class Conduct,Decision,Negotiate decision;
-    class Requisition,Posting,Sourcing,Submit,Ack,ATSEntry,Screening,PhoneScreen,Shortlist,Schedule,TechRound,BehRound,PanelRound,AssignRound,Feedback,RejectMail,OfferPrep,OfferSend,Accept,PreOnboarding,Welcome,Day1,Week1,Checkins process;
+    class Start,End,DeclineEnd endPoint;
+    class Conduct,Decision,AcceptDecision,ApprovalDecision decision;
+    class Requisition,Posting,Sourcing,Submit,Ack,ATSEntry,Screening,PhoneScreen,Shortlist,Schedule,TechRound,BehRound,PanelRound,AssignRound,Feedback,RejectMail,OfferDraft,OfferSend,MarkAccepted,AppointmentSubmit,SyncListener,ConvertEmployee,SeedChecklist,Day1,ChecklistDone process;
+    class StatusOffer,StatusHired,StatusOnboarding statusNode;
 ```
 
 ### **Text-Based Flowchart**
@@ -321,9 +351,15 @@ Start
 [Interview] → Schedule Interviews → Conduct Interviews → Collect Feedback → Decision
   │
   ▼
-[Offer & Onboarding] → Prepare Offer → Send Offer → Negotiate (if needed) → Acceptance → Pre-Onboarding → Onboarding
+[Offer]        → status=offer → Draft Offer → Send Offer
   │
-  ▼
+  ▼  (candidate signs OR admin marks accepted)
+[Hired]        → status=hired → HR submits Appointment Request
+  │
+  ▼  (eApprovals approver authorises)
+[Onboarding]   → status=onboarding → convertToEmployee + seedDefaultChecklist
+  │
+  ▼  (HR / IT / Finance / Manager / Facilities tasks burn down)
 End (Employee Integrated)
 ```
 

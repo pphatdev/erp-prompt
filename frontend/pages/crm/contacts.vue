@@ -49,7 +49,7 @@
                                 {{ initials(c) }}
                             </div>
                             <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2 flex-wrap">
+                                <div class="flex items-center gap-2 flex-wrap max-sm:justify-center">
                                     <h3 class="text-sm font-semibold text-(--text-heading) truncate group-hover:text-(--color-primary) transition-colors">
                                         {{ displayName(c) }}
                                     </h3>
