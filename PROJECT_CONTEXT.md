@@ -35,25 +35,30 @@ High-performance, multi-tenant Enterprise Resource Planning (ERP) system. Split 
 
 ## Active Modules & Implementation Status
 
-Every module has `skill.md` (or `overview.md`), `rules.md`, `flow.md`, and `testing.md` under `skills/{module}/`. Status reflects what's actually shipped (see `.task/task.md` for the authoritative master checklist).
+Each module has `skills/{module}/skill.md` with a code map + scope summary + link to `.task/{module}/` (the authoritative status + scope source). `.task/task.md` is the master checklist.
 
-| Module | Location | Backend | Frontend | Notes |
+| Module | Skill | Backend | Frontend | Notes |
 | :--- | :--- | :---: | :---: | :--- |
-| **IAM** | `/skills/iam` | ✅ | ✅ | Users, roles, permissions, workflow statuses, password reset. `hasPermission()` on User model. |
-| **Configuration / Settings** | `/skills/configuration` | ✅ | ✅ | Branding, locale, notifications, security, numbering (7 prefixes), modules (admin-only), platform. |
-| **Modules System** | n/a (cross-cutting) | ✅ | ✅ | `modules` table (self-FK), `is_active` / `is_core` / parent / sort, `useModules` composable, sidebar gating. |
+| **IAM** | [`skills/iam/skill.md`](./skills/iam/skill.md) | ✅ | ✅ | Users, roles, permissions, workflow statuses, password reset. `hasPermission()` on User model. |
+| **Configuration (Settings)** | [`skills/configuration/skill.md`](./skills/configuration/skill.md) | ✅ | ✅ | Branding, locale, notifications, security, numbering (7 prefixes), modules (admin-only), platform. |
+| **Modules System** | [`skills/modules/skill.md`](./skills/modules/skill.md) | ✅ | ✅ | `modules` table (self-FK), `is_active` / `is_core` / parent / sort, `useModules` composable, sidebar gating. |
 | **Dashboard** | n/a (`pages/dashboard.vue`) | ✅ | ✅ | `DashboardSummaryService`; KPI grid + 7-day revenue + headcount; admin vs customer branches. |
-| **CRM** | `/skills/crm` | ✅ | ✅ | Leads, Opportunities (Kanban), Contacts, Activities (polymorphic), Appointments, B2B/B2C Product Schedule. |
-| **Sales** | `/skills/sales` | ✅ | ✅ | Customers, Quotations, Orders, Invoices, Subscriptions, Tenant provisioning. Target-flow refactor planned. |
-| **HRM** | `/skills/hrm` | ✅ | ✅ | Employees, departments, positions, leave, shifts, attendance, payroll, recruitment (vacancies → applications → candidates Kanban), appraisals, public careers portal. |
-| **Inventory** | `/skills/inventory` | ✅ | ✅ | Products + variants, Categories (tree), Warehouses, Suppliers, Stock movements, Purchase Orders (full FSM), WAC, Low-stock alerts. FIFO + eCommerce sync still planned. |
-| **FMS / Finance** | `/skills/fms` | ◐ | ◐ | Chart of Accounts, Journal Entries, Ledger shipped. Payments, Estimates, AP/AR UI, Tax, Reports still planned. |
-| **eApprovals** | `/skills/eapprovals` | ✅ | ❌ | Workflows + levels + actions + notifications shipped. UI planned. |
-| **eDocuments / Documents** | `/skills/edocuments`, `/skills/documents` | ✅ | ❌ | CMS folders + documents + check-in/out shipped. Explorer UI planned. |
-| **Projects** | `/skills/projects` | ✅ | ❌ | Projects + tasks + timesheets shipped. UI planned. |
-| **Reporting & Analytics** | `/skills/reporting` | ◐ | ◐ | Dashboard infrastructure + `DashboardSummaryService` shipped. Configurable widget builder + scheduled reports planned. |
-| **Fleet** | `/skills/fleet` | ❌ | ❌ | Not yet implemented. |
-| **Assets** | `/skills/assets` | ❌ | ❌ | Not yet implemented. |
+| **CRM** | [`skills/crm/skill.md`](./skills/crm/skill.md) | ✅ | ✅ | Leads, Opportunities (Kanban), Contacts, Activities (polymorphic), Appointments, B2B/B2C Product Schedule. |
+| **Sales** | [`skills/sales/skill.md`](./skills/sales/skill.md) | ✅ | ✅ | Customers, Quotations, Orders, Invoices, Subscriptions, Tenant provisioning. Target-flow refactor planned ([`rules/hybrid_sales_business_flow.md`](./rules/hybrid_sales_business_flow.md)). |
+| **HRM** | [`skills/hrm/skill.md`](./skills/hrm/skill.md) | ✅ | ✅ | Employees, departments, positions, leave, shifts, attendance, payroll, recruitment, appraisals, careers portal, work schedules, hierarchical HRM settings. |
+| **Inventory** | [`skills/inventory/skill.md`](./skills/inventory/skill.md) | ✅ | ✅ | Products + variants, Categories tree, Warehouses, Suppliers, Stock movements, PO FSM, WAC, low-stock alerts, vendor/AP extension. FIFO + storefront still planned. |
+| **FMS / Finance** | [`skills/fms/skill.md`](./skills/fms/skill.md) | ◐ | ◐ | Customer Receipts shipped (UI + service + GL). Estimates, AP/AR UI, Tax, Reports still planned. |
+| **Accounting / GL** | [`skills/accounting/skill.md`](./skills/accounting/skill.md) | ✅ | ✅ | CoA, Journals + Ledger (immutable + reversible), Exchange Rates, Bank, AR (Receipts/CN/DN), AP (Bills/Pay/Reimbursement/Cash Advance/Expense), Budgets. Fiscal-period locks open. |
+| **POS** | [`skills/pos/skill.md`](./skills/pos/skill.md) | ✅ | ✅ | Terminals, Shifts (cashier/terminal mutex + variance reconcile), Orders (checkout/void with idempotent `client_uuid`), thermal-receipt printout. Offline IndexedDB deferred. |
+| **Ecommerce (B2C)** | [`skills/ecommerce/skill.md`](./skills/ecommerce/skill.md) | ✅ | ✅ | Storefront (catalog/cart/checkout/account), shopper Passport guard, admin orders+refunds+customers, FMS cash-receipt journal, webhook signing. Blocked on `INV-RESERVE` + `INV-STOREFRONT`. |
+| **Calendar** | [`skills/calendar/skill.md`](./skills/calendar/skill.md) | ✅ | ✅ | Holidays + compensatory days + unified events (holidays/leaves/shifts/CRM/custom). Privacy masking. Attendance reconciler deferred. |
+| **eApprovals** | [`skills/eapprovals/skill.md`](./skills/eapprovals/skill.md) | ✅ | ◐ | Workflows + levels + actions + notifications + escalation/delegation shipped. Forms request UI pending. |
+| **eDocuments** | [`skills/edocuments/skill.md`](./skills/edocuments/skill.md) | ✅ | ✅ | Folders + documents + versions + shares + acknowledgements + public share viewer. P0 Pest pending. |
+| **Documents (CMS)** | [`skills/documents/skill.md`](./skills/documents/skill.md) | ◐ | ❌ | CMS folders + check-in/out shipped. Explorer UI + concurrency modals pending. |
+| **Projects** | [`skills/projects/skill.md`](./skills/projects/skill.md) | ✅ | ✅ | Projects + Tasks (list/board) + Kanban + Timesheets (hour cap + leave/period blocks). WBS/Gantt/dependencies deferred (schema gap). |
+| **Fleet** | [`skills/fleet/skill.md`](./skills/fleet/skill.md) | ✅ | ✅ | Vehicles, fuel, maintenance pages shipped (camelCase resources, policies, monotonic mileage). Map overlay + signed-URL receipts + scheduler deferred. |
+| **Assets** | [`skills/assets/skill.md`](./skills/assets/skill.md) | ✅ | ✅ | Tracking + QR + depreciation (SL/DDB/SYD) + revaluation + disposal + audits. FMS journals + HRM custodian. P0 Pest shipped. |
+| **Reporting & Analytics** | [`skills/reporting/skill.md`](./skills/reporting/skill.md) | ◐ | ◐ | Dashboard infrastructure + `DashboardSummaryService` shipped. Configurable widget builder + scheduled reports planned. |
 
 Legend: ✅ Shipped · ◐ Partially shipped · ❌ Not started
 
