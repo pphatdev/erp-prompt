@@ -13,7 +13,7 @@
                 <div class="relative flex-1 min-w-[220px] max-w-md">
                     <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) text-sm pointer-events-none" />
                     <input v-model="searchDraft" type="search" placeholder="Search leave types..."
-                        class="search-input w-full pl-9 pr-9 py-2 text-xs rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-heading) placeholder:text-(--text-muted) focus:outline-none focus:border-(--color-primary) focus:ring-2 focus:ring-(--color-primary)/20"
+                        class="search-input w-full pl-9 pr-9 py-2 text-xs rounded-2xl bg-(--bg-card) border border-(--border-color) text-(--text-heading) placeholder:text-(--text-muted) focus:outline-none focus:border-(--color-primary) focus:ring-2 focus:ring-(--color-primary)/20"
                         @keyup.escape="clearSearch" />
                     <button v-if="searchDraft" type="button"
                         class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full inline-flex items-center justify-center text-(--text-muted) hover:bg-(--bg-muted) hover:text-(--text-heading)"
