@@ -195,7 +195,18 @@
         <!-- Status cards — Grid view only. -->
         <section v-else-if="viewMode === 'grid'"
             class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-            <article v-for="row in filteredRows" :key="row.id" class="status-card">
+            <article v-for="row in filteredRows" :key="row.id" class="status-card"
+                :class="{
+                    'status-card--dragging': dragKey === row.key,
+                    'status-card--drop-target': dragOverKey === row.key,
+                    'status-card--draggable': row.sequence < PIPELINE_SEQUENCE_THRESHOLD,
+                }"
+                :draggable="row.sequence < PIPELINE_SEQUENCE_THRESHOLD"
+                @dragstart="onCardDragStart(row, $event)"
+                @dragover="onCardDragOver(row, $event)"
+                @dragleave="onCardDragLeave(row)"
+                @dragend="onCardDragEnd"
+                @drop.prevent="onCardDrop(row)">
                 <header class="flex items-start gap-3">
                     <span class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                         :class="`badge-soft-${row.color || 'secondary'}`">
@@ -313,6 +324,63 @@
                         </div>
                     </div>
 
+                    <!-- Kanban metadata — only persisted for module
+                         `hrm.application` and read by the Candidate
+                         Pipeline board to render columns + cards. -->
+                    <section v-if="showKanbanMetadata" class="kanban-meta-block">
+                        <header class="flex items-center gap-2 mb-3">
+                            <i class="ti ti-layout-kanban text-(--color-primary)" />
+                            <h4 class="text-xs font-semibold text-(--text-heading)">Kanban behaviour</h4>
+                            <span class="text-xxs text-(--text-muted)">applies to /hrm/recruitments/candidates</span>
+                        </header>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label class="inline-flex items-start gap-2 text-xs">
+                                <input v-model="form.kanbanVisible" type="checkbox" class="mt-0.5" />
+                                <span>
+                                    <span class="font-semibold text-(--text-heading)">Visible as a column</span>
+                                    <span class="block text-xxs text-(--text-muted)">
+                                        Uncheck to render this stage as an off-ramp action on cards instead of a Kanban column.
+                                    </span>
+                                </span>
+                            </label>
+
+                            <label class="inline-flex items-start gap-2 text-xs">
+                                <input v-model="form.kanbanConversionEligible" type="checkbox" class="mt-0.5" />
+                                <span>
+                                    <span class="font-semibold text-(--text-heading)">Conversion eligible</span>
+                                    <span class="block text-xxs text-(--text-muted)">
+                                        Marks cards in this stage as ready to be converted to an Employee record.
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label">Sort cards by</label>
+                            <select v-model="form.kanbanSort" class="form-control">
+                                <option v-for="opt in KANBAN_SORT_OPTIONS" :key="opt.value" :value="opt.value">
+                                    {{ opt.label }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label">Display fields on cards ({{ form.kanbanDisplayFields.length }} selected)</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button v-for="opt in KANBAN_DISPLAY_FIELDS" :key="opt.value" type="button"
+                                    class="next-toggle"
+                                    :class="{ 'next-toggle-active': form.kanbanDisplayFields.includes(opt.value) }"
+                                    @click="toggleDisplayField(opt.value)">
+                                    {{ opt.label }}
+                                </button>
+                            </div>
+                            <p class="text-xxs text-(--text-muted) mt-1">
+                                Candidate name and vacancy title are always recommended; deselect everything to fall back to defaults.
+                            </p>
+                        </div>
+                    </section>
+
                     <div v-if="formError"
                         class="text-xs text-(--color-danger) bg-(--color-danger-subtle) px-3 py-2 rounded">
                         {{ formError }}
@@ -336,6 +404,10 @@
             <button class="action-item" @click="actionEdit">
                 <i class="ti ti-pencil" /> Edit
             </button>
+            <button v-if="!actionMenu.row.isInitial && !actionMenu.row.isTerminal" class="action-item"
+                @click="actionSetDefault">
+                <i class="ti ti-flag" /> Set as default
+            </button>
             <hr class="my-1 border-(--border-color)" />
             <button class="action-item action-item-danger" @click="actionRemove">
                 <i class="ti ti-trash" /> Archive
@@ -346,9 +418,46 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { useWorkflowStatuses, type WorkflowStatus, type WorkflowColor } from '~/composables/useWorkflowStatuses'
+import {
+    useWorkflowStatuses,
+    resolveKanbanConfig,
+    DEFAULT_KANBAN_CONFIG,
+    type WorkflowStatus,
+    type WorkflowColor,
+    type KanbanSortKey,
+    type KanbanDisplayField,
+} from '~/composables/useWorkflowStatuses'
 import { useToast } from '~/composables/useToast'
 import WorkflowFlowDiagram from '~/components/hrm-settings/WorkflowFlowDiagram.vue'
+
+// Pipeline sequences <= this render as Kanban columns; > this are
+// off-ramp terminals (rejected, withdrawn). Mirrors the constant in
+// pages/hrm/recruitments/candidates/index.vue so reordering only
+// touches the pipeline lane.
+const PIPELINE_SEQUENCE_THRESHOLD = 50
+
+// Kanban metadata is only meaningful for the candidate pipeline.
+// Other modules don't render a Kanban so the metadata section in the
+// modal stays hidden for them.
+const KANBAN_METADATA_MODULES = new Set(['hrm.application'])
+
+const KANBAN_SORT_OPTIONS: Array<{ value: KanbanSortKey; label: string }> = [
+    { value: 'newest',      label: 'Newest first' },
+    { value: 'oldest',      label: 'Oldest first' },
+    { value: 'name_asc',    label: 'Name A -> Z' },
+    { value: 'name_desc',   label: 'Name Z -> A' },
+    { value: 'rating_desc', label: 'Rating high -> low' },
+]
+
+const KANBAN_DISPLAY_FIELDS: Array<{ value: KanbanDisplayField; label: string }> = [
+    { value: 'candidateName',   label: 'Candidate name' },
+    { value: 'candidateCode',   label: 'Candidate code' },
+    { value: 'vacancyTitle',    label: 'Vacancy title' },
+    { value: 'rating',          label: 'Rating stars' },
+    { value: 'expectedSalary',  label: 'Expected salary' },
+    { value: 'appliedAt',       label: 'Time since applied' },
+    { value: 'source',          label: 'Source / referrer' },
+]
 
 const api = useWorkflowStatuses()
 const toast = useToast()
@@ -773,7 +882,21 @@ const form = reactive({
     isInitial: false,
     isTerminal: false,
     allowedNext: [] as string[],
+    // Kanban metadata (only persisted for `hrm.application` rows;
+    // hidden in the modal for other modules).
+    kanbanVisible: DEFAULT_KANBAN_CONFIG.visible,
+    kanbanSort: DEFAULT_KANBAN_CONFIG.sort as KanbanSortKey,
+    kanbanDisplayFields: [...DEFAULT_KANBAN_CONFIG.displayFields] as KanbanDisplayField[],
+    kanbanConversionEligible: DEFAULT_KANBAN_CONFIG.conversionEligible,
 })
+
+const showKanbanMetadata = computed(() => KANBAN_METADATA_MODULES.has(form.module))
+
+// Drag-to-reorder state. Only pipeline-lane cards (sequence <
+// threshold) participate; off-ramp terminals stay anchored.
+const dragKey = ref<string | null>(null)
+const dragOverKey = ref<string | null>(null)
+const reordering = ref(false)
 
 const actionMenu = reactive({ open: false, x: 0, y: 0, row: null as WorkflowStatus | null })
 
@@ -834,6 +957,10 @@ const resetForm = () => {
     form.isInitial = false
     form.isTerminal = false
     form.allowedNext = []
+    form.kanbanVisible = DEFAULT_KANBAN_CONFIG.visible
+    form.kanbanSort = DEFAULT_KANBAN_CONFIG.sort
+    form.kanbanDisplayFields = [...DEFAULT_KANBAN_CONFIG.displayFields]
+    form.kanbanConversionEligible = DEFAULT_KANBAN_CONFIG.conversionEligible
     formError.value = null
 }
 
@@ -854,6 +981,12 @@ const openEditModal = (row: WorkflowStatus) => {
     form.isInitial = row.isInitial
     form.isTerminal = row.isTerminal
     form.allowedNext = [...row.allowedNext]
+    // Hydrate from row.metadata.kanban (or defaults if absent).
+    const kanban = resolveKanbanConfig(row.metadata)
+    form.kanbanVisible = kanban.visible
+    form.kanbanSort = kanban.sort
+    form.kanbanDisplayFields = [...kanban.displayFields]
+    form.kanbanConversionEligible = kanban.conversionEligible
     formError.value = null
     showModal.value = true
 }
@@ -864,6 +997,12 @@ const toggleAllowedNext = (key: string) => {
     const idx = form.allowedNext.indexOf(key)
     if (idx === -1) form.allowedNext.push(key)
     else form.allowedNext.splice(idx, 1)
+}
+
+const toggleDisplayField = (field: KanbanDisplayField) => {
+    const idx = form.kanbanDisplayFields.indexOf(field)
+    if (idx === -1) form.kanbanDisplayFields.push(field)
+    else form.kanbanDisplayFields.splice(idx, 1)
 }
 
 const saveRow = async () => {
@@ -884,6 +1023,20 @@ const saveRow = async () => {
     saving.value = true
     formError.value = null
     try {
+        const metadata: Record<string, unknown> | null = showKanbanMetadata.value
+            ? {
+                ...(editing.value?.metadata ?? {}),
+                kanban: {
+                    visible: form.kanbanVisible,
+                    sort: form.kanbanSort,
+                    displayFields: form.kanbanDisplayFields.length > 0
+                        ? form.kanbanDisplayFields
+                        : [...DEFAULT_KANBAN_CONFIG.displayFields],
+                    conversionEligible: form.kanbanConversionEligible,
+                },
+            }
+            : (editing.value?.metadata ?? null)
+
         const payload = {
             module: form.module,
             key: form.key,
@@ -894,6 +1047,7 @@ const saveRow = async () => {
             isInitial: form.isInitial,
             isTerminal: form.isTerminal,
             allowedNext: form.allowedNext,
+            metadata,
         }
         if (editing.value) {
             await api.update(editing.value.id, payload)
@@ -965,6 +1119,87 @@ const actionRemove = async () => {
     }
 }
 
+const actionSetDefault = async () => {
+    const r = actionMenu.row
+    closeActionMenu()
+    if (!r) return
+
+    try {
+        await api.setDefault(r.id)
+        alert.msg = `"${r.label}" promoted to initial.`
+        alert.type = 'success'
+        await loadRows()
+    } catch (err: any) {
+        alert.msg = err?.data?.message || 'Failed to set as default.'
+        alert.type = 'danger'
+    }
+}
+
+// Drag-and-drop reorder over the grid view. Only pipeline-lane rows
+// (sequence < threshold) participate; off-ramp terminals stay
+// anchored at sequence >= 50 even after a reorder.
+const isPipelineLane = (row: WorkflowStatus): boolean =>
+    row.sequence < PIPELINE_SEQUENCE_THRESHOLD
+
+const onCardDragStart = (row: WorkflowStatus, ev: DragEvent) => {
+    if (!isPipelineLane(row)) {
+        ev.preventDefault()
+        return
+    }
+    dragKey.value = row.key
+    if (ev.dataTransfer) {
+        ev.dataTransfer.effectAllowed = 'move'
+        ev.dataTransfer.setData('text/plain', row.key)
+    }
+}
+
+const onCardDragOver = (row: WorkflowStatus, ev: DragEvent) => {
+    if (!dragKey.value || !isPipelineLane(row) || row.key === dragKey.value) {
+        if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'none'
+        return
+    }
+    ev.preventDefault()
+    if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move'
+    dragOverKey.value = row.key
+}
+
+const onCardDragLeave = (row: WorkflowStatus) => {
+    if (dragOverKey.value === row.key) dragOverKey.value = null
+}
+
+const onCardDragEnd = () => {
+    dragKey.value = null
+    dragOverKey.value = null
+}
+
+const onCardDrop = async (target: WorkflowStatus) => {
+    const sourceKey = dragKey.value
+    dragKey.value = null
+    dragOverKey.value = null
+    if (!sourceKey || sourceKey === target.key || !isPipelineLane(target)) return
+
+    // Build the new pipeline order: remove the source from its
+    // current slot, insert it before the target.
+    const pipeline = filteredRows.value.filter(isPipelineLane)
+    const orderedKeys = pipeline.map(r => r.key).filter(k => k !== sourceKey)
+    const insertIdx = orderedKeys.indexOf(target.key)
+    if (insertIdx === -1) return
+    orderedKeys.splice(insertIdx, 0, sourceKey)
+
+    reordering.value = true
+    try {
+        await api.reorder(activeModule.value, orderedKeys)
+        alert.msg = 'Stages reordered.'
+        alert.type = 'success'
+        await loadRows()
+    } catch (err: any) {
+        alert.msg = err?.data?.message || 'Failed to reorder.'
+        alert.type = 'danger'
+    } finally {
+        reordering.value = false
+    }
+}
+
 onMounted(() => {
     if (import.meta.client) {
         document.addEventListener('click', closeActionMenu)
@@ -1029,11 +1264,25 @@ onBeforeUnmount(() => {
 .status-card {
     background: var(--bg-card); border: 1px solid var(--border-color);
     border-radius: 1rem; padding: 1rem;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
 }
 .status-card:hover {
     border-color: rgb(var(--color-primary-rgb) / 0.35);
     box-shadow: 0 2px 8px rgb(var(--color-primary-rgb) / 0.05);
+}
+.status-card--draggable { cursor: grab; }
+.status-card--draggable:active { cursor: grabbing; }
+.status-card--dragging { opacity: 0.45; }
+.status-card--drop-target {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgb(var(--color-primary-rgb) / 0.25);
+    transform: translateY(-2px);
+}
+
+.kanban-meta-block {
+    border-top: 1px dashed var(--border-color);
+    padding-top: 1rem;
+    margin-top: 0.5rem;
 }
 
 .state-chip {

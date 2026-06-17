@@ -94,13 +94,19 @@
                                             {{ initials(a.applicantName) }}
                                         </div>
                                         <div class="min-w-0">
-                                            <p class="text-xs font-semibold text-(--text-heading) truncate">{{
-                                                a.applicantName }}</p>
-                                            <p class="text-xxs text-(--text-muted) truncate">
-                                                <span v-if="a.candidateCode" class="font-mono text-(--color-primary)">{{
-                                                    a.candidateCode }}</span>
-                                                <span v-if="a.candidateCode && a.vacancy?.title" class="px-1">·</span>
-                                                <span>{{ a.vacancy?.title || '—' }}</span>
+                                            <p v-if="shouldShowField(col.status, 'candidateName')"
+                                                class="text-xs font-semibold text-(--text-heading) truncate">
+                                                {{ a.applicantName }}
+                                            </p>
+                                            <p v-if="shouldShowField(col.status, 'candidateCode') || shouldShowField(col.status, 'vacancyTitle')"
+                                                class="text-xxs text-(--text-muted) truncate">
+                                                <span v-if="shouldShowField(col.status, 'candidateCode') && a.candidateCode"
+                                                    class="font-mono text-(--color-primary)">{{ a.candidateCode }}</span>
+                                                <span v-if="shouldShowField(col.status, 'candidateCode') && a.candidateCode && shouldShowField(col.status, 'vacancyTitle') && a.vacancy?.title"
+                                                    class="px-1">·</span>
+                                                <span v-if="shouldShowField(col.status, 'vacancyTitle')">
+                                                    {{ a.vacancy?.title || '—' }}
+                                                </span>
                                             </p>
                                         </div>
                                     </div>
@@ -111,14 +117,14 @@
                                     </Badge>
                                 </header>
 
-                                <div class="flex items-center gap-0.5 mb-3">
+                                <div v-if="shouldShowField(col.status, 'rating')" class="flex items-center gap-0.5 mb-3">
                                     <i v-for="n in 5" :key="n" class="ti text-[13px]"
                                         :class="n <= rating(a) ? 'ti-star-filled text-(--color-warning)' : 'ti-star text-(--border-strong)'" />
                                 </div>
 
-                                <div v-if="col.status === 'offer' && canSeeSalary && a.expectedSalary != null"
+                                <div v-if="shouldShowField(col.status, 'expectedSalary') && canSeeSalary && a.expectedSalary != null"
                                     class="rounded-lg bg-(--bg-muted) border border-(--border-color) px-2 py-1.5 mb-3 text-xxs text-(--text-body) font-mono">
-                                    Offer: {{ formatMoney(a.expectedSalary) }}
+                                    <span v-if="col.status === 'offer'">Offer: </span>{{ formatMoney(a.expectedSalary) }}
                                 </div>
 
                                 <!-- Hired conditional slot: appointment-request / view-employee CTA.
@@ -155,12 +161,16 @@
                                     </button>
                                 </div>
 
-                                <footer class="flex items-center justify-between text-xxs text-(--text-muted)">
-                                    <span class="inline-flex items-center gap-1 truncate max-w-[55%]">
+                                <footer v-if="shouldShowField(col.status, 'source') || shouldShowField(col.status, 'appliedAt')"
+                                    class="flex items-center justify-between text-xxs text-(--text-muted)">
+                                    <span v-if="shouldShowField(col.status, 'source')"
+                                        class="inline-flex items-center gap-1 truncate max-w-[55%]">
                                         <i :class="['ti text-[11px]', sourceIcon(a)]" />
                                         <span class="truncate">{{ sourceLabel(a) }}</span>
                                     </span>
-                                    <span class="inline-flex items-center gap-1"
+                                    <span v-else />
+                                    <span v-if="shouldShowField(col.status, 'appliedAt')"
+                                        class="inline-flex items-center gap-1"
                                         :class="isOverdue(a) ? 'text-(--color-danger)' : ''">
                                         <i
                                             :class="['ti text-[11px]', isOverdue(a) ? 'ti-alert-triangle' : 'ti-clock']" />
@@ -281,7 +291,14 @@ import { useApi } from '~/composables/useApi'
 import { formatDate, formatDateTime } from '~/composables/useDateFormat'
 import { useAuthStore } from '~/stores/auth'
 import { useToast } from '~/composables/useToast'
-import { useWorkflowStatuses, type WorkflowColor } from '~/composables/useWorkflowStatuses'
+import {
+    useWorkflowStatuses,
+    resolveKanbanConfig,
+    type WorkflowColor,
+    type KanbanStageConfig,
+    type KanbanDisplayField,
+    type WorkflowStatusMetadata,
+} from '~/composables/useWorkflowStatuses'
 import Badge from '~/components/Badge.vue'
 
 interface VacancyLite { id: string; title: string }
@@ -312,6 +329,7 @@ interface StatusMeta {
     isInitial: boolean
     isTerminal: boolean
     allowedNext: string[]
+    kanban: KanbanStageConfig
 }
 
 // Sequences >= this are treated as off-ramp terminals (rejected,
@@ -323,12 +341,12 @@ const OFFRAMP_SEQUENCE_THRESHOLD = 50
 // flight (or if it fails). Mirrors the seeded `hrm.application`
 // defaults so a fresh tenant still sees a working pipeline.
 const FALLBACK_STATUSES: StatusMeta[] = [
-    { key: 'applied',     label: 'Applied',     color: 'secondary', icon: null, sequence: 1, isInitial: true,  isTerminal: false, allowedNext: ['screening', 'rejected', 'withdrawn'] },
-    { key: 'screening',   label: 'Screening',   color: 'info',      icon: null, sequence: 2, isInitial: false, isTerminal: false, allowedNext: ['shortlisted', 'interview', 'rejected', 'withdrawn'] },
-    { key: 'shortlisted', label: 'Shortlisted', color: 'primary',   icon: null, sequence: 3, isInitial: false, isTerminal: false, allowedNext: ['interview', 'rejected', 'withdrawn'] },
-    { key: 'interview',   label: 'Interview',   color: 'warning',   icon: null, sequence: 6, isInitial: false, isTerminal: false, allowedNext: ['offer', 'rejected', 'withdrawn'] },
-    { key: 'offer',       label: 'Offer',       color: 'primary',   icon: null, sequence: 7, isInitial: false, isTerminal: false, allowedNext: ['hired', 'rejected', 'withdrawn'] },
-    { key: 'hired',       label: 'Hired',       color: 'success',   icon: null, sequence: 8, isInitial: false, isTerminal: true,  allowedNext: [] },
+    { key: 'applied',     label: 'Applied',     color: 'secondary', icon: null, sequence: 1, isInitial: true,  isTerminal: false, allowedNext: ['screening', 'rejected', 'withdrawn'], kanban: resolveKanbanConfig(null) },
+    { key: 'screening',   label: 'Screening',   color: 'info',      icon: null, sequence: 2, isInitial: false, isTerminal: false, allowedNext: ['shortlisted', 'interview', 'rejected', 'withdrawn'], kanban: resolveKanbanConfig(null) },
+    { key: 'shortlisted', label: 'Shortlisted', color: 'primary',   icon: null, sequence: 3, isInitial: false, isTerminal: false, allowedNext: ['interview', 'rejected', 'withdrawn'], kanban: resolveKanbanConfig(null) },
+    { key: 'interview',   label: 'Interview',   color: 'warning',   icon: null, sequence: 6, isInitial: false, isTerminal: false, allowedNext: ['offer', 'rejected', 'withdrawn'], kanban: resolveKanbanConfig(null) },
+    { key: 'offer',       label: 'Offer',       color: 'primary',   icon: null, sequence: 7, isInitial: false, isTerminal: false, allowedNext: ['hired', 'rejected', 'withdrawn'], kanban: resolveKanbanConfig(null) },
+    { key: 'hired',       label: 'Hired',       color: 'success',   icon: null, sequence: 8, isInitial: false, isTerminal: true,  allowedNext: [], kanban: resolveKanbanConfig(null) },
 ]
 
 interface Application {
@@ -410,16 +428,49 @@ const statusFlow = computed<Record<string, string[]>>(() => {
 })
 
 /**
- * Kanban columns = all statuses with sequence < OFFRAMP_SEQUENCE_THRESHOLD,
- * sorted by sequence. Off-ramp terminals (rejected / withdrawn / etc.)
- * stay in the data model but render as card actions, not columns.
+ * Kanban columns = all statuses with sequence < OFFRAMP_SEQUENCE_THRESHOLD
+ * AND kanban.visible !== false. The visibility check lets a tenant hide
+ * a configured stage (e.g. "Background Check") from the board without
+ * deleting it. Off-ramp terminals (rejected / withdrawn / etc.) stay in
+ * the data model but render as card actions, not columns.
  */
 const columns = computed<{ status: string; label: string }[]>(() =>
     allStatuses.value
         .filter(s => s.sequence < OFFRAMP_SEQUENCE_THRESHOLD)
+        .filter(s => s.kanban.visible)
         .sort((a, b) => a.sequence - b.sequence)
         .map(s => ({ status: s.key, label: s.label }))
 )
+
+/**
+ * Per-stage `kanban.sort` comparator. Tenants pick the order that
+ * suits their pipeline (e.g. recruiters often want newest applicants
+ * at the top of the Applied column).
+ */
+const stageComparator = (status: string): ((a: Application, b: Application) => number) => {
+    const sort = statusMeta.value[status]?.kanban.sort ?? 'newest'
+    const ts = (iso: string | null): number => iso ? new Date(iso).getTime() : 0
+    switch (sort) {
+        case 'oldest':      return (a, b) => ts(a.appliedAt) - ts(b.appliedAt)
+        case 'name_asc':    return (a, b) => a.applicantName.localeCompare(b.applicantName)
+        case 'name_desc':   return (a, b) => b.applicantName.localeCompare(a.applicantName)
+        case 'rating_desc': return (a, b) => rating(b) - rating(a)
+        case 'newest':
+        default:            return (a, b) => ts(b.appliedAt) - ts(a.appliedAt)
+    }
+}
+
+/**
+ * Display-field gating. Returns true when the stage's configured
+ * `displayFields` includes the requested field. Some keys
+ * (`candidateName`, `vacancyTitle`) are recommended on by default
+ * via DEFAULT_KANBAN_CONFIG.
+ */
+const shouldShowField = (status: string, field: KanbanDisplayField): boolean => {
+    const fields = statusMeta.value[status]?.kanban.displayFields
+        ?? (allStatuses.value[0]?.kanban.displayFields ?? [])
+    return fields.includes(field)
+}
 
 const loadWorkflowStatuses = async () => {
     try {
@@ -434,6 +485,7 @@ const loadWorkflowStatuses = async () => {
                 isInitial: row.isInitial,
                 isTerminal: row.isTerminal,
                 allowedNext: row.allowedNext ?? [],
+                kanban: resolveKanbanConfig(row.metadata as WorkflowStatusMetadata | null),
             }))
         }
     } catch {
@@ -489,6 +541,10 @@ const grouped = computed<Record<string, Application[]>>(() => {
     for (const a of applications.value) {
         if (!seed[a.status]) seed[a.status] = []
         seed[a.status].push(a)
+    }
+    // Apply per-stage sort once cards are bucketed.
+    for (const key of Object.keys(seed)) {
+        seed[key].sort(stageComparator(key))
     }
     return seed
 })

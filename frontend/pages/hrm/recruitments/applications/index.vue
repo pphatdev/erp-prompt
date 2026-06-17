@@ -15,12 +15,21 @@
                     <NuxtLink to="/hrm/recruitments/candidates" class="btn btn-ghost text-xs" title="Board view">
                         <i class="ti ti-layout-kanban" />Board view
                     </NuxtLink>
-                    <NuxtLink to="/hrm/applications/new" class="btn btn-primary text-xs">
-                        <i class="ti ti-user-plus" />Add candidate
-                    </NuxtLink>
-                    <button class="btn btn-ghost text-xs" @click="openSubmitModal">
-                        <i class="ti ti-plus" />Quick submit
-                    </button>
+                    <div class="relative">
+                        <button class="btn btn-primary text-xs" @click.stop="headerMenuOpen = !headerMenuOpen">
+                            <i class="ti ti-plus" /> New <i class="ti ti-chevron-down ml-1" />
+                        </button>
+                        <div v-if="headerMenuOpen"
+                            class="absolute right-0 top-full mt-2 z-50 glass-card rounded-lg shadow-(--shadow-lg) bg-(--bg-card) border border-(--border-color) py-1 min-w-[160px]"
+                            @click.stop>
+                            <NuxtLink to="/hrm/applications/new" class="action-item" @click="headerMenuOpen = false">
+                                <i class="ti ti-user-plus" /> Add candidate
+                            </NuxtLink>
+                            <button class="action-item" @click="openSubmitModal(); headerMenuOpen = false">
+                                <i class="ti ti-bolt" /> Quick submit
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -74,9 +83,7 @@
                         <div class="flex items-center gap-2 text-xs">
                             <span class="font-semibold text-(--color-primary)">{{ selectedCount }} selected</span>
                             <span class="text-(--text-muted)">·</span>
-                            <button type="button"
-                                class="text-(--text-muted) hover:text-(--text-heading) underline-offset-2 hover:underline"
-                                @click="clearSelection">
+                            <button type="button" class="text-(--text-muted) hover:text-(--text-heading) underline-offset-2 hover:underline" @click="clearSelection">
                                 Clear
                             </button>
                         </div>
@@ -112,7 +119,10 @@
                             <tr
                                 class="text-xxs uppercase tracking-wider text-(--text-muted) border-b border-(--border-color)">
                                 <th class="pl-4 pr-1 py-3 w-8">
-                                    <input type="checkbox" class="row-checkbox" :checked="allSelectableSelected"
+                                    <input
+                                        type="checkbox"
+                                        class="row-checkbox"
+                                        :checked="allSelectableSelected"
                                         :indeterminate.prop="someSelectableSelected && !allSelectableSelected"
                                         :disabled="selectableRows.length === 0"
                                         :title="selectableRows.length === 0 ? 'No selectable rows on this page' : 'Select all eligible rows'"
@@ -596,6 +606,7 @@ const filters = reactive({
     status: '' as '' | ApplicationStatus
 })
 
+const headerMenuOpen = ref(false)
 const showSubmitModal = ref(false)
 const saving = ref(false)
 const formError = ref<string | null>(null)
@@ -1018,7 +1029,10 @@ const bulkConvert = async () => {
 
 onMounted(async () => {
     if (import.meta.client) {
-        document.addEventListener('click', closeActionMenu)
+        document.addEventListener('click', () => {
+            closeActionMenu()
+            headerMenuOpen.value = false
+        })
     }
     await Promise.all([loadLookups(), loadApplications()])
 })

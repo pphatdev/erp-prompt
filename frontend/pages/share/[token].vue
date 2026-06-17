@@ -27,7 +27,7 @@
             <div v-else-if="state === 'ready' && info" class="space-y-3">
                 <div class="border border-(--border-color) rounded-xl p-4 space-y-2">
                     <p class="text-xs text-(--text-muted) uppercase tracking-widest font-bold">{{ shortMime(info.mimeType) }}</p>
-                    <h2 class="text-sm font-semibold break-words">{{ info.title }}</h2>
+                    <h2 class="text-sm font-semibold wrap-break-word">{{ info.title }}</h2>
                     <p class="text-xxs text-(--text-muted) break-all">{{ info.filename }} · {{ formatBytes(info.sizeBytes) }}</p>
                     <p v-if="info.expiresAt" class="text-xxs text-(--text-muted)">Expires {{ formatDate(info.expiresAt) }}</p>
                     <p v-if="info.downloadsRemaining !== null" class="text-xxs text-(--text-muted)">{{ info.downloadsRemaining }} downloads remaining</p>

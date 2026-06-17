@@ -754,6 +754,7 @@ const navGroups = reactive<NavGroup[]>([
                             { label: 'Shift Scheduling', icon: 'ti-clock-hour-8', route: '/hrm/timeoff/shifts', operational: true, permission: ['hrm.shift.read', 'hrm.attendance.read', 'hrm.attendance.clock.self'] },
                             { label: 'Overtime Management', icon: 'ti-clock-up', route: '/hrm/timeoff/overtime', operational: true, permission: ['hrm.overtime.read', 'hrm.overtime.read.self', 'hrm.overtime.write.self'] },
                             { label: 'Leave Requests', icon: 'ti-calendar-event', route: '/hrm/timeoff/leaves', operational: true, permission: 'hrm.leave.read' },
+                            { label: 'Leave Allocations', icon: 'ti-coin', route: '/hrm/timeoff/allocations', operational: true, permission: ['hrm.leave_allocation.read', 'hrm.leave.read'] },
                             { label: 'Holidays', icon: 'ti-confetti', route: '/hrm/timeoff/holidays', operational: true, permission: ['hrm.holiday.read', 'hrm.holiday.write'] },
                             { label: 'Calendar', icon: 'ti-calendar', route: '/hrm/timeoff/calendar', operational: true, permission: ['hrm.holiday.read', 'hrm.leave.read'] }
                         ]

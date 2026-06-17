@@ -28,7 +28,7 @@
 
             <section class="grid grid-cols-1 md:grid-cols-12 gap-6">
                 <div class="md:col-span-7 space-y-3">
-                    <div class="glass-card rounded-2xl overflow-hidden relative group aspect-[16/10]">
+                    <div class="glass-card rounded-2xl overflow-hidden relative group aspect-16/10">
                         <img v-if="heroImage" :src="heroImage" :alt="product.name"
                             class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                         <div v-else class="w-full h-full flex items-center justify-center bg-(--bg-muted)">
@@ -483,5 +483,6 @@ onMounted(() => loadProduct(String(route.params.id)))
 
 .no-spin {
     -moz-appearance: textfield;
+    appearance: textfield;
 }
 </style>

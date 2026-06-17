@@ -109,16 +109,29 @@
                             <i class="ti ti-calendar-event text-base" />
                         </span>
                         <div class="flex-1 min-w-0">
-                            <h3 class="text-sm font-semibold text-(--text-heading) truncate">{{ t.name }}</h3>
+                            <h3 class="text-sm font-semibold text-(--text-heading) truncate flex items-center gap-2">
+                                {{ t.name }}
+                                <span v-if="t.code" class="text-xxs font-mono px-1.5 py-0.5 rounded bg-(--bg-muted) text-(--text-muted)">
+                                    {{ t.code }}
+                                </span>
+                            </h3>
                             <p class="text-xxs font-mono text-(--text-muted) mt-0.5">
                                 Created {{ formatDate(t.createdAt) }}
                             </p>
-                            <span v-if="t.applicableGender && t.applicableGender !== 'any'"
-                                class="gender-badge mt-1.5"
-                                :class="t.applicableGender === 'female' ? 'gender-badge-female' : 'gender-badge-male'">
-                                <i :class="['ti', genderMeta(t.applicableGender).icon]" />
-                                {{ genderMeta(t.applicableGender).label }}
-                            </span>
+                            <div class="flex flex-wrap gap-1.5 mt-1.5">
+                                <span v-if="t.applicableGender && t.applicableGender !== 'any'"
+                                    class="gender-badge"
+                                    :class="t.applicableGender === 'female' ? 'gender-badge-female' : 'gender-badge-male'">
+                                    <i :class="['ti', genderMeta(t.applicableGender).icon]" />
+                                    {{ genderMeta(t.applicableGender).label }}
+                                </span>
+                                <span v-if="!t.isPaid" class="state-chip badge-soft-warning">
+                                    <i class="ti ti-coin-off" /> Unpaid
+                                </span>
+                                <span v-if="t.isAccrued" class="state-chip badge-soft-info">
+                                    <i class="ti ti-trending-up" /> Accrued
+                                </span>
+                            </div>
                         </div>
                         <button type="button" class="action-trigger"
                             :class="{ 'action-trigger-open': actionMenu.open && actionMenu.type?.id === t.id }"
@@ -167,14 +180,41 @@
                 </header>
 
                 <form class="space-y-4" @submit.prevent="saveType">
-                    <div>
-                        <label class="form-label">Name</label>
-                        <input v-model="form.name" type="text" required class="form-control" placeholder="Annual Leave" />
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="col-span-2">
+                            <label class="form-label">Name</label>
+                            <input v-model="form.name" type="text" required class="form-control" placeholder="Annual Leave" />
+                        </div>
+                        <div>
+                            <label class="form-label">Code</label>
+                            <input v-model="form.code" type="text" maxlength="32" class="form-control font-mono uppercase"
+                                placeholder="VAC" pattern="[A-Za-z0-9_-]*" />
+                        </div>
                     </div>
                     <div>
                         <label class="form-label">Annual allowance (days)</label>
                         <input v-model.number="form.annual_allowance" type="number" min="0" max="365" required
                             class="form-control font-mono" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="inline-flex items-start gap-2 text-xs cursor-pointer">
+                            <input v-model="form.is_paid" type="checkbox" class="mt-0.5" />
+                            <span>
+                                <span class="font-semibold text-(--text-heading)">Paid</span>
+                                <span class="block text-xxs text-(--text-muted)">
+                                    Counts toward salary; unpaid leave debits attendance instead.
+                                </span>
+                            </span>
+                        </label>
+                        <label class="inline-flex items-start gap-2 text-xs cursor-pointer">
+                            <input v-model="form.is_accrued" type="checkbox" class="mt-0.5" />
+                            <span>
+                                <span class="font-semibold text-(--text-heading)">Monthly accrual</span>
+                                <span class="block text-xxs text-(--text-muted)">
+                                    Pro-rated to current month vs lump-sum on Jan 1.
+                                </span>
+                            </span>
+                        </label>
                     </div>
                     <div>
                         <label class="form-label">Applies to</label>
@@ -232,7 +272,10 @@ type ApplicableGender = 'any' | 'male' | 'female'
 interface LeaveType {
     id: string;
     name: string;
+    code: string | null;
     annualAllowance: number;
+    isPaid: boolean;
+    isAccrued: boolean;
     applicableGender: ApplicableGender;
     createdAt: string | null;
 }
@@ -251,7 +294,14 @@ const showModal = ref(false)
 const editing = ref<LeaveType | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
-const form = reactive({ name: '', annual_allowance: 0, applicable_gender: 'any' as ApplicableGender })
+const form = reactive({
+    name: '',
+    code: '',
+    annual_allowance: 0,
+    is_paid: true,
+    is_accrued: false,
+    applicable_gender: 'any' as ApplicableGender,
+})
 
 const GENDER_OPTIONS: { value: ApplicableGender; label: string; icon: string }[] = [
     { value: 'any',    label: 'All employees', icon: 'ti-users' },
@@ -343,7 +393,10 @@ const clearSearch = () => {
 
 const resetForm = () => {
     form.name = ''
+    form.code = ''
     form.annual_allowance = 0
+    form.is_paid = true
+    form.is_accrued = false
     form.applicable_gender = 'any'
     formError.value = null
 }
@@ -351,7 +404,10 @@ const openCreateModal = () => { editing.value = null; resetForm(); showModal.val
 const openEditModal = (t: LeaveType) => {
     editing.value = t
     form.name = t.name
+    form.code = t.code ?? ''
     form.annual_allowance = t.annualAllowance
+    form.is_paid = t.isPaid
+    form.is_accrued = t.isAccrued
     form.applicable_gender = t.applicableGender || 'any'
     formError.value = null
     showModal.value = true
@@ -648,5 +704,18 @@ onBeforeUnmount(() => {
     background: rgb(59 130 246 / 0.12);
     color: rgb(29 78 216);
     border: 1px solid rgb(59 130 246 / 0.3);
+}
+
+.state-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1;
 }
 </style>

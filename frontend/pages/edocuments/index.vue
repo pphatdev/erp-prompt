@@ -7,7 +7,18 @@
                     <h1 class="text-xl font-semibold">Documents</h1>
                     <p class="text-xs text-(--text-muted) mt-1">Central repository for company files, policies, and uploads.</p>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- View toggle: persisted in localStorage so refresh keeps the user's choice. -->
+                    <div class="inline-flex items-center bg-(--bg-card) border border-(--border-color) rounded-lg p-1">
+                        <button v-for="opt in (['grid', 'list'] as const)" :key="opt" type="button"
+                            class="px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+                            :class="view === opt
+                                ? 'bg-(--color-primary-subtle) text-(--color-primary)'
+                                : 'text-(--text-muted) hover:text-(--text-heading)'" @click="setView(opt)">
+                            <i :class="['ti', opt === 'list' ? 'ti-list' : 'ti-layout-grid']" />
+                            {{ opt === 'list' ? 'List' : 'Grid' }}
+                        </button>
+                    </div>
                     <button type="button" class="btn btn-secondary text-xs" @click="openFolderModal()">
                         <i class="ti ti-folder-plus" />New Folder
                     </button>
@@ -89,8 +100,8 @@
                 </button>
             </div>
 
-            <!-- Sub-folders -->
-            <section v-if="folders.length > 0" class="space-y-2">
+            <!-- Sub-folders: grid mode -->
+            <section v-if="view === 'grid' && folders.length > 0" class="space-y-2">
                 <h2 class="text-xxs uppercase font-bold tracking-widest text-(--text-muted)">Folders</h2>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                     <div v-for="folder in folders" :key="folder.id"
@@ -137,22 +148,117 @@
                 <p class="text-xs text-(--text-muted) mt-1">Upload a file or create a subfolder to get started.</p>
             </section>
 
-            <!-- Documents Table — only mounts when there are files. Folder-only views
-                 (subfolders without files) leave this section out so we don't render
-                 an empty <thead> below the folders grid. -->
-            <section v-else-if="documents.length > 0" class="glass-card rounded-2xl">
+            <!-- Documents — Grid view (cards with file icons). Only mounts when
+                 there are files; folder-only views are handled by the folders grid. -->
+            <section v-else-if="view === 'grid' && documents.length > 0" class="space-y-2">
+                <h2 class="text-xxs uppercase font-bold tracking-widest text-(--text-muted)">Documents</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    <div v-for="doc in documents" :key="doc.id"
+                        class="glass-card rounded-xl p-3 cursor-pointer hover:border-(--color-primary)/40 group relative flex flex-col"
+                        @click="previewDocument(doc)">
+                        <div class="flex items-start justify-between">
+                            <i :class="['ti', mimeIcon(doc.mimeType)]" class="text-2xl text-(--color-primary)" />
+                            <button type="button" class="w-7 h-7 rounded-full hover:bg-(--bg-muted) flex items-center justify-center opacity-0 group-hover:opacity-100"
+                                @click.stop="toggleKebab(`doc-${doc.id}`)">
+                                <i class="ti ti-dots-vertical text-xs" />
+                            </button>
+                        </div>
+                        <p class="text-xs font-semibold text-(--text-heading) mt-2 truncate" :title="doc.title">{{ doc.title }}</p>
+                        <p class="text-xxs text-(--text-muted) truncate" :title="doc.filename">{{ doc.filename }}</p>
+                        <div class="flex items-center justify-between mt-2 pt-2 border-t border-(--border-color)/50 text-xxs text-(--text-muted)">
+                            <span>{{ formatBytes(doc.sizeBytes) }}</span>
+                            <span class="truncate">{{ formatDate(doc.createdAt) }}</span>
+                        </div>
+
+                        <!-- Card kebab dropdown -->
+                        <div v-if="openKebab === `doc-${doc.id}`"
+                            class="absolute right-2 top-10 bg-(--bg-card) border border-(--border-color) rounded-lg shadow-(--shadow-lg) py-1 w-44 z-20"
+                            @click.stop>
+                            <button type="button" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-(--bg-muted)" @click="previewDocument(doc)">
+                                <i class="ti ti-eye" />Preview
+                            </button>
+                            <button type="button" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-(--bg-muted)" @click="downloadDoc(doc)">
+                                <i class="ti ti-download" />Download
+                            </button>
+                            <button type="button" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-(--bg-muted)" @click="openRenameDoc(doc)">
+                                <i class="ti ti-pencil" />Rename
+                            </button>
+                            <button type="button" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-(--bg-muted)" @click="openShareModal(doc)">
+                                <i class="ti ti-link" />Share
+                            </button>
+                            <button type="button" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-(--bg-muted) text-(--color-danger)" @click="confirmDeleteDoc(doc)">
+                                <i class="ti ti-trash" />Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grid pagination -->
+                <footer v-if="totalPages > 1" class="glass-card rounded-xl px-4 py-3 mt-3 flex items-center justify-between text-xxs">
+                    <span class="text-(--text-muted)">Page {{ page }} of {{ totalPages }} · {{ documentTotal }} files</span>
+                    <div class="flex gap-1">
+                        <button type="button" class="btn btn-ghost text-xxs" :disabled="page <= 1" @click="goToPage(page - 1)">
+                            <i class="ti ti-chevron-left" />Prev
+                        </button>
+                        <button type="button" class="btn btn-ghost text-xxs" :disabled="page >= totalPages" @click="goToPage(page + 1)">
+                            Next<i class="ti ti-chevron-right" />
+                        </button>
+                    </div>
+                </footer>
+            </section>
+
+            <!-- Combined List view — folders + documents in a single table. -->
+            <section v-else-if="view === 'list' && (folders.length > 0 || documents.length > 0)" class="glass-card rounded-2xl">
                 <table class="w-full text-xs">
                     <thead class="bg-(--bg-muted) text-(--text-muted) uppercase text-xxs tracking-widest">
                         <tr>
                             <th class="text-left px-4 py-2.5">Name</th>
                             <th class="text-left px-4 py-2.5 hidden md:table-cell">Type</th>
                             <th class="text-right px-4 py-2.5 hidden sm:table-cell">Size</th>
-                            <th class="text-left px-4 py-2.5 hidden lg:table-cell">Uploader</th>
-                            <th class="text-left px-4 py-2.5 hidden lg:table-cell">Uploaded</th>
+                            <th class="text-left px-4 py-2.5 hidden lg:table-cell">Owner</th>
+                            <th class="text-left px-4 py-2.5 hidden lg:table-cell">Modified</th>
                             <th class="px-4 py-2.5 w-12"></th>
                         </tr>
                     </thead>
                     <tbody>
+                        <!-- Folder rows first -->
+                        <tr v-for="folder in folders" :key="`folder-row-${folder.id}`"
+                            class="border-t border-(--border-color) hover:bg-(--bg-muted)/40 cursor-pointer"
+                            @click="navigateTo(folder.id)">
+                            <td class="px-4 py-2.5">
+                                <div class="flex items-center gap-2 text-(--text-heading) font-medium">
+                                    <i class="ti ti-folder text-(--color-primary)" />
+                                    <span class="truncate max-w-xs" :title="folder.name">{{ folder.name }}</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-2.5 hidden md:table-cell text-(--text-muted)">Folder</td>
+                            <td class="px-4 py-2.5 hidden sm:table-cell text-right text-(--text-muted)">
+                                {{ folder.documentsCount ?? 0 }} files
+                            </td>
+                            <td class="px-4 py-2.5 hidden lg:table-cell text-(--text-muted)">—</td>
+                            <td class="px-4 py-2.5 hidden lg:table-cell text-(--text-muted)">{{ formatDate(folder.updatedAt) }}</td>
+                            <td class="px-4 py-2.5 text-right relative">
+                                <button type="button" class="w-[30px] h-[30px] rounded-full hover:bg-(--bg-muted) flex items-center justify-center"
+                                    @click.stop="toggleKebab(`folder-${folder.id}`)">
+                                    <i class="ti ti-dots-vertical text-xs" />
+                                </button>
+                                <div v-if="openKebab === `folder-${folder.id}`"
+                                    class="absolute right-4 top-10 bg-(--bg-card) border border-(--border-color) rounded-lg shadow-(--shadow-lg) py-1 w-40 z-20 text-left"
+                                    @click.stop>
+                                    <button type="button" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-(--bg-muted)" @click="navigateTo(folder.id); openKebab = null">
+                                        <i class="ti ti-eye" />Open
+                                    </button>
+                                    <button type="button" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-(--bg-muted)" @click="openRenameFolder(folder)">
+                                        <i class="ti ti-pencil" />Rename
+                                    </button>
+                                    <button type="button" class="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-(--bg-muted) text-(--color-danger)" @click="confirmDeleteFolder(folder)">
+                                        <i class="ti ti-trash" />Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Document rows -->
                         <tr v-for="doc in documents" :key="doc.id" class="border-t border-(--border-color) hover:bg-(--bg-muted)/40">
                             <td class="px-4 py-2.5">
                                 <button type="button" class="flex items-center gap-2 text-(--text-heading) font-medium hover:text-(--color-primary)"
@@ -413,6 +519,16 @@ const authStore = useAuthStore()
 const tenantStore = useTenantStore()
 const runtime = useRuntimeConfig()
 
+type View = 'grid' | 'list'
+const VIEW_KEY = 'edocuments.view'
+const view = ref<View>('grid')
+
+const setView = (v: View) => {
+    view.value = v
+    openKebab.value = null
+    if (import.meta.client) localStorage.setItem(VIEW_KEY, v)
+}
+
 const loading = ref(false)
 const folders = ref<EDocsFolder[]>([])
 const documents = ref<EDocsDocument[]>([])
@@ -465,6 +581,10 @@ const isImage = computed(() => previewModal.doc?.mimeType?.startsWith('image/') 
 // Page-wide click handler closes any open kebab dropdown.
 const handleDocumentClick = () => { openKebab.value = null }
 onMounted(() => {
+    if (import.meta.client) {
+        const saved = localStorage.getItem(VIEW_KEY)
+        if (saved === 'grid' || saved === 'list') view.value = saved
+    }
     document.addEventListener('click', handleDocumentClick)
     refresh()
 })

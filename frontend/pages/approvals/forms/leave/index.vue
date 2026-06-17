@@ -41,7 +41,7 @@
                         <p class="text-xxs text-(--text-muted) mt-1">Select the type of leave you are requesting.</p>
                     </header>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <label v-for="type in leaveTypes" :key="type.id" 
+                        <label v-for="type in leaveTypes" :key="type.id"
                             :class="[
                                 'cursor-pointer border-2 rounded-xl p-4 flex flex-col items-center gap-2 transition-all',
                                 form.leave_type_id === type.id ? 'border-(--color-primary) bg-(--color-primary)/5 shadow-sm' : 'border-(--border-color) hover:border-(--color-primary)/30'
@@ -54,6 +54,34 @@
                             <span class="font-semibold text-sm text-center" :class="form.leave_type_id === type.id ? 'text-(--color-primary)' : 'text-(--text-heading)'">{{ type.name }}</span>
                             <span class="text-xxs text-(--text-muted)">{{ type.annualAllowance }} days/yr</span>
                         </label>
+                    </div>
+
+                    <!-- Live balance card (Phase 12). Shows the user
+                         the remaining balance for the picked leave
+                         type + a rough duration estimate based on
+                         dates. The server enforces the authoritative
+                         math on submit. -->
+                    <div v-if="form.leave_type_id" class="mt-4 p-4 rounded-xl border border-(--border-color) bg-(--bg-muted)/40 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div>
+                            <p class="text-xxs uppercase tracking-widest font-bold text-(--text-muted)">Remaining</p>
+                            <p class="text-lg font-mono font-semibold text-(--color-primary) mt-1">
+                                <span v-if="balanceLoading" class="inline-block w-3 h-3 rounded-full border-2 border-(--color-primary)/40 border-t-(--color-primary) animate-spin" />
+                                <span v-else-if="selectedBalance">{{ selectedBalance.remaining.toFixed(1) }} d</span>
+                                <span v-else class="text-(--text-muted)">--</span>
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xxs uppercase tracking-widest font-bold text-(--text-muted)">Used so far</p>
+                            <p class="text-lg font-mono font-semibold text-(--color-success) mt-1">
+                                {{ selectedBalance ? selectedBalance.used.toFixed(1) : '--' }}<span v-if="selectedBalance" class="text-xxs text-(--text-muted) ml-0.5">d</span>
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xxs uppercase tracking-widest font-bold text-(--text-muted)">This request</p>
+                            <p class="text-lg font-mono font-semibold text-(--text-heading) mt-1">
+                                {{ requestedDuration.toFixed(1) }}<span class="text-xxs text-(--text-muted) ml-0.5">d (est.)</span>
+                            </p>
+                        </div>
                     </div>
                 </section>
 
@@ -191,9 +219,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '~/composables/useApi'
+import { useLeaveAllocations, type BalanceRow } from '~/composables/useLeaveAllocations'
 
 interface EmployeeLite { id: string; employeeId: string; fullName: string }
 interface LeaveType { id: string; name: string; annualAllowance: number }
@@ -201,6 +230,7 @@ interface Paginated<T> { data: T[]; pagination: { page: number; limit: number; t
 
 const router = useRouter()
 const api = useApi()
+const allocApi = useLeaveAllocations()
 
 const employees = ref<EmployeeLite[]>([])
 const leaveTypes = ref<LeaveType[]>([])
@@ -219,6 +249,62 @@ const form = reactive({
     reason: '',
     handover_employee_id: '',
     attachment: null as File | null
+})
+
+// Live balance state. `myEmployeeId` is fetched from GET /employees/me
+// on mount (the user's linked employee row). If the user isn't
+// linked to an employee, the balance card stays empty - admins
+// submitting on behalf of others use the /hrm/timeoff/allocations
+// page instead.
+const myEmployeeId = ref<string | null>(null)
+const balanceRows = ref<BalanceRow[]>([])
+const balanceLoading = ref(false)
+
+const selectedBalance = computed<BalanceRow | null>(() => {
+    if (!form.leave_type_id) return null
+    return balanceRows.value.find(r => r.leaveTypeId === form.leave_type_id) ?? null
+})
+
+/**
+ * Rough client-side day count. Half-day session always = 0.5.
+ * Otherwise count Mon-Fri days inclusive between start and end.
+ * Server applies the authoritative WorkScheduleService math at
+ * submit time (which can yield decimals like 0.5 for Sat halves).
+ */
+const requestedDuration = computed<number>(() => {
+    if (form.leave_session !== 'full_day') return 0.5
+    if (!form.start_date) return 0
+    const start = new Date(form.start_date + 'T00:00:00')
+    const end = new Date((form.end_date || form.start_date) + 'T00:00:00')
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0
+    let count = 0
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dow = d.getDay() // 0=Sun .. 6=Sat
+        if (dow >= 1 && dow <= 5) count++
+    }
+    return count
+})
+
+const loadBalance = async () => {
+    if (!myEmployeeId.value) {
+        balanceRows.value = []
+        return
+    }
+    balanceLoading.value = true
+    try {
+        const res = await allocApi.balanceSheet(myEmployeeId.value)
+        balanceRows.value = res.data
+    } catch (err) {
+        balanceRows.value = []
+    } finally {
+        balanceLoading.value = false
+    }
+}
+
+watch(() => form.leave_type_id, (val) => {
+    if (val && balanceRows.value.length === 0) {
+        loadBalance()
+    }
 })
 
 const selectSession = (opt: LeaveSession) => {
@@ -258,12 +344,14 @@ const clearAttachment = () => {
 const loadLookups = async () => {
     loading.value = true
     try {
-        const [e, t] = await Promise.all([
+        const [e, t, me] = await Promise.all([
             api.get<Paginated<EmployeeLite>>('/employees?limit=100'),
-            api.get<Paginated<LeaveType>>('/leave-types?limit=100')
+            api.get<Paginated<LeaveType>>('/leave-types?limit=100'),
+            api.get<{ data: { id: string } | null }>('/employees/me').catch(() => ({ data: null })),
         ])
         employees.value = e.data
         leaveTypes.value = t.data
+        myEmployeeId.value = me?.data?.id ?? null
     } catch (err) {
         console.error('Failed to load lookups', err)
         formError.value = 'Failed to load form requirements.'

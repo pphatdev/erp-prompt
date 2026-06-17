@@ -860,7 +860,7 @@ const loadRoles = async () => {
     loadingRoles.value = true
     try {
         const res = await api.get<{ data: Role[] }>('/roles?limit=200')
-        roles.value = (res as any).data ?? (res as Role[])
+        roles.value = (res as any).data ?? (res as unknown as Role[])
         if (roles.value.length && !selectedRole.value) selectRole(roles.value[0]!, { force: true })
     } catch (err: any) {
         // Silently skip 401/403 — the watcher below will retry once
@@ -878,7 +878,7 @@ const loadPermissions = async () => {
     loadingPermissions.value = true
     try {
         const res = await api.get<{ data: Permission[] }>('/permissions')
-        flatPermissions.value = (res as any).data ?? (res as Permission[])
+        flatPermissions.value = (res as any).data ?? (res as unknown as Permission[])
     } catch (err: any) {
         if (err?.status !== 401 && err?.status !== 403) {
             toast.error('Failed to load permission catalogue', err?.data?.message)
@@ -912,7 +912,7 @@ const createRole = async () => {
             }
         }
         const res = await api.post<{ data: Role }>('/roles', payload)
-        const created = (res as any).data ?? (res as Role)
+        const created = (res as any).data ?? (res as unknown as Role)
         roles.value.push(created)
         selectRole(created)
         showCreateModal.value = false
@@ -946,7 +946,7 @@ const updateRolePermissions = async () => {
             permission_ids: Array.from(afterIds),
         }
         const res = await api.put<{ data: Role }>(`/roles/${targetId}`, payload)
-        const updated = (res as any).data ?? (res as Role)
+        const updated = (res as any).data ?? (res as unknown as Role)
         const idx = roles.value.findIndex(r => r.id === targetId)
         if (idx !== -1) roles.value[idx] = { ...roles.value[idx]!, ...updated }
         // Only re-sync the editor if the user is still on the role we saved.
