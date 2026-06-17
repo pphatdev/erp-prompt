@@ -124,6 +124,7 @@ use App\Policies\HolidayPolicy;
 use App\Policies\LeadPolicy;
 use App\Policies\LeavePolicy;
 use App\Policies\LeaveTypePolicy;
+use App\Policies\EmployeeLeaveAllocationPolicy;
 use App\Policies\LowStockAlertPolicy;
 use App\Policies\OpportunityPolicy;
 use App\Policies\OvertimeRequestPolicy;
@@ -148,6 +149,8 @@ use App\Policies\VehiclePolicy;
 use App\Policies\WarehousePolicy;
 use App\Tenants\Modules\Approvals\Events\ApprovalRequestFinalized;
 use App\Tenants\Modules\Crm\Events\LeadQualified;
+use App\Tenants\Modules\HRM\Events\EmployeeCreated;
+use App\Tenants\Modules\HRM\Listeners\ProvisionLeaveAllocations;
 use App\Tenants\Modules\HRM\Listeners\SyncEmployeeAppointmentFromApproval;
 use App\Tenants\Modules\HRM\Listeners\SyncLeaveFromApproval;
 use App\Tenants\Modules\Inventory\Events\ProductWentBelowMinimumStock;
@@ -175,6 +178,7 @@ class TenantServiceProvider extends ServiceProvider
         Gate::policy(Position::class, PositionPolicy::class);
         Gate::policy(Leave::class, LeavePolicy::class);
         Gate::policy(LeaveType::class, LeaveTypePolicy::class);
+        Gate::policy(\App\Models\Tenant\EmployeeLeaveAllocation::class, EmployeeLeaveAllocationPolicy::class);
         Gate::policy(Holiday::class, HolidayPolicy::class);
         Gate::policy(PayrollPeriod::class, PayrollPeriodPolicy::class);
         Gate::policy(Payslip::class, PayslipPolicy::class);
@@ -268,6 +272,7 @@ class TenantServiceProvider extends ServiceProvider
         Event::listen(ApprovalRequestFinalized::class, SyncPurchaseOrderFromApproval::class);
         Event::listen(LeadQualified::class, HandleLeadQualified::class);
         Event::listen(ProductWentBelowMinimumStock::class, RecordLowStockAlert::class);
+        Event::listen(EmployeeCreated::class, ProvisionLeaveAllocations::class);
 
         Passport::enablePasswordGrant();
     }

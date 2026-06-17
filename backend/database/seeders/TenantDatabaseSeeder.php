@@ -62,6 +62,11 @@ class TenantDatabaseSeeder extends Seeder
             ['name' => 'Write Leaves',     'slug' => 'hrm.leave.write',     'module' => 'hrm', 'feature' => 'leave',      'action' => 'write'],
             ['name' => 'Delete Leaves',    'slug' => 'hrm.leave.delete',    'module' => 'hrm', 'feature' => 'leave',      'action' => 'delete'],
 
+            // HRM - Leave Allocations ledger (per-employee, per-year balance rows)
+            ['name' => 'Read Leave Allocations',   'slug' => 'hrm.leave_allocation.read',   'module' => 'hrm', 'feature' => 'leave_allocation', 'action' => 'read'],
+            ['name' => 'Write Leave Allocations',  'slug' => 'hrm.leave_allocation.write',  'module' => 'hrm', 'feature' => 'leave_allocation', 'action' => 'write'],
+            ['name' => 'Delete Leave Allocations', 'slug' => 'hrm.leave_allocation.delete', 'module' => 'hrm', 'feature' => 'leave_allocation', 'action' => 'delete'],
+
             // HRM - Holidays and Calendar feed.
             ['name' => 'Read Holidays',    'slug' => 'hrm.holiday.read',    'module' => 'hrm', 'feature' => 'holiday',    'action' => 'read'],
             ['name' => 'Write Holidays',   'slug' => 'hrm.holiday.write',   'module' => 'hrm', 'feature' => 'holiday',    'action' => 'write'],
@@ -413,11 +418,16 @@ class TenantDatabaseSeeder extends Seeder
         $this->seedApplications();
         $this->seedAppraisalCycles();
 
-        // Seed default Leave Types
+        // Seed default Leave Types (Phase 12). Codes are short stable
+        // identifiers used by FormRequests + reporting; is_paid splits
+        // paid vs unpaid buckets; is_accrued = monthly proration vs
+        // lump-sum allocation on Jan 1 (or hire date).
         $defaultLeaveTypes = [
-            ['name' => 'Annual Leave', 'annual_allowance' => 12],
-            ['name' => 'Sick Leave',   'annual_allowance' => 14],
-            ['name' => 'Unpaid Leave', 'annual_allowance' => 30],
+            ['name' => 'Annual Leave',    'code' => 'VAC',  'annual_allowance' => 18, 'is_paid' => true,  'is_accrued' => true,  'applicable_gender' => \App\Models\Tenant\LeaveType::GENDER_ANY],
+            ['name' => 'Special Leave',   'code' => 'SPL',  'annual_allowance' => 7,  'is_paid' => true,  'is_accrued' => false, 'applicable_gender' => \App\Models\Tenant\LeaveType::GENDER_ANY],
+            ['name' => 'Sick Leave',      'code' => 'SICK', 'annual_allowance' => 7,  'is_paid' => true,  'is_accrued' => false, 'applicable_gender' => \App\Models\Tenant\LeaveType::GENDER_ANY],
+            ['name' => 'Unpaid Leave',    'code' => 'UNP',  'annual_allowance' => 5,  'is_paid' => false, 'is_accrued' => false, 'applicable_gender' => \App\Models\Tenant\LeaveType::GENDER_ANY],
+            ['name' => 'Maternity Leave', 'code' => 'MAT',  'annual_allowance' => 90, 'is_paid' => true,  'is_accrued' => false, 'applicable_gender' => \App\Models\Tenant\LeaveType::GENDER_FEMALE],
         ];
 
         foreach ($defaultLeaveTypes as $type) {

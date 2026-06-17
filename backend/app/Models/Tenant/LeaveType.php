@@ -25,22 +25,34 @@ class LeaveType extends Model
 
     protected $fillable = [
         'name',
+        'code',
         'annual_allowance',
+        'is_paid',
+        'is_accrued',
         'applicable_gender',
         'tenant_id',
     ];
 
     protected $attributes = [
         'applicable_gender' => self::GENDER_ANY,
+        'is_paid'           => true,
+        'is_accrued'        => false,
     ];
 
     protected $casts = [
         'annual_allowance' => 'integer',
+        'is_paid'          => 'boolean',
+        'is_accrued'       => 'boolean',
     ];
 
     public function leaves(): HasMany
     {
         return $this->hasMany(Leave::class);
+    }
+
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(EmployeeLeaveAllocation::class);
     }
 
     protected static function boot(): void

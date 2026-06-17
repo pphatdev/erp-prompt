@@ -384,6 +384,14 @@ class SettingService
                 'description' => 'Requests this long or shorter skip the approval queue and post as approved. 0 disables auto-approve.',
                 'value' => 0,
             ],
+            [
+                'key' => 'hrm.leave.standard_daily_hours',
+                'group' => 'hrm',
+                'type' => 'float',
+                'label' => 'Standard daily hours',
+                'description' => 'Used to convert WorkSchedule interval minutes into decimal days for leave duration math. A Saturday with a 4-hour schedule counts as 0.5 day at the default of 8.0.',
+                'value' => 8.0,
+            ],
 
             // HRM — Attendance & Clocking
             [

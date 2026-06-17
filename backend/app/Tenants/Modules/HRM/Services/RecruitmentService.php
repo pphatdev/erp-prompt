@@ -388,6 +388,15 @@ class RecruitmentService
                     $payload['employment_type'] = $overrides['employment_type'] ?? 'full_time';
                 }
                 $employee = \App\Models\Tenant\Employee::create($payload);
+
+                // Phase 12: only fire EmployeeCreated for FRESH hires
+                // (linkedExisting path reuses an existing row, which
+                // was already provisioned at its own hire time). The
+                // listener swallows its own exceptions so a failed
+                // provisioning never aborts the convert.
+                \Illuminate\Support\Facades\Event::dispatch(
+                    new \App\Tenants\Modules\HRM\Events\EmployeeCreated($employee)
+                );
             }
 
             $application->update([

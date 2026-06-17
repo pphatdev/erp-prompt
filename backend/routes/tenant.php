@@ -59,6 +59,7 @@ use App\Tenants\Modules\HRM\Controllers\WorkScheduleController;
 use App\Tenants\Modules\HRM\Controllers\HolidayController;
 use App\Tenants\Modules\HRM\Controllers\LeaveController;
 use App\Tenants\Modules\HRM\Controllers\LeaveTypeController;
+use App\Tenants\Modules\HRM\Controllers\EmployeeLeaveAllocationController;
 use App\Tenants\Modules\HRM\Controllers\PayrollPeriodController;
 use App\Tenants\Modules\HRM\Controllers\PayslipController;
 use App\Tenants\Modules\HRM\Controllers\AttendanceController;
@@ -187,6 +188,8 @@ Route::middleware([
 
         // Workflow Statuses (per-tenant configurable status flows)
         Route::get('/workflow-statuses/modules', [WorkflowStatusController::class, 'modules']);
+        Route::patch('/workflow-statuses/reorder', [WorkflowStatusController::class, 'reorder']);
+        Route::post('/workflow-statuses/{workflowStatus}/set-default', [WorkflowStatusController::class, 'setDefault']);
         Route::apiResource('workflow-statuses', WorkflowStatusController::class)
             ->parameters(['workflow-statuses' => 'workflowStatus']);
 
@@ -406,6 +409,12 @@ Route::middleware([
         Route::post('/leaves/{leave}/approve', [LeaveController::class, 'approve']);
         Route::post('/leaves/{leave}/reject', [LeaveController::class, 'reject']);
         Route::get('/employees/{employee}/leave-balance', [LeaveController::class, 'balance']);
+
+        // HRM - Leave Allocations ledger (Phase 12). Static helper before
+        // the apiResource so the {allocation} wildcard doesn't shadow it.
+        Route::get('/employees/{employee}/leave-allocations', [EmployeeLeaveAllocationController::class, 'balanceSheet']);
+        Route::apiResource('leave-allocations', EmployeeLeaveAllocationController::class)
+            ->parameters(['leave-allocations' => 'allocation']);
 
         // Aliases for /hrm/timeoff/leaves used by the frontend listing and action page
         Route::get('/hrm/timeoff/leaves', [LeaveController::class, 'index']);

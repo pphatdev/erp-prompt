@@ -7,6 +7,7 @@ namespace App\Tenants\Modules\HRM\Services;
 use App\Models\Tenant\ApprovalHistory;
 use App\Models\Tenant\ApprovalWorkflow;
 use App\Models\Tenant\Employee;
+use App\Models\Tenant\EmployeeLeaveAllocation;
 use App\Models\Tenant\Leave;
 use App\Models\Tenant\LeaveType;
 use App\Tenants\Modules\Approvals\Services\ApprovalService;
@@ -25,6 +26,7 @@ class LeaveService
         private readonly ApprovalService $approvals,
         private readonly SettingService $settings,
         private readonly WorkScheduleService $workSchedules,
+        private readonly LeaveAllocationService $allocations,
     ) {
     }
 
@@ -106,12 +108,15 @@ class LeaveService
             // balance maths can't be spoofed by sending days=1 with session=morning.
             $data['days'] = 0.5;
         } else {
-            // Caller-supplied `days` is honored as-is (UI may have pre-computed
-            // partial days). Otherwise count only configured working-week days
-            // between start and end so weekends don't burn balance.
-            $data['days'] = isset($data['days'])
+            // Caller-supplied `days` is ignored when missing OR zero so
+            // a UI bug can't pass days=0 past balance validation. The
+            // computed value sums per-day interval minutes via
+            // WorkScheduleService (Phase 12) so a Saturday half-day
+            // counts as 0.5 even on a full-day request.
+            $computed = $this->countWorkingDaysDecimal($start, $end, $data['employee_id'] ?? null);
+            $data['days'] = isset($data['days']) && (float) $data['days'] > 0
                 ? (float) $data['days']
-                : (float) $this->countWorkingDays($start, $end, $data['employee_id'] ?? null);
+                : $computed;
         }
 
         // hrm.leave.max_consecutive_days — caps the duration of a single
@@ -163,6 +168,16 @@ class LeaveService
 
         return DB::transaction(function () use ($data, $autoApprove) {
             $leave = Leave::create($data);
+
+            // Hold pending balance on the allocation row (auto-create
+            // when the employee has no row for this type/year yet).
+            // Auto-approved leaves skip the pending hop and book
+            // straight into used.
+            if ($autoApprove) {
+                $this->allocations->applyApproved($leave);
+            } else {
+                $this->allocations->holdPending($leave);
+            }
 
             // Skip workflow handoff when auto-approved — there's nothing to
             // route. Otherwise: if a tenant has wired a workflow for
@@ -224,14 +239,14 @@ class LeaveService
 
         return DB::transaction(function () use ($leave, $finalStatus) {
             if ($finalStatus === 'approved') {
-                // Re-add this leave's own days back into available since it's
-                // currently counted in `locked` (status=pending). Otherwise
-                // approving a leave that exactly equals remaining would always
-                // 422.
+                // Balance pre-check excludes this leave's own pending hold
+                // (it'll be released into `used` in the same transaction)
+                // so a leave that exactly equals remaining doesn't 422.
                 $remaining = $this->balanceFor($leave->employee_id, $leave->leave_type_id)
                     + (float) $leave->days;
 
-                if ($remaining + 0.0001 < (float) $leave->days) {
+                $allowNegative = (bool) ($this->settings->get('hrm.leave.allow_negative_balance') ?? false);
+                if (!$allowNegative && $remaining + 0.0001 < (float) $leave->days) {
                     throw new DomainException(sprintf(
                         'Insufficient leave balance (%.1f day(s) remaining).',
                         $remaining,
@@ -241,13 +256,22 @@ class LeaveService
 
             $leave->update(['status' => $finalStatus]);
 
+            // Update the allocation counters. Approved -> pending becomes
+            // used. Rejected -> pending released without consuming balance.
+            if ($finalStatus === 'approved') {
+                $this->allocations->applyApproved($leave);
+            } elseif ($finalStatus === 'rejected') {
+                $this->allocations->releasePending($leave);
+            }
+
             return $leave->fresh(['employee', 'leaveType']);
         });
     }
 
     /**
      * Withdraw a leave: soft-delete and short-circuit any active approval
-     * request so approvers no longer see it in their queue.
+     * request so approvers no longer see it in their queue. Releases any
+     * held pending balance back to the allocation row.
      */
     public function withdraw(Leave $leave): void
     {
@@ -268,17 +292,24 @@ class LeaveService
                 ]);
             }
 
+            // Return the held balance. Withdrawing a previously-approved
+            // leave subtracts from `used`; pending leaves only release
+            // from `pending`.
+            if ($leave->status === 'approved') {
+                $this->allocations->cancelApproved($leave);
+            } else {
+                $this->allocations->releasePending($leave);
+            }
+
             $leave->delete();
         });
     }
 
     /**
-     * Count the working-day span between two dates inclusive, honoring
-     * the hierarchical work_schedules resolver: Employee override ->
-     * Department override -> Global default -> legacy
-     * `hrm.leave.standard_work_week` fallback. Passing the employee id
-     * (or null for a generic count) is enough — the resolver loads the
-     * Employee row internally when needed.
+     * Integer working-day count between two dates inclusive (legacy
+     * Phase 11 signature). Skips non-work days but does not weight by
+     * interval minutes. Kept stable for callers that need a whole-day
+     * count (e.g. `max_consecutive_days` check, reporting).
      */
     public function countWorkingDays(CarbonImmutable $start, CarbonImmutable $end, ?string $employeeId = null): int
     {
@@ -290,8 +321,65 @@ class LeaveService
         );
     }
 
+    /**
+     * Decimal working-day count honoring per-day interval minutes
+     * (Phase 12). A Saturday with a 4-hour schedule contributes 0.5
+     * at the default 8-hour standardDailyHours. Used by
+     * `submitRequest` so half-day work schedules surface as fractional
+     * leave durations.
+     */
+    public function countWorkingDaysDecimal(CarbonImmutable $start, CarbonImmutable $end, ?string $employeeId = null): float
+    {
+        $employee = $employeeId ? Employee::find($employeeId) : null;
+        $standardDailyHours = (float) ($this->settings->get('hrm.leave.standard_daily_hours') ?? 8.0);
+        if ($standardDailyHours <= 0.0) {
+            $standardDailyHours = 8.0;
+        }
+        return $this->workSchedules->countWorkingDaysDecimal(
+            $start->startOfDay(),
+            $end->startOfDay(),
+            $employee,
+            $standardDailyHours,
+        );
+    }
+
+    /**
+     * Remaining balance for one (employee, leaveType) pair. Reads the
+     * stored allocation row (Phase 12) — `allocated - used - pending`,
+     * floored at 0. When no allocation row exists (e.g. employee
+     * predates Phase 12), falls back to the legacy on-the-fly accrual
+     * math so legacy tenants keep working until they backfill.
+     */
     public function balanceFor(string $employeeId, string $leaveTypeId): float
     {
+        $year = CarbonImmutable::now()->year;
+        $allocation = EmployeeLeaveAllocation::query()
+            ->where('employee_id', $employeeId)
+            ->where('leave_type_id', $leaveTypeId)
+            ->where('year', $year)
+            ->first();
+
+        if ($allocation) {
+            $remaining = $allocation->remainingDays();
+
+            // Pro-rata cap for accrued leave types: even when the
+            // allocation row reflects the full annual entitlement, an
+            // employee in March can't book December's portion early.
+            // Computed as `accruedToDate - (used + pending)`.
+            $type = LeaveType::find($leaveTypeId);
+            if ($type && $type->is_accrued) {
+                $employee = Employee::find($employeeId);
+                if ($employee) {
+                    $accruedToDate = $this->accruedDaysFor($employee, $type);
+                    $held = (float) $allocation->used_days + (float) $allocation->pending_days;
+                    $remainingAccrued = max(0.0, $accruedToDate - $held);
+                    $remaining = min($remaining, $remainingAccrued);
+                }
+            }
+            return $remaining;
+        }
+
+        // ---- legacy back-compat fallback (Phase 11 behaviour) ----
         /** @var LeaveType|null $type */
         $type = LeaveType::find($leaveTypeId);
         if (!$type) {
@@ -305,10 +393,44 @@ class LeaveService
         return max(0.0, $accrued - $locked);
     }
 
+    /**
+     * Per-employee balance sheet for the current year. Pulls every
+     * leave_type, looks up its allocation row, returns
+     * { leaveTypeId, name, code, allocated, used, pending, remaining,
+     *   isPaid, isAccrued, annualAllowance }. Types without an
+     * allocation row fall back to a synthetic accrued/used/locked
+     * triple so admin UIs render rows for legacy tenants too.
+     */
     public function balanceSheetFor(Employee $employee): array
     {
-        return LeaveType::query()->get()->map(function (LeaveType $type) use ($employee) {
+        $year = CarbonImmutable::now()->year;
+        $allocations = EmployeeLeaveAllocation::query()
+            ->where('employee_id', $employee->id)
+            ->where('year', $year)
+            ->get()
+            ->keyBy('leave_type_id');
+
+        return LeaveType::query()->orderBy('name')->get()->map(function (LeaveType $type) use ($employee, $allocations) {
+            $row = $allocations->get($type->id);
+            if ($row) {
+                return [
+                    'leaveTypeId'     => $type->id,
+                    'name'            => $type->name,
+                    'code'            => $type->code,
+                    'isPaid'          => (bool) $type->is_paid,
+                    'isAccrued'       => (bool) $type->is_accrued,
+                    'annualAllowance' => (int) $type->annual_allowance,
+                    'allocated'       => round((float) $row->allocated_days, 2),
+                    'used'            => round((float) $row->used_days, 2),
+                    'pending'         => round((float) $row->pending_days, 2),
+                    'remaining'       => $row->remainingDays(),
+                    'allocationId'    => $row->id,
+                ];
+            }
+
+            // Legacy fallback for tenants without allocation rows yet.
             $accrued = $this->accruedDaysFor($employee, $type);
+            $locked  = $this->lockedDaysFor($employee->id, $type->id);
             $used    = (float) Leave::query()
                 ->where('employee_id', $employee->id)
                 ->where('leave_type_id', $type->id)
@@ -316,18 +438,18 @@ class LeaveService
                 ->whereYear('start_date', now()->year)
                 ->sum('days');
 
-            $locked  = $this->lockedDaysFor($employee->id, $type->id);
-
             return [
-                'leaveTypeId' => $type->id,
-                'name' => $type->name,
+                'leaveTypeId'     => $type->id,
+                'name'            => $type->name,
+                'code'            => $type->code,
+                'isPaid'          => (bool) $type->is_paid,
+                'isAccrued'       => (bool) $type->is_accrued,
                 'annualAllowance' => (int) $type->annual_allowance,
-                'accrued' => round($accrued, 2),
-                'used' => round($used, 2),
-                // remaining = accrued − (approved + pending). Pending is
-                // captured by lockedDaysFor() to prevent double-spending
-                // allowance via parallel requests.
-                'remaining' => round(max(0.0, $accrued - $locked), 2),
+                'allocated'       => round($accrued, 2),
+                'used'            => round($used, 2),
+                'pending'         => round(max(0.0, $locked - $used), 2),
+                'remaining'       => round(max(0.0, $accrued - $locked), 2),
+                'allocationId'    => null,
             ];
         })->all();
     }
@@ -335,9 +457,7 @@ class LeaveService
     /**
      * Spec §3.A.2 — Annual Allowance / 12 per month, accrued on the 1st.
      * Pro-rata for employees joining mid-year (count from `hired_at` month).
-     *
-     * Compute-on-the-fly: no per-employee accrual table yet. When carryover
-     * policies land we can swap this for a stored ledger; signature stays.
+     * Still used as a back-compat fallback when no allocation row exists.
      */
     public function accruedDaysFor(Employee $employee, LeaveType $type): float
     {
@@ -371,9 +491,9 @@ class LeaveService
     }
 
     /**
-     * Locked = approved + pending leaves for the current year. Pending counts
-     * so that an approver can't push the employee past the cap by approving
-     * stacked requests retroactively.
+     * Legacy back-compat: locked = approved + pending leaves for the
+     * current year. Used only as fallback when no allocation row
+     * exists (Phase 12 reads counters directly from the allocation).
      */
     private function lockedDaysFor(string $employeeId, string $leaveTypeId): float
     {

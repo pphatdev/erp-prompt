@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tenants\Modules\IAM\Requests;
 
 use App\Models\Tenant\WorkflowStatus;
+use App\Tenants\Modules\IAM\Services\WorkflowStatusService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,6 +28,14 @@ class StoreWorkflowStatusRequest extends FormRequest
         $raw = $this->input('color');
         if ($raw === null || $raw === '') {
             $this->merge(['color' => 'secondary']);
+        }
+
+        // Auto-slug the key from the label when the Pipeline Settings UI
+        // creates a candidate stage without exposing a separate key field.
+        if (!$this->filled('key') && $this->filled('label') && $this->filled('module')) {
+            $key = app(WorkflowStatusService::class)
+                ->slugFromLabel((string) $this->input('label'), (string) $this->input('module'));
+            $this->merge(['key' => $key]);
         }
     }
 

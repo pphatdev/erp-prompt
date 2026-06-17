@@ -126,6 +126,62 @@ class WorkScheduleService
     }
 
     /**
+     * Decimal working-day count honoring per-day interval minutes (Phase 12).
+     *
+     * Sums the scheduled minutes for each in-range working day and divides
+     * by `standardDailyHours * 60`. A Saturday with a single 08:00-12:00
+     * interval (240 minutes) at the default 8.0 standardDailyHours contributes
+     * 0.5 days — letting LeaveService surface a fractional duration without
+     * the caller having to do interval math. Days with no intervals count
+     * as `standardDailyHours` worth (legacy fallback behavior) so a tenant
+     * who hasn't customised intervals still gets whole-day counts.
+     */
+    public function countWorkingDaysDecimal(
+        CarbonImmutable $start,
+        CarbonImmutable $end,
+        ?Employee $employee = null,
+        float $standardDailyHours = 8.0
+    ): float {
+        if ($end->lessThan($start) || $standardDailyHours <= 0.0) {
+            return 0.0;
+        }
+
+        $standardMinutes = $standardDailyHours * 60.0;
+        $totalMinutes = 0.0;
+
+        for ($d = $start; $d->lessThanOrEqualTo($end); $d = $d->addDay()) {
+            $resolved = $this->resolveFor($d, $employee);
+            if (!$resolved['is_work_day']) {
+                continue;
+            }
+            $dayMinutes = $this->sumIntervalMinutes($resolved['intervals'] ?? []);
+            // Fallback: a work day with zero/invalid intervals still
+            // contributes one full standard day. This preserves backwards
+            // compatibility with rows seeded before intervals were captured.
+            $totalMinutes += $dayMinutes > 0 ? $dayMinutes : $standardMinutes;
+        }
+
+        return round($totalMinutes / $standardMinutes, 2);
+    }
+
+    private function sumIntervalMinutes(array $intervals): float
+    {
+        $total = 0;
+        foreach ($intervals as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $start = WorkSchedule::parseTime($row['start'] ?? null);
+            $end   = WorkSchedule::parseTime($row['end'] ?? null);
+            if ($start === null || $end === null || $end <= $start) {
+                continue;
+            }
+            $total += ($end - $start);
+        }
+        return (float) $total;
+    }
+
+    /**
      * List every schedule row for a given target. Used by the editor UI to
      * paint all seven days at once. Returns a 7-row collection keyed by
      * day_of_week — missing days are synthesised as "off" placeholders so

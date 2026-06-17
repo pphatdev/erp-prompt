@@ -7,9 +7,11 @@ namespace App\Tenants\Modules\HRM\Services;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Employee;
 use App\Models\Tenant\Position;
+use App\Tenants\Modules\HRM\Events\EmployeeCreated;
 use App\Tenants\Modules\IAM\Services\WorkflowStatusService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 
 class EmployeeService
 {
@@ -56,7 +58,18 @@ class EmployeeService
                 $data['employee_id'] = app(\App\Tenants\Modules\HRM\Services\RecruitmentService::class)
                     ->generateNextEmployeeId();
             }
-            return DB::transaction(fn () => Employee::create($data));
+            return DB::transaction(function () use ($data) {
+                $employee = Employee::create($data);
+
+                // Phase 12: kick off downstream provisioning (leave
+                // allocations, etc.) inside the same transaction. The
+                // listener has its own try/catch so a provisioning
+                // failure never rolls back the hire — at worst the
+                // employee lands without allocations and admin retries.
+                Event::dispatch(new EmployeeCreated($employee));
+
+                return $employee;
+            });
         });
     }
 

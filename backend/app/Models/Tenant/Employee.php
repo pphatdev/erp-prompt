@@ -80,6 +80,11 @@ class Employee extends Model
         return $this->hasMany(Asset::class, 'custodian_employee_id');
     }
 
+    public function leaveAllocations(): HasMany
+    {
+        return $this->hasMany(EmployeeLeaveAllocation::class);
+    }
+
     protected static function boot()
     {
         parent::boot();
